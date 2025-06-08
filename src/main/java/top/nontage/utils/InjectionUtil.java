@@ -1,0 +1,73 @@
+package top.nontage.utils;
+
+import me.fan87.javainjector.NativeInstrumentation;
+import sun.misc.Unsafe;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandleProxies;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+
+public class InjectionUtil {
+    public static Class<?> findClassAcrossClassLoaders(String className) throws ClassNotFoundException {
+        NativeInstrumentation inst = new NativeInstrumentation();
+        for (Class<?> clazz : inst.getAllLoadedClasses()) {
+            if (clazz.getName().equals(className)) {
+                return clazz;
+            }
+        }
+        throw new ClassNotFoundException("Class not found: " + className);
+    }
+    public static byte[] getClassBytes(Class<?> clazz) throws IOException {
+        String path = clazz.getName().replace('.', '/') + ".class";
+        try (InputStream in = clazz.getClassLoader().getResourceAsStream(path)) {
+            if (in == null) throw new IOException("Class not found: " + path);
+            return in.readAllBytes();
+        }
+    }
+
+    public static void injectClass(ClassLoader loader, String name, byte[] bytecode) throws Exception {
+        Method defineClass = ClassLoader.class.getDeclaredMethod(
+                "defineClass", String.class, byte[].class, int.class, int.class);
+        defineClass.setAccessible(true);
+        defineClass.invoke(loader, name, bytecode, 0, bytecode.length);
+    }
+
+    @FunctionalInterface
+    public interface DefineClassInterface {
+        Class<?> defineClass(ClassLoader loader, String name, byte[] b, int off, int len) throws Throwable;
+    }
+
+    public static void unsafeInjectClass(ClassLoader loader, String name, byte[] bytecode) throws Throwable {
+        Field unsafeField = Unsafe.class.getDeclaredField("theUnsafe");
+        unsafeField.setAccessible(true);
+        Unsafe unsafe = (Unsafe) unsafeField.get(null);
+
+        Field implLookupField = MethodHandles.Lookup.class.getDeclaredField("IMPL_LOOKUP");
+        MethodHandles.Lookup lookup = (MethodHandles.Lookup)
+                unsafe.getObject(
+                        unsafe.staticFieldBase(implLookupField),
+                        unsafe.staticFieldOffset(implLookupField)
+                );
+
+        Method defineClassMethod = ClassLoader.class.getDeclaredMethod(
+                "defineClass", String.class, byte[].class, int.class, int.class
+        );
+
+        MethodHandle methodHandle = lookup.findVirtual(
+                defineClassMethod.getDeclaringClass(),
+                defineClassMethod.getName(),
+                MethodType.methodType(
+                        defineClassMethod.getReturnType(),
+                        defineClassMethod.getParameterTypes()
+                )
+        );
+
+        DefineClassInterface function = MethodHandleProxies.asInterfaceInstance(DefineClassInterface.class, methodHandle);
+        function.defineClass(loader, name, bytecode, 0, bytecode.length);
+    }
+}

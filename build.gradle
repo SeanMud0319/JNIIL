@@ -1,0 +1,39 @@
+plugins {
+    id 'java'
+    id 'maven-publish'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+}
+
+group = 'top.nontage'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    maven { url = "https://jitpack.io" }
+}
+
+dependencies {
+    implementation("com.github.fan87.Java-Injector:native-agent:v1.0")
+    implementation("org.javassist:javassist:3.29.2-GA")
+    implementation("io.github.classgraph:classgraph:4.8.168")
+}
+
+test {
+    useJUnitPlatform()
+}
+
+tasks.shadowJar {
+    archiveClassifier.set(null)
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifact(tasks.shadowJar)
+            groupId = project.group.toString()
+            artifactId = project.name
+            version = project.version.toString()
+        }
+    }
+}

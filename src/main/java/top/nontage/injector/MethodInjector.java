@@ -1,7 +1,6 @@
 package top.nontage.injector;
 
 import javassist.CannotCompileException;
-import javassist.ClassClassPath;
 import javassist.ClassPool;
 import javassist.CtClass;
 import javassist.CtMethod;

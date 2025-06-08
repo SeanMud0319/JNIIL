@@ -22,9 +22,9 @@ public class ClassInjector {
                                 InjectClassInfo info = clazz.getAnnotation(InjectClassInfo.class);
                                 if (info == null) return;
                                 String anchorClassName = info.anchorClass();
-                                String injectClassName = info.inject().getName();
+                                String injectClassName = clazz.getName();
                                 ClassLoader targetLoader = InjectionUtil.findClassAcrossClassLoaders(anchorClassName).getClassLoader();
-                                byte[] bytecode = InjectionUtil.getClassBytes(info.inject());
+                                byte[] bytecode = InjectionUtil.getClassBytes(clazz);
                                 InjectionUtil.unsafeInjectClass(targetLoader, injectClassName, bytecode);
                                 System.out.println("Injected " + injectClassName + " into " + anchorClassName);
                             }

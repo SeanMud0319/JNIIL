@@ -9,5 +9,4 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 public @interface InjectClassInfo {
     String anchorClass();
-    Class<?> inject();
 }

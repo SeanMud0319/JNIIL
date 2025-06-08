@@ -24,8 +24,9 @@ public class ClassInjector {
                                 String anchorClassName = info.anchorClass();
                                 String injectClassName = clazz.getName();
                                 ClassLoader targetLoader = InjectionUtil.findClassAcrossClassLoaders(anchorClassName).getClassLoader();
-                                byte[] bytecode = InjectionUtil.getClassBytes(clazz);
-                                InjectionUtil.unsafeInjectClass(targetLoader, injectClassName, bytecode);
+                                byte[] originalBytecode = InjectionUtil.getClassBytes(clazz);
+                                byte[] cleanBytecode = InjectionUtil.removeInjectMethodInfo(originalBytecode);
+                                InjectionUtil.unsafeInjectClass(targetLoader, injectClassName, cleanBytecode);
                                 System.out.println("Injected " + injectClassName + " into " + anchorClassName);
                             }
                         } catch (Throwable e) {

@@ -1,8 +1,15 @@
 package top.nontage.utils;
 
+import javassist.ClassPool;
+import javassist.CtClass;
+import javassist.CtMethod;
+import javassist.bytecode.AnnotationsAttribute;
+import javassist.bytecode.MethodInfo;
+import javassist.bytecode.annotation.Annotation;
 import me.fan87.javainjector.NativeInstrumentation;
 import sun.misc.Unsafe;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.invoke.MethodHandle;
@@ -70,4 +77,22 @@ public class InjectionUtil {
         DefineClassInterface function = MethodHandleProxies.asInterfaceInstance(DefineClassInterface.class, methodHandle);
         function.defineClass(loader, name, bytecode, 0, bytecode.length);
     }
+    public static byte[] removeInjectMethodInfo(byte[] originalBytecode) throws Exception {
+        ClassPool pool = ClassPool.getDefault();
+        CtClass ctClass = pool.makeClass(new ByteArrayInputStream(originalBytecode));
+        for (CtMethod method : ctClass.getDeclaredMethods()) {
+            MethodInfo methodInfo = method.getMethodInfo();
+            AnnotationsAttribute visible = (AnnotationsAttribute) methodInfo.getAttribute(AnnotationsAttribute.visibleTag);
+            if (visible != null) {
+                Annotation injectMethodInfoAnno = visible.getAnnotation("top.nontage.annotations.InjectMethodInfo");
+                if (injectMethodInfoAnno != null) {
+                    ctClass.removeMethod(method);
+                }
+            }
+        }
+        byte[] modifiedBytecode = ctClass.toBytecode();
+        ctClass.detach();
+        return modifiedBytecode;
+    }
+
 }

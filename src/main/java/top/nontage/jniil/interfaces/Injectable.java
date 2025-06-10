@@ -1,4 +1,4 @@
-package top.nontage.interfaces;
+package top.nontage.jniil.interfaces;
 
 public interface Injectable {
     /**

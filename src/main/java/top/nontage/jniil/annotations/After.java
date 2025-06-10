@@ -1,4 +1,4 @@
-package top.nontage.annotations;
+package top.nontage.jniil.annotations;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -7,8 +7,5 @@ import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
-public @interface ReplaceCall {
-    String value();
-    int limit() default -1;
-    int[] counts() default {};
+public @interface After {
 }

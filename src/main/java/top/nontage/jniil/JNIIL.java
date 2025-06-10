@@ -1,4 +1,4 @@
-package top.nontage;
+package top.nontage.jniil;
 
 public class JNIIL {
     public static void nothing() {

@@ -1,13 +1,18 @@
-package top.nontage.injector;
+package top.nontage.jniil.injector;
 
 import javassist.*;
 import javassist.expr.ExprEditor;
 import javassist.expr.MethodCall;
 import me.fan87.javainjector.NativeInstrumentation;
-import top.nontage.JNIIL;
+import top.nontage.jniil.JNIIL;
 import top.nontage.annotations.*;
-import top.nontage.interfaces.Injectable;
-import top.nontage.utils.InjectionUtil;
+import top.nontage.jniil.annotations.After;
+import top.nontage.jniil.annotations.At;
+import top.nontage.jniil.annotations.Before;
+import top.nontage.jniil.annotations.InjectMethodInfo;
+import top.nontage.jniil.annotations.ReplaceCall;
+import top.nontage.jniil.interfaces.Injectable;
+import top.nontage.jniil.utils.InjectionUtil;
 
 import java.io.IOException;
 import java.lang.instrument.ClassDefinition;

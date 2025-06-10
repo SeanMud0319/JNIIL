@@ -1,11 +1,11 @@
-package top.nontage.injector;
+package top.nontage.jniil.injector;
 
 import io.github.classgraph.ClassGraph;
 import io.github.classgraph.ScanResult;
-import top.nontage.JNIIL;
-import top.nontage.annotations.InjectClassInfo;
-import top.nontage.interfaces.Injectable;
-import top.nontage.utils.InjectionUtil;
+import top.nontage.jniil.JNIIL;
+import top.nontage.jniil.annotations.InjectClassInfo;
+import top.nontage.jniil.interfaces.Injectable;
+import top.nontage.jniil.utils.InjectionUtil;
 
 public class ClassInjector {
     public static void injectAllClass() {

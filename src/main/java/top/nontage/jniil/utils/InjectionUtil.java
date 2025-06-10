@@ -1,4 +1,4 @@
-package top.nontage.utils;
+package top.nontage.jniil.utils;
 
 import javassist.ClassPool;
 import javassist.CtClass;

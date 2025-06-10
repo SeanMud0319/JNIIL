@@ -1,4 +1,4 @@
-package top.nontage.annotations;
+package top.nontage.jniil.annotations;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

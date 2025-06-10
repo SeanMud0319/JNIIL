@@ -1,11 +1,14 @@
 package top.nontage.jniil.injector;
 
-import javassist.*;
+import javassist.CannotCompileException;
+import javassist.ClassPool;
+import javassist.CtClass;
+import javassist.CtMethod;
+import javassist.LoaderClassPath;
+import javassist.NotFoundException;
 import javassist.expr.ExprEditor;
 import javassist.expr.MethodCall;
 import me.fan87.javainjector.NativeInstrumentation;
-import top.nontage.jniil.JNIIL;
-import top.nontage.annotations.*;
 import top.nontage.jniil.annotations.After;
 import top.nontage.jniil.annotations.At;
 import top.nontage.jniil.annotations.Before;

@@ -27,6 +27,9 @@ public class MethodInjector {
                 ClassLoader targetLoader = InjectionUtil.findClassAcrossClassLoaders(info.targetTypeInternalName()).getClassLoader();
                 pool.insertClassPath(new LoaderClassPath(targetLoader));
                 pool.appendClassPath(new LoaderClassPath(JNIIL.class.getClassLoader()));
+                for (Class<?> appendClass : info.appendClassLoader()) {
+                    pool.appendClassPath(new LoaderClassPath(appendClass.getClassLoader()));
+                }
                 CtClass ctClass = pool.get(info.targetTypeInternalName());
                 CtMethod ctMethod = ctClass.getDeclaredMethod(info.targetMethodName());
                 String src = injectable.getInjectSourceCode();

@@ -10,6 +10,7 @@ import java.lang.annotation.Target;
 public @interface InjectMethodInfo {
     String targetTypeInternalName();
     String targetMethodName();
+    Class<?>[] appendClassLoader() default {};
     //boolean isStaticMethod() default false;
     enum InjectionPoint {
         AFTER,

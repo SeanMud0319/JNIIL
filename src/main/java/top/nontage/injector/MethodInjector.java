@@ -6,6 +6,8 @@ import javassist.CtClass;
 import javassist.CtMethod;
 import javassist.LoaderClassPath;
 import javassist.NotFoundException;
+import javassist.expr.ExprEditor;
+import javassist.expr.MethodCall;
 import me.fan87.javainjector.NativeInstrumentation;
 import top.nontage.JNIIL;
 import top.nontage.annotations.InjectMethodInfo;
@@ -23,6 +25,7 @@ public class MethodInjector {
             if (method.isAnnotationPresent(InjectMethodInfo.class)) {
                 InjectMethodInfo info = method.getAnnotation(InjectMethodInfo.class);
                 if (info == null) return;
+
                 ClassPool pool = ClassPool.getDefault();
                 ClassLoader targetLoader = InjectionUtil.findClassAcrossClassLoaders(info.targetTypeInternalName()).getClassLoader();
                 pool.insertClassPath(new LoaderClassPath(targetLoader));
@@ -30,26 +33,30 @@ public class MethodInjector {
                 for (Class<?> appendClass : info.appendClassLoader()) {
                     pool.appendClassPath(new LoaderClassPath(appendClass.getClassLoader()));
                 }
+
                 CtClass ctClass = pool.get(info.targetTypeInternalName());
                 CtMethod ctMethod = ctClass.getDeclaredMethod(info.targetMethodName());
                 String src = injectable.getInjectSourceCode();
-                InjectMethodInfo.InjectionPoint injectionPoint = info.injectionPoint();
-                switch (injectionPoint) {
-                    case AFTER:
-                        ctMethod.insertAfter(src);
-                        break;
-                    case AT:
-                        if (info.atLine() < 0) {
-                            throw new IllegalArgumentException("atLine must be specified for AT injection point");
+
+                if (info.after()) {
+                    ctMethod.insertAfter(src);
+                } else if (info.before()) {
+                    ctMethod.insertBefore(src);
+                } else if (info.atLine() >= 0) {
+                    ctMethod.insertAt(info.atLine(), src);
+                } else if (!info.replaceCallClass().isEmpty() && !info.replaceCallMethod().isEmpty()) {
+                    ctMethod.instrument(new ExprEditor() {
+                        @Override
+                        public void edit(MethodCall m) throws CannotCompileException {
+                            if (m.getClassName().equals(info.replaceCallClass()) && m.getMethodName().equals(info.replaceCallMethod())) {
+                                m.replace(src);
+                            }
                         }
-                        ctMethod.insertAt(info.atLine(), src);
-                        break;
-                    case BEFORE:
-                        ctMethod.insertBefore(src);
-                        break;
-                    default:
-                        throw new IllegalArgumentException("Unknown injection point: " + injectionPoint);
+                    });
+                } else {
+                    throw new IllegalArgumentException("No valid injection point specified in InjectMethodInfo");
                 }
+
                 byte[] bytecode = ctClass.toBytecode();
                 Class<?> clazzz = Class.forName(info.targetTypeInternalName());
                 NativeInstrumentation inst = new NativeInstrumentation();

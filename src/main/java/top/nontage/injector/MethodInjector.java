@@ -10,7 +10,7 @@ import javassist.expr.ExprEditor;
 import javassist.expr.MethodCall;
 import me.fan87.javainjector.NativeInstrumentation;
 import top.nontage.JNIIL;
-import top.nontage.annotations.InjectMethodInfo;
+import top.nontage.annotations.*;
 import top.nontage.interfaces.Injectable;
 import top.nontage.utils.InjectionUtil;
 
@@ -25,7 +25,6 @@ public class MethodInjector {
             if (method.isAnnotationPresent(InjectMethodInfo.class)) {
                 InjectMethodInfo info = method.getAnnotation(InjectMethodInfo.class);
                 if (info == null) return;
-
                 ClassPool pool = ClassPool.getDefault();
                 ClassLoader targetLoader = InjectionUtil.findClassAcrossClassLoaders(info.targetTypeInternalName()).getClassLoader();
                 pool.insertClassPath(new LoaderClassPath(targetLoader));
@@ -33,28 +32,37 @@ public class MethodInjector {
                 for (Class<?> appendClass : info.appendClassLoader()) {
                     pool.appendClassPath(new LoaderClassPath(appendClass.getClassLoader()));
                 }
-
                 CtClass ctClass = pool.get(info.targetTypeInternalName());
                 CtMethod ctMethod = ctClass.getDeclaredMethod(info.targetMethodName());
                 String src = injectable.getInjectSourceCode();
-
-                if (info.after()) {
+                After afterAnn = method.getAnnotation(After.class);
+                Before beforeAnn = method.getAnnotation(Before.class);
+                At atAnn = method.getAnnotation(At.class);
+                ReplaceCall replaceCallAnn = method.getAnnotation(ReplaceCall.class);
+                if (afterAnn != null) {
                     ctMethod.insertAfter(src);
-                } else if (info.before()) {
+                } else if (beforeAnn != null) {
                     ctMethod.insertBefore(src);
-                } else if (info.atLine() >= 0) {
-                    ctMethod.insertAt(info.atLine(), src);
-                } else if (!info.replaceCallClass().isEmpty() && !info.replaceCallMethod().isEmpty()) {
-                    ctMethod.instrument(new ExprEditor() {
-                        @Override
-                        public void edit(MethodCall m) throws CannotCompileException {
-                            if (m.getClassName().equals(info.replaceCallClass()) && m.getMethodName().equals(info.replaceCallMethod())) {
-                                m.replace(src);
+                } else if (atAnn != null && atAnn.line() >= 0) {
+                    ctMethod.insertAt(atAnn.line(), src);
+                } else if (replaceCallAnn != null && !replaceCallAnn.value().isEmpty()) {
+                    String[] parts = replaceCallAnn.value().split("#");
+                    if (parts.length == 2) {
+                        String replaceCallClass = parts[0];
+                        String replaceCallMethod = parts[1];
+                        ctMethod.instrument(new ExprEditor() {
+                            @Override
+                            public void edit(MethodCall m) throws CannotCompileException {
+                                if (m.getClassName().equals(replaceCallClass) && m.getMethodName().equals(replaceCallMethod)) {
+                                    m.replace(src);
+                                }
                             }
-                        }
-                    });
+                        });
+                    } else {
+                        throw new IllegalArgumentException("Invalid ReplaceCall format, expected 'class#method'");
+                    }
                 } else {
-                    throw new IllegalArgumentException("No valid injection point specified in InjectMethodInfo");
+                    throw new IllegalArgumentException("No valid injection point specified via @After, @Before, @At or @ReplaceCall");
                 }
 
                 byte[] bytecode = ctClass.toBytecode();

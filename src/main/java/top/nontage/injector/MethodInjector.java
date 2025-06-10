@@ -1,11 +1,6 @@
 package top.nontage.injector;
 
-import javassist.CannotCompileException;
-import javassist.ClassPool;
-import javassist.CtClass;
-import javassist.CtMethod;
-import javassist.LoaderClassPath;
-import javassist.NotFoundException;
+import javassist.*;
 import javassist.expr.ExprEditor;
 import javassist.expr.MethodCall;
 import me.fan87.javainjector.NativeInstrumentation;
@@ -24,7 +19,8 @@ public class MethodInjector {
         for (Method method : clazz.getDeclaredMethods()) {
             if (method.isAnnotationPresent(InjectMethodInfo.class)) {
                 InjectMethodInfo info = method.getAnnotation(InjectMethodInfo.class);
-                if (info == null) return;
+                if (info == null) continue;
+
                 ClassPool pool = ClassPool.getDefault();
                 ClassLoader targetLoader = InjectionUtil.findClassAcrossClassLoaders(info.targetTypeInternalName()).getClassLoader();
                 pool.insertClassPath(new LoaderClassPath(targetLoader));
@@ -32,13 +28,16 @@ public class MethodInjector {
                 for (Class<?> appendClass : info.appendClassLoader()) {
                     pool.appendClassPath(new LoaderClassPath(appendClass.getClassLoader()));
                 }
+
                 CtClass ctClass = pool.get(info.targetTypeInternalName());
                 CtMethod ctMethod = ctClass.getDeclaredMethod(info.targetMethodName());
                 String src = injectable.getInjectSourceCode();
+
                 After afterAnn = method.getAnnotation(After.class);
                 Before beforeAnn = method.getAnnotation(Before.class);
                 At atAnn = method.getAnnotation(At.class);
                 ReplaceCall replaceCallAnn = method.getAnnotation(ReplaceCall.class);
+
                 if (afterAnn != null) {
                     ctMethod.insertAfter(src);
                 } else if (beforeAnn != null) {
@@ -47,20 +46,39 @@ public class MethodInjector {
                     ctMethod.insertAt(atAnn.line(), src);
                 } else if (replaceCallAnn != null && !replaceCallAnn.value().isEmpty()) {
                     String[] parts = replaceCallAnn.value().split("#");
-                    if (parts.length == 2) {
-                        String replaceCallClass = parts[0];
-                        String replaceCallMethod = parts[1];
-                        ctMethod.instrument(new ExprEditor() {
-                            @Override
-                            public void edit(MethodCall m) throws CannotCompileException {
-                                if (m.getClassName().equals(replaceCallClass) && m.getMethodName().equals(replaceCallMethod)) {
-                                    m.replace(src);
-                                }
-                            }
-                        });
-                    } else {
+                    if (parts.length != 2) {
                         throw new IllegalArgumentException("Invalid ReplaceCall format, expected 'class#method'");
                     }
+                    String replaceCallClass = parts[0];
+                    String replaceCallMethod = parts[1];
+                    int limit = replaceCallAnn.limit();
+                    int[] counts = replaceCallAnn.counts();
+                    ctMethod.instrument(new ExprEditor() {
+                        int current = 1;
+                        @Override
+                        public void edit(MethodCall m) throws CannotCompileException {
+                            if (m.getClassName().equals(replaceCallClass) && m.getMethodName().equals(replaceCallMethod)) {
+                                boolean shouldReplace = false;
+
+                                if (limit >= 0) {
+                                    shouldReplace = current <= limit;
+                                } else if (counts.length > 0) {
+                                    for (int c : counts) {
+                                        if (current == c) {
+                                            shouldReplace = true;
+                                            break;
+                                        }
+                                    }
+                                } else {
+                                    shouldReplace = true;
+                                }
+                                if (shouldReplace) {
+                                    m.replace(src);
+                                }
+                                current++;
+                            }
+                        }
+                    });
                 } else {
                     throw new IllegalArgumentException("No valid injection point specified via @After, @Before, @At or @ReplaceCall");
                 }

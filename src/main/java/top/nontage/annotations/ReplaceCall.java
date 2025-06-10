@@ -9,4 +9,6 @@ import java.lang.annotation.Target;
 @Target(ElementType.METHOD)
 public @interface ReplaceCall {
     String value();
+    int limit() default -1;
+    int[] counts() default {};
 }

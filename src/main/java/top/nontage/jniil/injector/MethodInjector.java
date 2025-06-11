@@ -96,6 +96,7 @@ public class MethodInjector {
                 Class<?> clazzz = Class.forName(info.targetTypeInternalName());
                 NativeInstrumentation inst = new NativeInstrumentation();
                 inst.redefineClasses(new ClassDefinition(clazzz, bytecode));
+                System.out.println("Injected method: " + info.targetTypeInternalName() + "#" + info.targetMethodName());
             }
         }
     }

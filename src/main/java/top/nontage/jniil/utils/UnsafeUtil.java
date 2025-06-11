@@ -79,9 +79,12 @@ public class UnsafeUtil {
 
     static {
         try {
-            Field f = MethodHandles.Lookup.class.getDeclaredField("IMPL_LOOKUP");
-            f.setAccessible(true);
-            lookup = (MethodHandles.Lookup) unsafe.getObject(unsafe.staticFieldBase(f), unsafe.staticFieldOffset(f));
+            Field implLookupField = MethodHandles.Lookup.class.getDeclaredField("IMPL_LOOKUP");
+            lookup = (MethodHandles.Lookup)
+                    unsafe.getObject(
+                            unsafe.staticFieldBase(implLookupField),
+                            unsafe.staticFieldOffset(implLookupField)
+                    );
         } catch (Exception e) {
             throw new RuntimeException("Failed to get IMPL_LOOKUP", e);
         }

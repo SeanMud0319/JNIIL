@@ -8,14 +8,15 @@ import top.nontage.jniil.interfaces.Injectable;
 import top.nontage.jniil.utils.InjectionUtil;
 
 public class ClassInjector {
-    public static void injectAllClass() {
+    public static void injectAllClass(String packageName) {
         try (ScanResult scanResult = new ClassGraph()
                 .enableClassInfo()
                 .enableAnnotationInfo()
-                .acceptPackages(JNIIL.class.getPackageName())
+                .acceptPackages(packageName)
                 .scan()) {
             scanResult.getClassesWithAllAnnotations(InjectClassInfo.class.getName())
                     .forEach(classInfo -> {
+                        System.out.println("Found injectable class: " + classInfo.getName());
                         try {
                             Class<?> clazz = classInfo.loadClass();
                             if (Injectable.class.isAssignableFrom(clazz)) {

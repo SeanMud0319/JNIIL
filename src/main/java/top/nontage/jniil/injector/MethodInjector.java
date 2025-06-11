@@ -21,6 +21,11 @@ import top.nontage.jniil.utils.InjectionUtil;
 import java.io.IOException;
 import java.lang.instrument.ClassDefinition;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 public class MethodInjector {
     public static void injectMethod(Injectable injectable) throws ClassNotFoundException, NotFoundException, CannotCompileException, IOException {
@@ -39,6 +44,10 @@ public class MethodInjector {
                 }
 
                 CtClass ctClass = pool.get(info.targetTypeInternalName());
+                if (ctClass.isFrozen()) {
+                    System.out.println("Defrosting class: " + ctClass.getName());
+                    ctClass.defrost();
+                }
                 CtMethod ctMethod = ctClass.getDeclaredMethod(info.targetMethodName());
                 String src = injectable.getInjectSourceCode();
 
@@ -99,5 +108,42 @@ public class MethodInjector {
                 System.out.println("Injected method: " + info.targetTypeInternalName() + "#" + info.targetMethodName());
             }
         }
+    }
+    public static void injectMethodsAsync(Injectable... injectables) {
+        new Thread(() -> {
+            Map<String, List<Injectable>> grouped = new LinkedHashMap<>();
+            for (Injectable injectable : injectables) {
+                try {
+                    Method method = Arrays.stream(injectable.getClass().getDeclaredMethods())
+                            .filter(m -> m.isAnnotationPresent(InjectMethodInfo.class))
+                            .findFirst()
+                            .orElse(null);
+                    if (method == null) continue;
+                    InjectMethodInfo info = method.getAnnotation(InjectMethodInfo.class);
+                    String key = info.targetTypeInternalName();
+                    grouped.computeIfAbsent(key, k -> new ArrayList<>()).add(injectable);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            for (Map.Entry<String, List<Injectable>> entry : grouped.entrySet()) {
+                List<Injectable> group = entry.getValue();
+                for (int i = 0; i < group.size(); i++) {
+                    Injectable injectable = group.get(i);
+                    try {
+                        injectMethod(injectable);
+                    } catch (Exception e) {
+                        System.err.println("Injection failed for: " + injectable.getClass().getName());
+                        e.printStackTrace();
+                    }
+                    if (i < group.size() - 1) {
+                        try {
+                            Thread.sleep(10);
+                        } catch (InterruptedException ignored) {
+                        }
+                    }
+                }
+            }
+        }, "InjectThread").start();
     }
 }

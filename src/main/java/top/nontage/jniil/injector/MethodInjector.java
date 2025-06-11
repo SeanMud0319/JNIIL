@@ -9,6 +9,7 @@ import javassist.NotFoundException;
 import javassist.expr.ExprEditor;
 import javassist.expr.MethodCall;
 import me.fan87.javainjector.NativeInstrumentation;
+import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.annotations.After;
 import top.nontage.jniil.annotations.At;
 import top.nontage.jniil.annotations.Before;

@@ -105,6 +105,13 @@ public class UnsafeUtil {
             throw new RuntimeException(t);
         }
     }
+    public static Object forceAllocateInstance(Class<?> clazz) {
+        try {
+            return unsafe.allocateInstance(clazz);
+        } catch (InstantiationException e) {
+            throw new RuntimeException("Failed to allocate instance of " + clazz.getName(), e);
+        }
+    }
 
     private static Object[] prepend(Object first, Object[] rest) {
         Object[] result = new Object[rest.length + 1];

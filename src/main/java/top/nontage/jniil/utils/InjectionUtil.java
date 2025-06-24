@@ -85,21 +85,29 @@ public class InjectionUtil {
         function.defineClass(loader, name, bytecode, 0, bytecode.length);
     }
     public static byte[] removeInjectMethodInfo(byte[] originalBytecode) throws Exception {
-        ClassPool pool = ClassPool.getDefault();
-        CtClass ctClass = pool.makeClass(new ByteArrayInputStream(originalBytecode));
-        for (CtMethod method : ctClass.getDeclaredMethods()) {
+        ClassPool pool = new ClassPool(true);
+        CtClass original = pool.makeClass(new ByteArrayInputStream(originalBytecode));
+        CtClass newClass = pool.makeClass(original.getName());
+        for (CtMethod method : original.getDeclaredMethods()) {
             MethodInfo methodInfo = method.getMethodInfo();
             AnnotationsAttribute visible = (AnnotationsAttribute) methodInfo.getAttribute(AnnotationsAttribute.visibleTag);
+            boolean hasInject = false;
             if (visible != null) {
                 Annotation injectMethodInfoAnno = visible.getAnnotation("top.nontage.jniil.annotations.InjectMethodInfo");
                 if (injectMethodInfoAnno != null) {
-                    ctClass.removeMethod(method);
+                    hasInject = true;
                 }
             }
+            if (!hasInject) {
+                newClass.addMethod(new CtMethod(method, newClass, null));
+            }
         }
-        byte[] modifiedBytecode = ctClass.toBytecode();
-        ctClass.detach();
-        return modifiedBytecode;
+
+        byte[] bytecode = newClass.toBytecode();
+        original.detach();
+        newClass.detach();
+        return bytecode;
     }
+
 
 }

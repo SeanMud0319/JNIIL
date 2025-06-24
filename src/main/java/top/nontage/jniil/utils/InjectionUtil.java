@@ -29,6 +29,13 @@ public class InjectionUtil {
         }
         throw new ClassNotFoundException("Class not found: " + className);
     }
+    public static Class<?> forceLoadClass(String className, ClassLoader loader) {
+        try {
+            return Class.forName(className, false, loader);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
     public static byte[] getClassBytes(Class<?> clazz) throws IOException {
         String path = clazz.getName().replace('.', '/') + ".class";
         try (InputStream in = clazz.getClassLoader().getResourceAsStream(path)) {
@@ -84,7 +91,7 @@ public class InjectionUtil {
             MethodInfo methodInfo = method.getMethodInfo();
             AnnotationsAttribute visible = (AnnotationsAttribute) methodInfo.getAttribute(AnnotationsAttribute.visibleTag);
             if (visible != null) {
-                Annotation injectMethodInfoAnno = visible.getAnnotation("top.nontage.annotations.InjectMethodInfo");
+                Annotation injectMethodInfoAnno = visible.getAnnotation("top.nontage.jniil.annotations.InjectMethodInfo");
                 if (injectMethodInfoAnno != null) {
                     ctClass.removeMethod(method);
                 }

@@ -18,6 +18,7 @@ import top.nontage.jniil.annotations.ReplaceCall;
 import top.nontage.jniil.interfaces.Injectable;
 import top.nontage.jniil.utils.InjectionUtil;
 
+import java.io.File;
 import java.io.IOException;
 import java.lang.instrument.ClassDefinition;
 import java.lang.reflect.Method;
@@ -106,6 +107,14 @@ public class MethodInjector {
                 NativeInstrumentation inst = new NativeInstrumentation();
                 inst.redefineClasses(new ClassDefinition(clazzz, bytecode));
                 System.out.println("Injected method: " + info.targetTypeInternalName() + "#" + info.targetMethodName());
+                if (JNIIL.isMethodOutputEnabled()) {
+                    File outputDir = JNIIL.getMethodOutputDir();
+                    if (!outputDir.exists()) {
+                        outputDir.mkdirs();
+                    }
+                    ctClass.writeFile(outputDir.getAbsolutePath());
+                    System.out.println("Dumped injected method to: " + outputDir.getAbsolutePath());
+                }
             }
         }
     }

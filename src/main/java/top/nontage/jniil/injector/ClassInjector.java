@@ -7,6 +7,9 @@ import top.nontage.jniil.annotations.InjectClassInfo;
 import top.nontage.jniil.interfaces.Injectable;
 import top.nontage.jniil.utils.InjectionUtil;
 
+import java.io.File;
+import java.io.FileOutputStream;
+
 public class ClassInjector {
     public static void injectAllClass(String packageName) {
         try (ScanResult scanResult = new ClassGraph()
@@ -29,6 +32,19 @@ public class ClassInjector {
                                 byte[] cleanBytecode = InjectionUtil.removeInjectMethodInfo(originalBytecode);
                                 InjectionUtil.unsafeInjectClass(targetLoader, injectClassName, cleanBytecode);
                                 System.out.println("Injected " + injectClassName + " into " + anchorClassName);
+                                if (JNIIL.isClassOutputEnabled()) {
+                                    File outputDir = JNIIL.getClassOutputDir();
+                                    if (!outputDir.exists()) outputDir.mkdirs();
+                                    String filePath = injectClassName.replace('.', '/') + ".class";
+                                    File outputFile = new File(outputDir, filePath);
+                                    outputFile.getParentFile().mkdirs();
+                                    try (FileOutputStream fos = new FileOutputStream(outputFile)) {
+                                        fos.write(cleanBytecode);
+                                        fos.flush();
+                                        System.out.println("Dumped injected class to: " + outputFile.getAbsolutePath());
+                                    }
+                                }
+
                             }
                         } catch (Throwable e) {
                             e.printStackTrace();

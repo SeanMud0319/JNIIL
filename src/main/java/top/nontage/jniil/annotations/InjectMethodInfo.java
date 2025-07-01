@@ -7,6 +7,7 @@ import java.lang.annotation.*;
 public @interface InjectMethodInfo {
     String targetTypeInternalName();
     String targetMethodName();
+    String[] targetMethodParms() default {};
     Class<?>[] appendClassLoader() default {};
 }
 

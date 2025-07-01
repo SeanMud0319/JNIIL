@@ -10,6 +10,7 @@ import me.fan87.javainjector.NativeInstrumentation;
 import sun.misc.Unsafe;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.invoke.MethodHandle;
@@ -40,9 +41,17 @@ public class InjectionUtil {
         String path = clazz.getName().replace('.', '/') + ".class";
         try (InputStream in = clazz.getClassLoader().getResourceAsStream(path)) {
             if (in == null) throw new IOException("Class not found: " + path);
-            return in.readAllBytes();
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            byte[] data = new byte[4096];
+            int nRead;
+            while ((nRead = in.read(data, 0, data.length)) != -1) {
+                buffer.write(data, 0, nRead);
+            }
+            buffer.flush();
+            return buffer.toByteArray();
         }
     }
+
 
     public static void injectClass(ClassLoader loader, String name, byte[] bytecode) throws Exception {
         Method defineClass = ClassLoader.class.getDeclaredMethod(

@@ -9,5 +9,19 @@ public interface Injectable {
      */
     default String getInjectSourceCode() {
         return null;
-    };
+    }
+    default String targetTypeInternalName() {
+        throw new UnsupportedOperationException("Must override if @Null is used");
+    }
+
+    default String targetMethodName() {
+        throw new UnsupportedOperationException("Must override if @Null is used");
+    }
+
+    default String[] targetMethodParams() {
+        return new String[0];
+    }
+    default Class<?>[] appendClassLoader() {
+        return new Class<?>[0];
+    }
 }

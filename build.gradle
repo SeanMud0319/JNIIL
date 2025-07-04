@@ -26,6 +26,7 @@ test {
 
 tasks.shadowJar {
     archiveClassifier.set(null)
+    relocate 'javassist', 'top.nontage.relocated.javassist'
 }
 
 publishing {

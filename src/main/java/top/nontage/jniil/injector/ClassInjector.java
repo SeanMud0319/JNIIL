@@ -27,11 +27,16 @@ public class ClassInjector {
                                 if (info == null) return;
                                 String anchorClassName = info.anchorClass();
                                 String injectClassName = clazz.getName();
-                                ClassLoader targetLoader = InjectionUtil.findClassAcrossClassLoaders(anchorClassName).getClassLoader();
+                                String anchorThreadName = info.anchorThread();
+                                ClassLoader targetLoader;
+                                if (anchorThreadName == null || anchorThreadName.isEmpty()) {
+                                    targetLoader = InjectionUtil.findClassAcrossClassLoaders(anchorClassName).getClassLoader();
+                                } else {
+                                    targetLoader = InjectionUtil.findClassLoaderByThread(anchorThreadName);
+                                }
                                 byte[] originalBytecode = InjectionUtil.getClassBytes(clazz);
-                                byte[] cleanBytecode = InjectionUtil.removeInjectMethodInfo(originalBytecode);
-                                InjectionUtil.unsafeInjectClass(targetLoader, injectClassName, cleanBytecode);
-                                System.out.println("Injected " + injectClassName + " into " + anchorClassName);
+                                InjectionUtil.unsafeInjectClass(targetLoader, injectClassName, originalBytecode);
+                                System.out.println("Injected " + injectClassName + " into " + anchorClassName + anchorThreadName);
                                 if (JNIIL.isClassOutputEnabled()) {
                                     File outputDir = JNIIL.getClassOutputDir();
                                     if (!outputDir.exists()) outputDir.mkdirs();
@@ -39,15 +44,15 @@ public class ClassInjector {
                                     File outputFile = new File(outputDir, filePath);
                                     outputFile.getParentFile().mkdirs();
                                     try (FileOutputStream fos = new FileOutputStream(outputFile)) {
-                                        fos.write(cleanBytecode);
+                                        fos.write(originalBytecode);
                                         fos.flush();
                                         System.out.println("Dumped injected class to: " + outputFile.getAbsolutePath());
                                     }
                                 }
-
                             }
                         } catch (Throwable e) {
                             e.printStackTrace();
+
                         }
                     });
         }

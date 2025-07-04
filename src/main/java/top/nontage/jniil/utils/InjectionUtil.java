@@ -28,7 +28,23 @@ public class InjectionUtil {
                 return clazz;
             }
         }
-        throw new ClassNotFoundException("Class not found: " + className);
+        throw new ClassNotFoundException("[FCACL] Class not found: " + className);
+    }
+    public static ClassLoader findClassLoaderByThread(String threadName) {
+        for (Thread thread : Thread.getAllStackTraces().keySet()) {
+            if (thread.getName().equals(threadName)) {
+                return thread.getContextClassLoader();
+            }
+        }
+        throw new RuntimeException("Thread not found: " + threadName);
+    }
+    public static void printAllLoader() {
+        NativeInstrumentation inst = new NativeInstrumentation();
+        for (Class<?> clazz : inst.getAllLoadedClasses()) {
+            if (!clazz.getName().contains(".")) {
+                System.out.println("Class: " + clazz.getName() + ", Loader: " + clazz.getClassLoader());
+            }
+        }
     }
     public static Class<?> forceLoadClass(String className, ClassLoader loader) {
         try {

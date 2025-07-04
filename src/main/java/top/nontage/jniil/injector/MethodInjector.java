@@ -17,6 +17,7 @@ import top.nontage.jniil.annotations.InjectMethodInfo;
 import top.nontage.jniil.annotations.Null;
 import top.nontage.jniil.annotations.ReplaceCall;
 import top.nontage.jniil.interfaces.Injectable;
+import top.nontage.jniil.javassist.FileClassPath;
 import top.nontage.jniil.utils.InjectionUtil;
 
 import java.io.File;
@@ -31,124 +32,143 @@ import java.util.Map;
 
 public class MethodInjector {
     public static void injectMethod(Injectable injectable) throws ClassNotFoundException, NotFoundException, CannotCompileException, IOException {
-        Class<?> clazz = injectable.getClass();
-        for (Method method : clazz.getDeclaredMethods()) {
-            boolean isNull = method.isAnnotationPresent(Null.class);
-            String typeName;
-            String methodName;
-            String[] methodParams;
-            Class<?>[] appendClasses;
+        try {
+            System.out.println("Injecting method: " + injectable.getClass().getName());
+            Class<?> clazz = injectable.getClass();
+            for (Method method : clazz.getDeclaredMethods()) {
+                boolean isNull = method.isAnnotationPresent(Null.class);
+                String typeName;
+                String methodName;
+                String[] methodParams;
+                Class<?>[] appendClasses;
+                String targetTypeThreadName;
+                String appendFileLoader;
 
-            if (isNull) {
-                typeName = injectable.targetTypeInternalName();
-                methodName = injectable.targetMethodName();
-                methodParams = injectable.targetMethodParams();
-                appendClasses = injectable.appendClassLoader();
-            } else if (method.isAnnotationPresent(InjectMethodInfo.class)) {
-                InjectMethodInfo info = method.getAnnotation(InjectMethodInfo.class);
-                typeName = info.targetTypeInternalName();
-                methodName = info.targetMethodName();
-                methodParams = info.targetMethodParms();
-                appendClasses = info.appendClassLoader();
-            } else {
-                continue;
-            }
-
-            ClassPool pool = ClassPool.getDefault();
-            ClassLoader targetLoader = InjectionUtil.findClassAcrossClassLoaders(typeName).getClassLoader();
-            pool.insertClassPath(new LoaderClassPath(targetLoader));
-            pool.appendClassPath(new LoaderClassPath(JNIIL.class.getClassLoader()));
-            for (Class<?> appendClass : appendClasses) {
-                pool.appendClassPath(new LoaderClassPath(appendClass.getClassLoader()));
-            }
-
-            CtClass ctClass = pool.get(typeName);
-            if (ctClass.isFrozen()) {
-                System.out.println("Defrosting class: " + ctClass.getName());
-                ctClass.defrost();
-            }
-
-            CtMethod ctMethod;
-            if (methodParams.length == 0) {
-                ctMethod = ctClass.getDeclaredMethod(methodName);
-            } else {
-                CtClass[] paramTypes = Arrays.stream(methodParams)
-                        .map(type -> {
-                            try {
-                                return pool.get(type);
-                            } catch (NotFoundException e) {
-                                throw new RuntimeException("Parameter type not found: " + type, e);
-                            }
-                        })
-                        .toArray(CtClass[]::new);
-                ctMethod = ctClass.getDeclaredMethod(methodName, paramTypes);
-            }
-
-            String src = injectable.getInjectSourceCode();
-            After afterAnn = method.getAnnotation(After.class);
-            Before beforeAnn = method.getAnnotation(Before.class);
-            At atAnn = method.getAnnotation(At.class);
-            ReplaceCall replaceCallAnn = method.getAnnotation(ReplaceCall.class);
-
-            if (afterAnn != null) {
-                ctMethod.insertAfter(src);
-            } else if (beforeAnn != null) {
-                ctMethod.insertBefore(src);
-            } else if (atAnn != null && atAnn.line() >= 0) {
-                ctMethod.insertAt(atAnn.line(), src);
-            } else if (replaceCallAnn != null && !replaceCallAnn.value().isEmpty()) {
-                String[] parts = replaceCallAnn.value().split("#");
-                if (parts.length != 2) {
-                    throw new IllegalArgumentException("Invalid ReplaceCall format, expected 'class#method'");
+                if (isNull) {
+                    typeName = injectable.targetTypeInternalName();
+                    methodName = injectable.targetMethodName();
+                    methodParams = injectable.targetMethodParams();
+                    appendClasses = injectable.appendClassLoader();
+                    targetTypeThreadName = injectable.targetTypeThreadName();
+                    appendFileLoader = injectable.appendFileLoader();
+                } else if (method.isAnnotationPresent(InjectMethodInfo.class)) {
+                    InjectMethodInfo info = method.getAnnotation(InjectMethodInfo.class);
+                    typeName = info.targetTypeInternalName();
+                    methodName = info.targetMethodName();
+                    methodParams = info.targetMethodParms();
+                    appendClasses = info.appendClassLoader();
+                    targetTypeThreadName = info.targetTypeThreadName();
+                    appendFileLoader = info.appendFileLoader();
+                } else {
+                    continue;
                 }
-                String replaceCallClass = parts[0];
-                String replaceCallMethod = parts[1];
-                int limit = replaceCallAnn.limit();
-                int[] counts = replaceCallAnn.counts();
-                ctMethod.instrument(new ExprEditor() {
-                    int current = 1;
-                    @Override
-                    public void edit(MethodCall m) throws CannotCompileException {
-                        if (m.getClassName().equals(replaceCallClass) && m.getMethodName().equals(replaceCallMethod)) {
-                            boolean shouldReplace = false;
+                ClassPool pool = ClassPool.getDefault();
+                ClassLoader targetLoader;
+                if (targetTypeThreadName == null || targetTypeThreadName.isEmpty()) {
+                    targetLoader = InjectionUtil.findClassAcrossClassLoaders(typeName).getClassLoader();
+                } else {
+                    targetLoader = InjectionUtil.findClassLoaderByThread(targetTypeThreadName);
+                }
+                pool.insertClassPath(new LoaderClassPath(targetLoader));
+                pool.appendClassPath(new LoaderClassPath(JNIIL.class.getClassLoader()));
+                for (Class<?> appendClass : appendClasses) {
+                    pool.appendClassPath(new LoaderClassPath(appendClass.getClassLoader()));
+                }
+                if (appendFileLoader != null && !appendFileLoader.isEmpty()) {
+                    pool.appendClassPath(new FileClassPath(new File(appendFileLoader)));
+                }
+                CtClass ctClass = pool.get(typeName);
 
-                            if (limit >= 0) {
-                                shouldReplace = current <= limit;
-                            } else if (counts.length > 0) {
-                                for (int c : counts) {
-                                    if (current == c) {
-                                        shouldReplace = true;
-                                        break;
-                                    }
+                if (ctClass.isFrozen()) {
+                    System.out.println("Defrosting class: " + ctClass.getName());
+                    ctClass.defrost();
+                }
+
+                CtMethod ctMethod;
+                if (methodParams.length == 0) {
+                    ctMethod = ctClass.getDeclaredMethod(methodName);
+                } else {
+                    CtClass[] paramTypes = Arrays.stream(methodParams)
+                            .map(type -> {
+                                try {
+                                    return pool.get(type);
+                                } catch (NotFoundException e) {
+                                    throw new RuntimeException("Parameter type not found: " + type, e);
                                 }
-                            } else {
-                                shouldReplace = true;
-                            }
-                            if (shouldReplace) {
-                                m.replace(src);
-                            }
-                            current++;
-                        }
-                    }
-                });
-            } else {
-                throw new IllegalArgumentException("No valid injection point specified via @After, @Before, @At or @ReplaceCall");
-            }
-
-            byte[] bytecode = ctClass.toBytecode();
-            if (JNIIL.isMethodOutputEnabled()) {
-                File outputDir = JNIIL.getMethodOutputDir();
-                if (!outputDir.exists()) {
-                    outputDir.mkdirs();
+                            })
+                            .toArray(CtClass[]::new);
+                    ctMethod = ctClass.getDeclaredMethod(methodName, paramTypes);
                 }
-                ctClass.writeFile(outputDir.getAbsolutePath());
-                System.out.println("Dumped injected method to: " + outputDir.getAbsolutePath());
-            }
 
-            Class<?> clazzz = Class.forName(typeName);
-            NativeInstrumentation inst = new NativeInstrumentation();
-            inst.redefineClasses(new ClassDefinition(clazzz, bytecode));
-            System.out.println("Injected method: " + typeName + "#" + methodName);
+                String src = injectable.getInjectSourceCode();
+                After afterAnn = method.getAnnotation(After.class);
+                Before beforeAnn = method.getAnnotation(Before.class);
+                At atAnn = method.getAnnotation(At.class);
+                ReplaceCall replaceCallAnn = method.getAnnotation(ReplaceCall.class);
+
+                if (afterAnn != null) {
+                    ctMethod.insertAfter(src);
+                } else if (beforeAnn != null) {
+                    ctMethod.insertBefore(src);
+                } else if (atAnn != null && atAnn.line() >= 0) {
+                    ctMethod.insertAt(atAnn.line(), src);
+                } else if (replaceCallAnn != null && !replaceCallAnn.value().isEmpty()) {
+                    String[] parts = replaceCallAnn.value().split("#");
+                    if (parts.length != 2) {
+                        throw new IllegalArgumentException("Invalid ReplaceCall format, expected 'class#method'");
+                    }
+                    String replaceCallClass = parts[0];
+                    String replaceCallMethod = parts[1];
+                    int limit = replaceCallAnn.limit();
+                    int[] counts = replaceCallAnn.counts();
+                    ctMethod.instrument(new ExprEditor() {
+                        int current = 1;
+
+                        @Override
+                        public void edit(MethodCall m) throws CannotCompileException {
+                            if (m.getClassName().equals(replaceCallClass) && m.getMethodName().equals(replaceCallMethod)) {
+                                boolean shouldReplace = false;
+
+                                if (limit >= 0) {
+                                    shouldReplace = current <= limit;
+                                } else if (counts.length > 0) {
+                                    for (int c : counts) {
+                                        if (current == c) {
+                                            shouldReplace = true;
+                                            break;
+                                        }
+                                    }
+                                } else {
+                                    shouldReplace = true;
+                                }
+                                if (shouldReplace) {
+                                    m.replace(src);
+                                }
+                                current++;
+                            }
+                        }
+                    });
+                } else {
+                    throw new IllegalArgumentException("No valid injection point specified via @After, @Before, @At or @ReplaceCall");
+                }
+
+                byte[] bytecode = ctClass.toBytecode();
+                if (JNIIL.isMethodOutputEnabled()) {
+                    File outputDir = JNIIL.getMethodOutputDir();
+                    if (!outputDir.exists()) {
+                        outputDir.mkdirs();
+                    }
+                    ctClass.writeFile(outputDir.getAbsolutePath());
+                    System.out.println("Dumped injected method to: " + outputDir.getAbsolutePath());
+                }
+
+                Class<?> clazzz = Class.forName(typeName, false, targetLoader);
+                NativeInstrumentation inst = new NativeInstrumentation();
+                inst.redefineClasses(new ClassDefinition(clazzz, bytecode));
+                System.out.println("Injected method: " + typeName + "#" + methodName);
+            }
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
         }
     }
 

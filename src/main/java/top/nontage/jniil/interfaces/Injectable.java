@@ -24,4 +24,10 @@ public interface Injectable {
     default Class<?>[] appendClassLoader() {
         return new Class<?>[0];
     }
+    default String targetTypeThreadName() {
+        return null;
+    }
+    default String appendFileLoader() {
+        return null;
+    }
 }

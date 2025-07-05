@@ -6,7 +6,8 @@ import javassist.CtMethod;
 import javassist.bytecode.AnnotationsAttribute;
 import javassist.bytecode.MethodInfo;
 import javassist.bytecode.annotation.Annotation;
-import me.fan87.javainjector.NativeInstrumentation;
+
+import me.fan87.nativeinstrumentation.NativeInstrumentation;
 import sun.misc.Unsafe;
 
 import java.io.ByteArrayInputStream;

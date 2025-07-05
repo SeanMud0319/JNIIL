@@ -30,4 +30,10 @@ public interface Injectable {
     default String appendFileLoader() {
         return null;
     }
+    default String appendJarLoader() {
+        return null;
+    }
+    default boolean defaultLoader() {
+        return true;
+    }
 }

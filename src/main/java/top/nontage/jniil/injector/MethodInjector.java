@@ -8,7 +8,7 @@ import javassist.LoaderClassPath;
 import javassist.NotFoundException;
 import javassist.expr.ExprEditor;
 import javassist.expr.MethodCall;
-import me.fan87.javainjector.NativeInstrumentation;
+import me.fan87.nativeinstrumentation.NativeInstrumentation;
 import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.annotations.After;
 import top.nontage.jniil.annotations.At;
@@ -18,11 +18,12 @@ import top.nontage.jniil.annotations.Null;
 import top.nontage.jniil.annotations.ReplaceCall;
 import top.nontage.jniil.interfaces.Injectable;
 import top.nontage.jniil.javassist.FileClassPath;
+import top.nontage.jniil.javassist.JarFileClassPath;
 import top.nontage.jniil.utils.InjectionUtil;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.instrument.ClassDefinition;
+import java.lang.instrument.ClassFileTransformer;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -31,6 +32,19 @@ import java.util.List;
 import java.util.Map;
 
 public class MethodInjector {
+    private static final NativeInstrumentation inst = new NativeInstrumentation();
+
+    private static void redefineClass(Class<?> clazz, byte[] bytecode) throws ClassNotFoundException, CannotCompileException {
+        ClassFileTransformer transformer = (loader, className, classBeingRedefined, protectionDomain, classfileBuffer) -> {
+            if (clazz == classBeingRedefined) {
+                return bytecode;
+            }
+            return new byte[0];
+        };
+        inst.addTransformer(transformer, true);
+        inst.retransformClasses(clazz);
+        inst.removeTransformer(transformer);
+    }
     public static void injectMethod(Injectable injectable) throws ClassNotFoundException, NotFoundException, CannotCompileException, IOException {
         try {
             System.out.println("Injecting method: " + injectable.getClass().getName());
@@ -43,6 +57,8 @@ public class MethodInjector {
                 Class<?>[] appendClasses;
                 String targetTypeThreadName;
                 String appendFileLoader;
+                String appendJarLoader;
+                boolean defaultLoader;
 
                 if (isNull) {
                     typeName = injectable.targetTypeInternalName();
@@ -51,6 +67,8 @@ public class MethodInjector {
                     appendClasses = injectable.appendClassLoader();
                     targetTypeThreadName = injectable.targetTypeThreadName();
                     appendFileLoader = injectable.appendFileLoader();
+                    appendJarLoader = injectable.appendJarLoader();
+                    defaultLoader = injectable.defaultLoader();
                 } else if (method.isAnnotationPresent(InjectMethodInfo.class)) {
                     InjectMethodInfo info = method.getAnnotation(InjectMethodInfo.class);
                     typeName = info.targetTypeInternalName();
@@ -59,24 +77,33 @@ public class MethodInjector {
                     appendClasses = info.appendClassLoader();
                     targetTypeThreadName = info.targetTypeThreadName();
                     appendFileLoader = info.appendFileLoader();
+                    appendJarLoader = info.appendJarLoader();
+                    defaultLoader = info.defaultLoader();
                 } else {
                     continue;
                 }
-                ClassPool pool = ClassPool.getDefault();
+                ClassPool pool = new ClassPool(null);
                 ClassLoader targetLoader;
                 if (targetTypeThreadName == null || targetTypeThreadName.isEmpty()) {
                     targetLoader = InjectionUtil.findClassAcrossClassLoaders(typeName).getClassLoader();
                 } else {
                     targetLoader = InjectionUtil.findClassLoaderByThread(targetTypeThreadName);
                 }
-                pool.insertClassPath(new LoaderClassPath(targetLoader));
-                pool.appendClassPath(new LoaderClassPath(JNIIL.class.getClassLoader()));
+                if (defaultLoader) {
+                    pool.appendSystemPath();
+                    pool.insertClassPath(new LoaderClassPath(targetLoader));
+                    pool.appendClassPath(new LoaderClassPath(JNIIL.class.getClassLoader()));
+                }
                 for (Class<?> appendClass : appendClasses) {
                     pool.appendClassPath(new LoaderClassPath(appendClass.getClassLoader()));
                 }
                 if (appendFileLoader != null && !appendFileLoader.isEmpty()) {
                     pool.appendClassPath(new FileClassPath(new File(appendFileLoader)));
                 }
+                if (appendJarLoader != null && !appendJarLoader.isEmpty()) {
+                    pool.appendClassPath(new JarFileClassPath(new File(appendJarLoader)));
+                }
+
                 CtClass ctClass = pool.get(typeName);
 
                 if (ctClass.isFrozen()) {
@@ -162,9 +189,8 @@ public class MethodInjector {
                     System.out.println("Dumped injected method to: " + outputDir.getAbsolutePath());
                 }
 
-                Class<?> clazzz = Class.forName(typeName, false, targetLoader);
-                NativeInstrumentation inst = new NativeInstrumentation();
-                inst.redefineClasses(new ClassDefinition(clazzz, bytecode));
+                Class<?> clazzz = Class.forName(typeName, true, targetLoader);
+                redefineClass(clazzz, bytecode);
                 System.out.println("Injected method: " + typeName + "#" + methodName);
             }
         } catch (Throwable e) {

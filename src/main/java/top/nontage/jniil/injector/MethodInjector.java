@@ -45,6 +45,7 @@ public class MethodInjector {
         inst.retransformClasses(clazz);
         inst.removeTransformer(transformer);
     }
+
     public static void injectMethod(Injectable injectable) throws ClassNotFoundException, NotFoundException, CannotCompileException, IOException {
         try {
             System.out.println("Injecting method: " + injectable.getClass().getName());
@@ -56,8 +57,8 @@ public class MethodInjector {
                 String[] methodParams;
                 Class<?>[] appendClasses;
                 String targetTypeThreadName;
-                String appendFileLoader;
-                String appendJarLoader;
+                String[] appendFileLoader;
+                String[] appendJarLoader;
                 boolean defaultLoader;
 
                 if (isNull) {
@@ -89,19 +90,26 @@ public class MethodInjector {
                 } else {
                     targetLoader = InjectionUtil.findClassLoaderByThread(targetTypeThreadName);
                 }
+
                 if (defaultLoader) {
                     pool.appendSystemPath();
                     pool.insertClassPath(new LoaderClassPath(targetLoader));
-                    pool.appendClassPath(new LoaderClassPath(JNIIL.class.getClassLoader()));
                 }
+
                 for (Class<?> appendClass : appendClasses) {
                     pool.appendClassPath(new LoaderClassPath(appendClass.getClassLoader()));
                 }
-                if (appendFileLoader != null && !appendFileLoader.isEmpty()) {
-                    pool.appendClassPath(new FileClassPath(new File(appendFileLoader)));
+
+                if (appendFileLoader != null) {
+                    for (String appendFile : appendFileLoader) {
+                        pool.appendClassPath(new FileClassPath(new File(appendFile)));
+                    }
                 }
-                if (appendJarLoader != null && !appendJarLoader.isEmpty()) {
-                    pool.appendClassPath(new JarFileClassPath(new File(appendJarLoader)));
+
+                if (appendJarLoader != null) {
+                    for (String appendJarFile : appendJarLoader) {
+                        pool.insertClassPath(new JarFileClassPath(new File(appendJarFile)));
+                    }
                 }
 
                 CtClass ctClass = pool.get(typeName);

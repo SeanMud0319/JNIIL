@@ -13,8 +13,8 @@ public @interface InjectMethodInfo {
     String[] targetMethodParms() default {};
     Class<?>[] appendClassLoader() default {};
     String targetTypeThreadName() default "";
-    String appendFileLoader() default "";
-    String appendJarLoader() default "";
+    String[] appendFileLoader() default "";
+    String[] appendJarLoader() default "";
     boolean defaultLoader() default true;
 }
 

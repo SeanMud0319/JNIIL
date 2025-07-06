@@ -27,10 +27,10 @@ public interface Injectable {
     default String targetTypeThreadName() {
         return null;
     }
-    default String appendFileLoader() {
+    default String[] appendFileLoader() {
         return null;
     }
-    default String appendJarLoader() {
+    default String[] appendJarLoader() {
         return null;
     }
     default boolean defaultLoader() {

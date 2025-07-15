@@ -24,6 +24,7 @@ import top.nontage.jniil.utils.InjectionUtil;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.instrument.ClassDefinition;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -96,8 +97,8 @@ public class MethodInjector {
                 }
 
                 if (defaultLoader) {
-                    pool.appendSystemPath();
                     pool.insertClassPath(new LoaderClassPath(targetLoader));
+                    pool.appendSystemPath();
                 }
 
                 for (Class<?> appendClass : appendClasses) {
@@ -106,14 +107,15 @@ public class MethodInjector {
 
                 if (appendFileLoader != null) {
                     for (String appendFile : appendFileLoader) {
+                        if (appendFile.isEmpty()) continue;
                         pool.appendClassPath(new FileClassPath(new File(appendFile)));
                     }
                 }
 
                 if (appendJarLoader != null) {
                     for (String appendJarFile : appendJarLoader) {
-                        JarFileClassPath jarClassPath = new JarFileClassPath(new File(appendJarFile));
-                        pool.insertClassPath(jarClassPath);
+                        if (appendJarFile.isEmpty()) continue;
+                        pool.insertClassPath(new JarFileClassPath(new File(appendJarFile)));
                     }
                 }
 
@@ -299,7 +301,6 @@ public class MethodInjector {
                 } else {
                     targetLoader = InjectionUtil.findClassLoaderByThread(targetTypeThreadName);
                 }
-
                 if (defaultLoader) {
                     pool.appendSystemPath();
                     pool.insertClassPath(new LoaderClassPath(targetLoader));
@@ -311,14 +312,15 @@ public class MethodInjector {
 
                 if (appendFileLoader != null) {
                     for (String appendFile : appendFileLoader) {
+                        if (appendFile.isEmpty()) continue;
                         pool.appendClassPath(new FileClassPath(new File(appendFile)));
                     }
                 }
 
                 if (appendJarLoader != null) {
                     for (String appendJarFile : appendJarLoader) {
-                        JarFileClassPath jarClassPath = new JarFileClassPath(new File(appendJarFile));
-                        pool.insertClassPath(jarClassPath);
+                        if (appendJarFile.isEmpty()) continue;
+                        pool.insertClassPath(new JarFileClassPath(new File(appendJarFile)));
                     }
                 }
 
@@ -463,5 +465,137 @@ public class MethodInjector {
             }
         }, "InjectThread").start();
     }
+    //因為上面那陀我爆改給Nontage Clint用了 所以插件暫時用這邊的
+    public static void injectPluginMethod(Injectable injectable) throws ClassNotFoundException, NotFoundException, CannotCompileException, IOException {
+        Class<?> clazz = injectable.getClass();
+        for (Method method : clazz.getDeclaredMethods()) {
+            if (method.isAnnotationPresent(InjectMethodInfo.class)) {
+                InjectMethodInfo info = method.getAnnotation(InjectMethodInfo.class);
+                if (info == null) continue;
 
+                ClassPool pool = ClassPool.getDefault();
+                ClassLoader targetLoader = InjectionUtil.findClassAcrossClassLoaders(info.targetTypeInternalName()).getClassLoader();
+                pool.insertClassPath(new LoaderClassPath(targetLoader));
+                pool.appendClassPath(new LoaderClassPath(JNIIL.class.getClassLoader()));
+                for (Class<?> appendClass : info.appendClassLoader()) {
+                    pool.appendClassPath(new LoaderClassPath(appendClass.getClassLoader()));
+                }
+
+                CtClass ctClass = pool.get(info.targetTypeInternalName());
+                if (ctClass.isFrozen()) {
+                    System.out.println("Defrosting class: " + ctClass.getName());
+                    ctClass.defrost();
+                }
+                CtMethod ctMethod = ctClass.getDeclaredMethod(info.targetMethodName());
+                String src = injectable.getInjectSourceCode();
+
+                After afterAnn = method.getAnnotation(After.class);
+                Before beforeAnn = method.getAnnotation(Before.class);
+                At atAnn = method.getAnnotation(At.class);
+                ReplaceCall replaceCallAnn = method.getAnnotation(ReplaceCall.class);
+
+                if (afterAnn != null) {
+                    ctMethod.insertAfter(src);
+                } else if (beforeAnn != null) {
+                    ctMethod.insertBefore(src);
+                } else if (atAnn != null && atAnn.line() >= 0) {
+                    ctMethod.insertAt(atAnn.line(), src);
+                } else if (replaceCallAnn != null && !replaceCallAnn.value().isEmpty()) {
+                    String[] parts = replaceCallAnn.value().split("#");
+                    if (parts.length != 2) {
+                        throw new IllegalArgumentException("Invalid ReplaceCall format, expected 'class#method'");
+                    }
+                    String replaceCallClass = parts[0];
+                    String replaceCallMethod = parts[1];
+                    int limit = replaceCallAnn.limit();
+                    int[] counts = replaceCallAnn.counts();
+                    ctMethod.instrument(new ExprEditor() {
+                        int current = 1;
+                        @Override
+                        public void edit(MethodCall m) throws CannotCompileException {
+                            if (m.getClassName().equals(replaceCallClass) && m.getMethodName().equals(replaceCallMethod)) {
+                                boolean shouldReplace = false;
+
+                                if (limit >= 0) {
+                                    shouldReplace = current <= limit;
+                                } else if (counts.length > 0) {
+                                    for (int c : counts) {
+                                        if (current == c) {
+                                            shouldReplace = true;
+                                            break;
+                                        }
+                                    }
+                                } else {
+                                    shouldReplace = true;
+                                }
+                                if (shouldReplace) {
+                                    m.replace(src);
+                                }
+                                current++;
+                            }
+                        }
+                    });
+                } else {
+                    throw new IllegalArgumentException("No valid injection point specified via @After, @Before, @At or @ReplaceCall");
+                }
+
+                byte[] bytecode = ctClass.toBytecode();
+                Class<?> clazzz = Class.forName(info.targetTypeInternalName());
+                redefineClass(clazzz, bytecode);
+                System.out.println("Injected method: " + info.targetTypeInternalName() + "#" + info.targetMethodName());
+                if (JNIIL.isMethodOutputEnabled()) {
+                    File outputDir = JNIIL.getMethodOutputDir();
+                    if (!outputDir.exists()) {
+                        outputDir.mkdirs();
+                    }
+                    ctClass.writeFile(outputDir.getAbsolutePath());
+                    System.out.println("Dumped injected method to: " + outputDir.getAbsolutePath());
+                }
+            }
+        }
+    }
+    //跟上面一樣
+    public static void injectPluginMethodsAsync(Injectable... injectables) {
+        new Thread(() -> {
+            Map<String, List<Injectable>> grouped = new LinkedHashMap<>();
+            for (Injectable injectable : injectables) {
+                try {
+                    Method method = Arrays.stream(injectable.getClass().getDeclaredMethods())
+                            .filter(m -> m.isAnnotationPresent(InjectMethodInfo.class)
+                                    || m.isAnnotationPresent(Null.class))
+                            .findFirst()
+                            .orElse(null);
+                    if (method == null) continue;
+                    InjectMethodInfo info = method.getAnnotation(InjectMethodInfo.class);
+                    String key;
+                    if (info != null) {
+                        key = info.targetTypeInternalName();
+                    } else {
+                        key = injectable.targetTypeInternalName();
+                    }
+                    grouped.computeIfAbsent(key, k -> new ArrayList<>()).add(injectable);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            for (Map.Entry<String, List<Injectable>> entry : grouped.entrySet()) {
+                List<Injectable> group = entry.getValue();
+                for (int i = 0; i < group.size(); i++) {
+                    Injectable injectable = group.get(i);
+                    try {
+                        injectPluginMethod(injectable);
+                    } catch (Exception e) {
+                        System.err.println("Injection failed for: " + injectable.getClass().getName());
+                        e.printStackTrace();
+                    }
+                    if (i < group.size() - 1) {
+                        try {
+                            Thread.sleep(10);
+                        } catch (InterruptedException ignored) {
+                        }
+                    }
+                }
+            }
+        }, "InjectThread").start();
+    }
 }

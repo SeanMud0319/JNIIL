@@ -6,6 +6,7 @@ public class JNIIL {
 
     private static final InjectionOutputConfig classOutput = new InjectionOutputConfig();
     private static final InjectionOutputConfig methodOutput = new InjectionOutputConfig();
+    private static boolean storeOriginalByteCode = false;
 
     public static void enableClassOutput(File dir) {
         classOutput.enable(dir, "classes");
@@ -29,6 +30,14 @@ public class JNIIL {
 
     public static File getMethodOutputDir() {
         return methodOutput.dir;
+    }
+
+    public static boolean isStoreOriginalByteCode() {
+        return storeOriginalByteCode;
+    }
+
+    public static void setStoreOriginalByteCode(boolean storeOriginalByteCode) {
+        JNIIL.storeOriginalByteCode = storeOriginalByteCode;
     }
 
     private static class InjectionOutputConfig {

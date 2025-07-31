@@ -24,11 +24,12 @@ import top.nontage.jniil.utils.InjectionUtil;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.instrument.ClassDefinition;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.reflect.Method;
+import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -38,17 +39,53 @@ import java.util.Set;
 public class MethodInjector {
     private static final NativeInstrumentation inst = new NativeInstrumentation();
     private static final Set<String> injectedClasses = new HashSet<>();
+    private static final Map<Class<?>, byte[]> originalBytecodes = new HashMap<>();
 
-    private static void redefineClass(Class<?> clazz, byte[] bytecode) throws ClassNotFoundException, CannotCompileException {
+    private static void redefineClass(Class<?> clazz, byte[] newBytecode) throws ClassNotFoundException, CannotCompileException {
         ClassFileTransformer transformer = (loader, className, classBeingRedefined, protectionDomain, classfileBuffer) -> {
-            if (clazz == classBeingRedefined) {
-                return bytecode;
+            if (classBeingRedefined == clazz) {
+                if (JNIIL.isStoreOriginalByteCode() && !originalBytecodes.containsKey(clazz)) {
+                    originalBytecodes.put(clazz, Arrays.copyOf(classfileBuffer, classfileBuffer.length));
+                    System.out.println("Stored original bytecode for: " + clazz.getName());
+                }
+                return newBytecode;
             }
-            return new byte[0];
+            return null;
         };
-        inst.addTransformer(transformer, true);
-        inst.retransformClasses(clazz);
-        inst.removeTransformer(transformer);
+
+        try {
+            inst.addTransformer(transformer, true);
+            inst.retransformClasses(clazz);
+        } catch (Throwable e) {
+            throw new RuntimeException("Redefinition failed for class: " + clazz.getName(), e);
+        } finally {
+            inst.removeTransformer(transformer);
+        }
+    }
+
+    public static void revertClass(Class<?> clazz) {
+        byte[] original = originalBytecodes.get(clazz);
+        if (original == null) {
+            System.err.println("No original bytecode stored for class: " + clazz.getName());
+            return;
+        }
+
+        ClassFileTransformer transformer = (loader, className, classBeingRedefined, protectionDomain, classfileBuffer) -> {
+            if (classBeingRedefined == clazz) {
+                return original;
+            }
+            return null;
+        };
+
+        try {
+            inst.addTransformer(transformer, true);
+            inst.retransformClasses(clazz);
+            System.out.println("Reverted class: " + clazz.getName());
+        } catch (Throwable e) {
+            throw new RuntimeException("Failed to revert class: " + clazz.getName(), e);
+        } finally {
+            inst.removeTransformer(transformer);
+        }
     }
 
     public static void injectMethod(Injectable injectable) throws ClassNotFoundException, NotFoundException, CannotCompileException, IOException {
@@ -255,6 +292,7 @@ public class MethodInjector {
             }
         }, "InjectThread").start();
     }
+
     //its for badlion injection
     public static CtClass injectMethodAndReturnCtClass(Injectable injectable) throws Exception {
         try {
@@ -459,12 +497,14 @@ public class MethodInjector {
                     if (i < group.size() - 1) {
                         try {
                             Thread.sleep(10);
-                        } catch (InterruptedException ignored) {}
+                        } catch (InterruptedException ignored) {
+                        }
                     }
                 }
             }
         }, "InjectThread").start();
     }
+
     //因為上面那陀我爆改給Nontage Clint用了 所以插件暫時用這邊的
     public static void injectPluginMethod(Injectable injectable) throws ClassNotFoundException, NotFoundException, CannotCompileException, IOException {
         Class<?> clazz = injectable.getClass();
@@ -511,6 +551,7 @@ public class MethodInjector {
                     int[] counts = replaceCallAnn.counts();
                     ctMethod.instrument(new ExprEditor() {
                         int current = 1;
+
                         @Override
                         public void edit(MethodCall m) throws CannotCompileException {
                             if (m.getClassName().equals(replaceCallClass) && m.getMethodName().equals(replaceCallMethod)) {
@@ -554,6 +595,7 @@ public class MethodInjector {
             }
         }
     }
+
     //跟上面一樣
     public static void injectPluginMethodsAsync(Injectable... injectables) {
         new Thread(() -> {
@@ -597,5 +639,9 @@ public class MethodInjector {
                 }
             }
         }, "InjectThread").start();
+    }
+
+    public static Map<Class<?>, byte[]> getOriginalBytecodes() {
+        return originalBytecodes;
     }
 }

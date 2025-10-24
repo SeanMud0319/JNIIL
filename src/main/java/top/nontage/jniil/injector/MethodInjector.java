@@ -9,6 +9,7 @@ import javassist.NotFoundException;
 import javassist.expr.ExprEditor;
 import javassist.expr.MethodCall;
 import me.fan87.nativeinstrumentation.NativeInstrumentation;
+import top.nontage.auth.library.annotation.Protect;
 import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.annotations.After;
 import top.nontage.jniil.annotations.At;
@@ -26,7 +27,6 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.reflect.Method;
-import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -35,7 +35,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
+@Protect
 public class MethodInjector {
     private static final NativeInstrumentation inst = new NativeInstrumentation();
     private static final Set<String> injectedClasses = new HashSet<>();
@@ -388,13 +388,11 @@ public class MethodInjector {
                             .toArray(CtClass[]::new);
                     ctMethod = ctClass.getDeclaredMethod(methodName, paramTypes);
                 }
-
                 String src = injectable.getInjectSourceCode();
                 After afterAnn = method.getAnnotation(After.class);
                 Before beforeAnn = method.getAnnotation(Before.class);
                 At atAnn = method.getAnnotation(At.class);
                 ReplaceCall replaceCallAnn = method.getAnnotation(ReplaceCall.class);
-
                 if (afterAnn != null) {
                     ctMethod.insertAfter(src);
                 } else if (beforeAnn != null) {
@@ -506,7 +504,7 @@ public class MethodInjector {
     }
 
     //因為上面那陀我爆改給Nontage Clint用了 所以插件暫時用這邊的
-    public static void injectPluginMethod(Injectable injectable) throws ClassNotFoundException, NotFoundException, CannotCompileException, IOException {
+    public static void injectPluginMethod(Injectable injectable) throws ClassNotFoundException, NotFoundException, CannotCompileException, IOException, IllegalAccessException {
         Class<?> clazz = injectable.getClass();
         for (Method method : clazz.getDeclaredMethods()) {
             if (method.isAnnotationPresent(InjectMethodInfo.class)) {
@@ -526,6 +524,7 @@ public class MethodInjector {
                     System.out.println("Defrosting class: " + ctClass.getName());
                     ctClass.defrost();
                 }
+
                 CtMethod ctMethod = ctClass.getDeclaredMethod(info.targetMethodName());
                 String src = injectable.getInjectSourceCode();
 

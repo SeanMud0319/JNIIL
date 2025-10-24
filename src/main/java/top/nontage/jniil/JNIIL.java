@@ -1,7 +1,9 @@
 package top.nontage.jniil;
 
-import java.io.File;
+import top.nontage.auth.library.annotation.Protect;
 
+import java.io.File;
+@Protect
 public class JNIIL {
 
     private static final InjectionOutputConfig classOutput = new InjectionOutputConfig();

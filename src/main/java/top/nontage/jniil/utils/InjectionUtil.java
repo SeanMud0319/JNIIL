@@ -9,6 +9,7 @@ import javassist.bytecode.annotation.Annotation;
 
 import me.fan87.nativeinstrumentation.NativeInstrumentation;
 import sun.misc.Unsafe;
+import top.nontage.auth.library.annotation.Protect;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -20,7 +21,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-
+@Protect
 public class InjectionUtil {
     public static Class<?> findClassAcrossClassLoaders(String className) throws ClassNotFoundException {
         NativeInstrumentation inst = new NativeInstrumentation();

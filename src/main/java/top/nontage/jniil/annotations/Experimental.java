@@ -1,7 +1,9 @@
 package top.nontage.jniil.annotations;
 
-import java.lang.annotation.*;
+import top.nontage.auth.library.annotation.Protect;
 
+import java.lang.annotation.*;
+@Protect
 @Documented
 @Retention(RetentionPolicy.CLASS)
 @Target({ElementType.TYPE, ElementType.METHOD, ElementType.CONSTRUCTOR, ElementType.FIELD})

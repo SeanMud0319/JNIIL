@@ -1,5 +1,8 @@
 package top.nontage.jniil.interfaces;
 
+import top.nontage.auth.library.annotation.Protect;
+
+@Protect
 public interface Injectable {
     /**
      * Returns the source code that should be injected.

@@ -1,5 +1,6 @@
 package top.nontage.jniil.interfaces;
 
+import javassist.CtMethod;
 import top.nontage.auth.library.annotation.Protect;
 
 @Protect
@@ -11,6 +12,9 @@ public interface Injectable {
      * @return the source code to be injected
      */
     default String getInjectSourceCode() {
+        return null;
+    }
+    default String getInjectSourceCode(CtMethod ctMethod) {
         return null;
     }
     default String targetTypeInternalName() {

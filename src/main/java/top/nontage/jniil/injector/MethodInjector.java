@@ -180,6 +180,9 @@ public class MethodInjector {
                 }
 
                 String src = injectable.getInjectSourceCode();
+                if (src == null) {
+                    src = injectable.getInjectSourceCode(ctMethod);
+                }
                 After afterAnn = method.getAnnotation(After.class);
                 Before beforeAnn = method.getAnnotation(Before.class);
                 At atAnn = method.getAnnotation(At.class);
@@ -199,6 +202,7 @@ public class MethodInjector {
                     String replaceCallMethod = parts[1];
                     int limit = replaceCallAnn.limit();
                     int[] counts = replaceCallAnn.counts();
+                    String finalSrc = src;
                     ctMethod.instrument(new ExprEditor() {
                         int current = 1;
 
@@ -220,7 +224,7 @@ public class MethodInjector {
                                     shouldReplace = true;
                                 }
                                 if (shouldReplace) {
-                                    m.replace(src);
+                                    m.replace(finalSrc);
                                 }
                                 current++;
                             }
@@ -389,6 +393,9 @@ public class MethodInjector {
                     ctMethod = ctClass.getDeclaredMethod(methodName, paramTypes);
                 }
                 String src = injectable.getInjectSourceCode();
+                if (src == null) {
+                    src = injectable.getInjectSourceCode(ctMethod);
+                }
                 After afterAnn = method.getAnnotation(After.class);
                 Before beforeAnn = method.getAnnotation(Before.class);
                 At atAnn = method.getAnnotation(At.class);
@@ -408,6 +415,7 @@ public class MethodInjector {
                     String replaceCallMethod = parts[1];
                     int limit = replaceCallAnn.limit();
                     int[] counts = replaceCallAnn.counts();
+                    String finalSrc = src;
                     ctMethod.instrument(new ExprEditor() {
                         int current = 1;
 
@@ -430,7 +438,7 @@ public class MethodInjector {
                                 }
 
                                 if (shouldReplace) {
-                                    m.replace(src);
+                                    m.replace(finalSrc);
                                 }
                                 current++;
                             }
@@ -527,7 +535,9 @@ public class MethodInjector {
 
                 CtMethod ctMethod = ctClass.getDeclaredMethod(info.targetMethodName());
                 String src = injectable.getInjectSourceCode();
-
+                if (src == null) {
+                    src = injectable.getInjectSourceCode(ctMethod);
+                }
                 After afterAnn = method.getAnnotation(After.class);
                 Before beforeAnn = method.getAnnotation(Before.class);
                 At atAnn = method.getAnnotation(At.class);
@@ -548,6 +558,7 @@ public class MethodInjector {
                     String replaceCallMethod = parts[1];
                     int limit = replaceCallAnn.limit();
                     int[] counts = replaceCallAnn.counts();
+                    String finalSrc = src;
                     ctMethod.instrument(new ExprEditor() {
                         int current = 1;
 
@@ -569,7 +580,7 @@ public class MethodInjector {
                                     shouldReplace = true;
                                 }
                                 if (shouldReplace) {
-                                    m.replace(src);
+                                    m.replace(finalSrc);
                                 }
                                 current++;
                             }

@@ -72,6 +72,13 @@ public class Block {
         body.run();
         lines.add("}");
     }
+    public void doWhileLoop(Runnable doBody, String condition, Runnable whileBody) {
+        lines.add("do {");
+        doBody.run();
+        lines.add("} while (" + condition + ") {");
+        whileBody.run();
+        lines.add("}");
+    }
 
     public void forLoop(String init, String condition, String update, Runnable body) {
         lines.add("for (" + init + "; " + condition + "; " + update + ") {");
@@ -85,6 +92,22 @@ public class Block {
 
     public void decrease(String value) {
         lines.add(value + "--;");
+    }
+    public void tryCatch(Runnable tryBody, Class<? extends Throwable> exceptionType, String exceptionName, Runnable catchBody) {
+        lines.add("try {");
+        tryBody.run();
+        lines.add("} catch (" + exceptionType.getSimpleName() + " " + exceptionName + ") {");
+        catchBody.run();
+        lines.add("}");
+    }
+    public void tryCatchFinally(Runnable tryBody, Class<? extends Throwable> exceptionType, String exceptionName, Runnable catchBody, Runnable finallyBody) {
+        lines.add("try {");
+        tryBody.run();
+        lines.add("} catch (" + exceptionType.getSimpleName() + " " + exceptionName + ") {");
+        catchBody.run();
+        lines.add("} finally {");
+        finallyBody.run();
+        lines.add("}");
     }
 
     public void println(Object... args) {

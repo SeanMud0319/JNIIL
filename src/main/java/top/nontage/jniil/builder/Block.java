@@ -48,7 +48,6 @@ public class Block {
         return (LocalValue<T>) builderLocals.get(name);
     }
 
-
     public void addLine(String line) {
         lines.add(line);
     }
@@ -72,6 +71,7 @@ public class Block {
         body.run();
         lines.add("}");
     }
+
     public void doWhileLoop(Runnable doBody, String condition, Runnable whileBody) {
         lines.add("do {");
         doBody.run();
@@ -107,6 +107,17 @@ public class Block {
         catchBody.run();
         lines.add("} finally {");
         finallyBody.run();
+        lines.add("}");
+    }
+    public void switchCase(String expression, Map<String, Runnable> cases, Runnable defaultCase) {
+        lines.add("switch (" + expression + ") {");
+        for (Map.Entry<String, Runnable> entry : cases.entrySet()) {
+            lines.add("case " + entry.getKey() + ":");
+            entry.getValue().run();
+            lines.add("break;");
+        }
+        lines.add("default:");
+        defaultCase.run();
         lines.add("}");
     }
 

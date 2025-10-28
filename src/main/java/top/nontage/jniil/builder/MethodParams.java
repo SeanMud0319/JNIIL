@@ -1,5 +1,8 @@
 package top.nontage.jniil.builder;
 
+import top.nontage.auth.library.annotation.Protect;
+
+@Protect
 public class MethodParams {
 
     private final int[] slots;

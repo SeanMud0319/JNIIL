@@ -1,8 +1,10 @@
 package top.nontage.jniil.builder;
 
+import top.nontage.auth.library.annotation.Protect;
+
 import java.lang.reflect.Method;
 import java.util.*;
-
+@Protect
 public class Block {
 
     private final Map<String, LocalValue<?>> builderLocals;
@@ -70,11 +72,21 @@ public class Block {
         body.run();
         lines.add("}");
     }
+
     public void forLoop(String init, String condition, String update, Runnable body) {
         lines.add("for (" + init + "; " + condition + "; " + update + ") {");
         body.run();
         lines.add("}");
     }
+
+    public void increase(String value) {
+        lines.add(value + "++;");
+    }
+
+    public void decrease(String value) {
+        lines.add(value + "--;");
+    }
+
     public void println(Object... args) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < args.length; i++) {
@@ -89,6 +101,14 @@ public class Block {
         addLine("System.out.println(" + sb + ");");
     }
 
+    public void returnVoid() {
+        lines.add("return;");
+    }
+
+    public void returnValue(String value) {
+        lines.add("return " + value + ";");
+    }
+
     public String build() {
         return String.join("\n", lines);
     }
@@ -97,6 +117,7 @@ public class Block {
         String invokeMethod = method.getDeclaringClass().getName() + "." + method.getName() + "(" + methodParams.build() + ");";
         lines.add(invokeMethod);
     }
+
     public String getInvokeExpr() {
         return method.getDeclaringClass().getName() + "." + method.getName() + "(" + methodParams.build() + ")";
     }

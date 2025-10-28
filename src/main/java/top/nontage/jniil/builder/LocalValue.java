@@ -1,5 +1,8 @@
 package top.nontage.jniil.builder;
 
+import top.nontage.auth.library.annotation.Protect;
+
+@Protect
 public class LocalValue<T> {
 
     private final String name;
@@ -20,6 +23,9 @@ public class LocalValue<T> {
 
     public String setExpr(Object value) {
         return name + " = " + value + ";";
+    }
+    public String setString(String value) {
+        return name + " = \"" + value + "\";";
     }
 
     public String setFrom(LocalValue<?> other) {

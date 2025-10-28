@@ -3,11 +3,12 @@ package top.nontage.jniil.builder;
 import javassist.CtMethod;
 import javassist.bytecode.CodeAttribute;
 import javassist.bytecode.LocalVariableAttribute;
+import top.nontage.auth.library.annotation.Protect;
 
 import java.lang.reflect.Method;
 import java.util.*;
 
-
+@Protect
 public class ExprBuilder {
 
     private Method method;
@@ -32,10 +33,6 @@ public class ExprBuilder {
         return this;
     }
 
-    public ExprBuilder setMethodParms(MethodParams params) {
-        this.methodParams = params;
-        return this;
-    }
 
     @SuppressWarnings("unchecked")
     public <T> LocalValue<T> param(int slot, Class<T> type) {

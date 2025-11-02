@@ -3,10 +3,15 @@ package top.nontage.jniil.builder;
 import javassist.CtMethod;
 import javassist.bytecode.CodeAttribute;
 import javassist.bytecode.LocalVariableAttribute;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.LocalVariableNode;
+import org.objectweb.asm.tree.MethodNode;
 import top.nontage.auth.library.annotation.Protect;
 
 import java.lang.reflect.Method;
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Protect
 public class ExprBuilder {
@@ -16,7 +21,7 @@ public class ExprBuilder {
 
     private final Map<String, LocalValue<?>> builderLocals = new LinkedHashMap<>();
     private final Map<Integer, LocalValue<?>> paramLocals = new LinkedHashMap<>();
-    private final Map<Integer, LocalValue<?>> existingLocals = new LinkedHashMap<>();
+    private final Map<Integer, Map<String, LocalValue<?>>> existingLocals = new LinkedHashMap<>();
 
     private Block block;
 
@@ -43,12 +48,13 @@ public class ExprBuilder {
     }
 
     @SuppressWarnings({"unchecked", "UnusedReturnValue"})
-    public <T> LocalValue<T> local(int slot, Class<T> type) {
-        if (!existingLocals.containsKey(slot)) {
-            existingLocals.put(slot, new LocalValue<>("$" + slot, type));
-        }
-        return (LocalValue<T>) existingLocals.get(slot);
+    public <T> LocalValue<T> local(int slot, String name, Class<T> type) {
+        existingLocals.computeIfAbsent(slot, k -> new LinkedHashMap<>());
+        Map<String, LocalValue<?>> slotMap = existingLocals.get(slot);
+        slotMap.computeIfAbsent(name, k -> new LocalValue<>(name, type));
+        return (LocalValue<T>) slotMap.get(name);
     }
+
 
     @SuppressWarnings("unchecked")
     public <T> LocalValue<T> addLocal(String name, Class<T> type) {
@@ -77,6 +83,33 @@ public class ExprBuilder {
         return sb.toString();
     }
 
+    public void extractExistingLocals(byte[] classBytes, CtMethod ctMethod) {
+        try {
+            ClassReader reader = new ClassReader(classBytes);
+            ClassNode classNode = new ClassNode();
+            reader.accept(classNode, 0);
+            for (MethodNode mn : classNode.methods) {
+                if (!mn.name.equals(ctMethod.getName())) continue;
+
+                System.out.println("Extracting existing locals from method: " + mn.name);
+
+                if (mn.localVariables == null) {
+                    System.out.println("No local variable table found in ASM.");
+                    continue;
+                }
+
+                for (LocalVariableNode var : mn.localVariables) {
+                    if (var.name.equals("this")) continue;
+
+                    System.out.println("Extracted local variable: slot=" + var.index + ", name=" + var.name);
+                    this.local(var.index, var.name, Object.class);
+                }
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
     public void extractExistingLocals(CtMethod ctMethod) {
         try {
             CodeAttribute codeAttr = ctMethod.getMethodInfo().getCodeAttribute();
@@ -86,13 +119,14 @@ public class ExprBuilder {
                 for (int i = 0; i < attr.tableLength(); i++) {
                     String name = attr.variableName(i);
                     if (name != null && !name.equals("this")) {
-                        local(i, Object.class);
+                        local(i, name, Object.class);
                     }
                 }
             }
         } catch (Exception ignored) {
         }
     }
+
 
     public Map<String, LocalValue<?>> getBuilderLocals() {
         return builderLocals;

@@ -3,13 +3,16 @@ package top.nontage.jniil.builder;
 import top.nontage.auth.library.annotation.Protect;
 
 import java.lang.reflect.Method;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
 @Protect
 public class Block {
 
     private final Map<String, LocalValue<?>> builderLocals;
     private final Map<Integer, LocalValue<?>> paramLocals;
-    private final Map<Integer, LocalValue<?>> existingLocals;
+    private final Map<Integer, Map<String, LocalValue<?>>> existingLocals;
     private final Method method;
     private final MethodParams methodParams;
 
@@ -17,7 +20,7 @@ public class Block {
 
     public Block(Map<String, LocalValue<?>> builderLocals,
                  Map<Integer, LocalValue<?>> paramLocals,
-                 Map<Integer, LocalValue<?>> existingLocals,
+                 Map<Integer, Map<String, LocalValue<?>>> existingLocals,
                  Method method,
                  MethodParams methodParams) {
         this.builderLocals = builderLocals;
@@ -37,8 +40,18 @@ public class Block {
 
     @SuppressWarnings("unchecked")
     public <T> LocalValue<T> local(int slot) {
-        return (LocalValue<T>) existingLocals.get(slot);
+        Map<String, LocalValue<?>> slotMap = existingLocals.get(slot);
+        if (slotMap == null || slotMap.isEmpty()) return null;
+        return (LocalValue<T>) slotMap.values().iterator().next();
     }
+
+    @SuppressWarnings("unchecked")
+    public <T> LocalValue<T> local(int slot, String name) {
+        Map<String, LocalValue<?>> slotMap = existingLocals.get(slot);
+        if (slotMap == null) return null;
+        return (LocalValue<T>) slotMap.get(name);
+    }
+
 
     @SuppressWarnings("unchecked")
     public <T> LocalValue<T> addLocal(String name, Class<T> type) {
@@ -58,8 +71,22 @@ public class Block {
         lines.add("}");
     }
 
+    public void ifThen(Expr condition, Runnable body) {
+        lines.add("if (" + condition.compile() + ") {");
+        body.run();
+        lines.add("}");
+    }
+
     public void ifElse(String condition, Runnable thenBody, Runnable elseBody) {
         lines.add("if (" + condition + ") {");
+        thenBody.run();
+        lines.add("} else {");
+        elseBody.run();
+        lines.add("}");
+    }
+
+    public void ifElse(Expr condition, Runnable thenBody, Runnable elseBody) {
+        lines.add("if (" + condition.compile() + ") {");
         thenBody.run();
         lines.add("} else {");
         elseBody.run();
@@ -72,6 +99,12 @@ public class Block {
         lines.add("}");
     }
 
+    public void whileLoop(Expr condition, Runnable body) {
+        lines.add("while (" + condition.compile() + ") {");
+        body.run();
+        lines.add("}");
+    }
+
     public void doWhileLoop(Runnable doBody, String condition, Runnable whileBody) {
         lines.add("do {");
         doBody.run();
@@ -80,8 +113,26 @@ public class Block {
         lines.add("}");
     }
 
+    public void doWhileLoop(Runnable doBody, Expr condition, Runnable whileBody) {
+        lines.add("do {");
+        doBody.run();
+        lines.add("} while (" + condition.compile() + ") {");
+        whileBody.run();
+        lines.add("}");
+    }
+
     public void forLoop(String init, String condition, String update, Runnable body) {
         lines.add("for (" + init + "; " + condition + "; " + update + ") {");
+        body.run();
+        lines.add("}");
+    }
+
+    public void forLoop(Runnable initBody, Expr condition, Runnable updateBody, Runnable body) {
+        lines.add("for (");
+        initBody.run();
+        lines.add("; " + condition.compile() + "; ");
+        updateBody.run();
+        lines.add(") {");
         body.run();
         lines.add("}");
     }
@@ -93,6 +144,7 @@ public class Block {
     public void decrease(String value) {
         lines.add(value + "--;");
     }
+
     public void tryCatch(Runnable tryBody, Class<? extends Throwable> exceptionType, String exceptionName, Runnable catchBody) {
         lines.add("try {");
         tryBody.run();
@@ -100,6 +152,15 @@ public class Block {
         catchBody.run();
         lines.add("}");
     }
+
+    public void tryCatch(Runnable tryBody, Expr exceptionTypeExpr, String exceptionName, Runnable catchBody) {
+        lines.add("try {");
+        tryBody.run();
+        lines.add("} catch (" + exceptionTypeExpr.compile() + " " + exceptionName + ") {");
+        catchBody.run();
+        lines.add("}");
+    }
+
     public void tryCatchFinally(Runnable tryBody, Class<? extends Throwable> exceptionType, String exceptionName, Runnable catchBody, Runnable finallyBody) {
         lines.add("try {");
         tryBody.run();
@@ -109,8 +170,28 @@ public class Block {
         finallyBody.run();
         lines.add("}");
     }
+
+    public void tryCatchFinally(Runnable tryBody, Expr exceptionTypeExpr, String exceptionName, Runnable catchBody, Runnable finallyBody) {
+        lines.add("try {");
+        tryBody.run();
+        lines.add("} catch (" + exceptionTypeExpr.compile() + " " + exceptionName + ") {");
+        catchBody.run();
+        lines.add("} finally {");
+        finallyBody.run();
+        lines.add("}");
+    }
+
     public void switchCase(String expression, Map<String, Runnable> cases, Runnable defaultCase) {
         lines.add("switch (" + expression + ") {");
+        switchMap(cases, defaultCase);
+    }
+
+    public void switchCase(Expr expression, Map<String, Runnable> cases, Runnable defaultCase) {
+        lines.add("switch (" + expression.compile() + ") {");
+        switchMap(cases, defaultCase);
+    }
+
+    private void switchMap(Map<String, Runnable> cases, Runnable defaultCase) {
         for (Map.Entry<String, Runnable> entry : cases.entrySet()) {
             lines.add("case " + entry.getKey() + ":");
             entry.getValue().run();
@@ -141,6 +222,9 @@ public class Block {
 
     public void returnValue(String value) {
         lines.add("return " + value + ";");
+    }
+    public void returnString(String value) {
+        lines.add("return \"" + value + "\";");
     }
 
     public String build() {

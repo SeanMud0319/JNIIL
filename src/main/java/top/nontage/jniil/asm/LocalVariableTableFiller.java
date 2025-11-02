@@ -1,0 +1,137 @@
+package top.nontage.jniil.asm;
+
+import me.fan87.nativeinstrumentation.NativeInstrumentation;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Label;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.InsnList;
+import org.objectweb.asm.tree.LabelNode;
+import org.objectweb.asm.tree.LocalVariableNode;
+import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.VarInsnNode;
+import top.nontage.auth.library.annotation.Protect;
+
+import java.lang.instrument.ClassFileTransformer;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
+@Protect
+public class LocalVariableTableFiller {
+
+    private final NativeInstrumentation inst = new NativeInstrumentation();
+
+    public byte[] fillLocalVariableNames(final Class<?> targetClass, boolean debug) {
+        final byte[][] transformedBytes = new byte[1][];
+
+        ClassFileTransformer transformer = (loader, className, classBeingRedefined,
+                                            protectionDomain, classfileBuffer) -> {
+            if (!classBeingRedefined.equals(targetClass)) return null;
+
+            try {
+                ClassReader cr = new ClassReader(classfileBuffer);
+                ClassNode classNode = new ClassNode();
+                cr.accept(classNode, ClassReader.EXPAND_FRAMES);
+
+                for (MethodNode mn : classNode.methods) {
+                    if (mn.localVariables == null) mn.localVariables = new ArrayList<>();
+                    Set<Integer> existingSlots = new HashSet<>();
+                    for (LocalVariableNode lvn : mn.localVariables) {
+                        existingSlots.add(lvn.index);
+                    }
+
+                    InsnList instructions = mn.instructions;
+                    AbstractInsnNode[] insns = instructions.toArray();
+
+                    for (int slot = 0; slot < mn.maxLocals; slot++) {
+                        if (existingSlots.contains(slot)) continue;
+
+                        AbstractInsnNode firstUse = null;
+                        AbstractInsnNode lastUse = null;
+
+                        for (AbstractInsnNode insn : insns) {
+                            if (insn instanceof VarInsnNode) {
+                                VarInsnNode vi = (VarInsnNode) insn;
+                                if (vi.var == slot) {
+                                    if (firstUse == null) firstUse = insn;
+                                    lastUse = insn;
+                                }
+                            }
+                        }
+
+                        if (firstUse == null) continue;
+
+                        LabelNode startLabel = new LabelNode(new Label());
+                        LabelNode endLabel = new LabelNode(new Label());
+
+                        instructions.insertBefore(firstUse, startLabel);
+                        instructions.insert(lastUse, endLabel);
+
+                        String typeDesc = inferVarTypeDesc(mn, slot);
+
+                        LocalVariableNode newVar = new LocalVariableNode(
+                                "jniilVar" + slot,
+                                typeDesc,
+                                null,
+                                startLabel,
+                                endLabel,
+                                slot
+                        );
+                        mn.localVariables.add(newVar);
+                        existingSlots.add(slot);
+                        if (debug) {
+                            System.out.println("Added local variable: slot=" + slot + ", name=" + newVar.name + ", desc=" + newVar.desc + " in method " + mn.name);
+                        }
+                    }
+                }
+
+                ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+                classNode.accept(cw);
+                transformedBytes[0] = cw.toByteArray();
+                return transformedBytes[0];
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                return null;
+            }
+        };
+
+        inst.addTransformer(transformer, true);
+        inst.retransformClasses(targetClass);
+        inst.removeTransformer(transformer);
+
+        if (transformedBytes[0] == null)
+            throw new RuntimeException("Failed to generate transformed bytecode for class: " + targetClass.getName());
+
+        return transformedBytes[0];
+    }
+
+    private String inferVarTypeDesc(MethodNode mn, int slot) {
+        for (AbstractInsnNode insn : mn.instructions.toArray()) {
+            if (insn instanceof VarInsnNode) {
+                VarInsnNode vi = (VarInsnNode) insn;
+                if (vi.var == slot) {
+                    switch (vi.getOpcode()) {
+                        case org.objectweb.asm.Opcodes.ILOAD:
+                        case org.objectweb.asm.Opcodes.ISTORE:
+                            return "I";
+                        case org.objectweb.asm.Opcodes.LLOAD:
+                        case org.objectweb.asm.Opcodes.LSTORE:
+                            return "J";
+                        case org.objectweb.asm.Opcodes.FLOAD:
+                        case org.objectweb.asm.Opcodes.FSTORE:
+                            return "F";
+                        case org.objectweb.asm.Opcodes.DLOAD:
+                        case org.objectweb.asm.Opcodes.DSTORE:
+                            return "D";
+                        case org.objectweb.asm.Opcodes.ALOAD:
+                        case org.objectweb.asm.Opcodes.ASTORE:
+                            return "Ljava/lang/Object;";
+                    }
+                }
+            }
+        }
+        return "Ljava/lang/Object;";
+    }
+}

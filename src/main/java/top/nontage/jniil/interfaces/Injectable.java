@@ -1,5 +1,6 @@
 package top.nontage.jniil.interfaces;
 
+import javassist.CtClass;
 import javassist.CtMethod;
 import top.nontage.auth.library.annotation.Protect;
 

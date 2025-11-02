@@ -6,23 +6,33 @@ import javassist.CtClass;
 import javassist.CtMethod;
 import javassist.LoaderClassPath;
 import javassist.NotFoundException;
+import javassist.bytecode.ClassFile;
 import javassist.expr.ExprEditor;
 import javassist.expr.MethodCall;
 import me.fan87.nativeinstrumentation.NativeInstrumentation;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.LocalVariableNode;
+import org.objectweb.asm.tree.MethodNode;
 import top.nontage.auth.library.annotation.Protect;
 import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.annotations.After;
 import top.nontage.jniil.annotations.At;
 import top.nontage.jniil.annotations.Before;
+import top.nontage.jniil.annotations.FillLocalVariableTable;
 import top.nontage.jniil.annotations.InjectMethodInfo;
 import top.nontage.jniil.annotations.Null;
 import top.nontage.jniil.annotations.ReplaceCall;
+import top.nontage.jniil.asm.LocalVariableTableFiller;
 import top.nontage.jniil.interfaces.CtClassCallback;
 import top.nontage.jniil.interfaces.Injectable;
 import top.nontage.jniil.javassist.FileClassPath;
 import top.nontage.jniil.javassist.JarFileClassPath;
 import top.nontage.jniil.utils.InjectionUtil;
 
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.lang.instrument.ClassFileTransformer;
@@ -35,13 +45,14 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 @Protect
 public class MethodInjector {
     private static final NativeInstrumentation inst = new NativeInstrumentation();
     private static final Set<String> injectedClasses = new HashSet<>();
     private static final Map<Class<?>, byte[]> originalBytecodes = new HashMap<>();
 
-    private static void redefineClass(Class<?> clazz, byte[] newBytecode) throws ClassNotFoundException, CannotCompileException {
+    private static void redefineClass(Class<?> clazz, byte[] newBytecode) {
         ClassFileTransformer transformer = (loader, className, classBeingRedefined, protectionDomain, classfileBuffer) -> {
             if (classBeingRedefined == clazz) {
                 if (JNIIL.isStoreOriginalByteCode() && !originalBytecodes.containsKey(clazz)) {
@@ -88,10 +99,11 @@ public class MethodInjector {
         }
     }
 
-    public static void injectMethod(Injectable injectable) throws ClassNotFoundException, NotFoundException, CannotCompileException, IOException {
+    public static void injectMethod(Injectable injectable) {
         try {
-            System.out.println("Injecting method: " + injectable.getClass().getName());
+            System.out.println("Injecting methods from: " + injectable.getClass().getName());
             Class<?> clazz = injectable.getClass();
+
             for (Method method : clazz.getDeclaredMethods()) {
                 boolean isNull = method.isAnnotationPresent(Null.class);
                 String typeName;
@@ -125,48 +137,40 @@ public class MethodInjector {
                 } else {
                     continue;
                 }
+
                 ClassPool pool = new ClassPool(null);
-                ClassLoader targetLoader;
-                if (targetTypeThreadName == null || targetTypeThreadName.isEmpty()) {
-                    targetLoader = InjectionUtil.findClassAcrossClassLoaders(typeName).getClassLoader();
-                } else {
-                    targetLoader = InjectionUtil.findClassLoaderByThread(targetTypeThreadName);
-                }
+                ClassLoader targetLoader = (targetTypeThreadName == null || targetTypeThreadName.isEmpty())
+                        ? InjectionUtil.findClassAcrossClassLoaders(typeName).getClassLoader()
+                        : InjectionUtil.findClassLoaderByThread(targetTypeThreadName);
 
                 if (defaultLoader) {
                     pool.insertClassPath(new LoaderClassPath(targetLoader));
                     pool.appendSystemPath();
                 }
 
-                for (Class<?> appendClass : appendClasses) {
+                for (Class<?> appendClass : appendClasses)
                     pool.appendClassPath(new LoaderClassPath(appendClass.getClassLoader()));
-                }
-
-                if (appendFileLoader != null) {
-                    for (String appendFile : appendFileLoader) {
-                        if (appendFile.isEmpty()) continue;
-                        pool.appendClassPath(new FileClassPath(new File(appendFile)));
-                    }
-                }
-
-                if (appendJarLoader != null) {
-                    for (String appendJarFile : appendJarLoader) {
-                        if (appendJarFile.isEmpty()) continue;
-                        pool.insertClassPath(new JarFileClassPath(new File(appendJarFile)));
-                    }
-                }
+                if (appendFileLoader != null)
+                    for (String appendFile : appendFileLoader)
+                        if (!appendFile.isEmpty()) pool.appendClassPath(new FileClassPath(new File(appendFile)));
+                if (appendJarLoader != null)
+                    for (String appendJarFile : appendJarLoader)
+                        if (!appendJarFile.isEmpty())
+                            pool.insertClassPath(new JarFileClassPath(new File(appendJarFile)));
 
                 CtClass ctClass = pool.get(typeName);
-
-                if (ctClass.isFrozen()) {
-                    System.out.println("Defrosting class: " + ctClass.getName());
-                    ctClass.defrost();
+                if (ctClass.isFrozen()) ctClass.defrost();
+                if (method.isAnnotationPresent(FillLocalVariableTable.class)) {
+                    byte[] modified = new LocalVariableTableFiller().fillLocalVariableNames(Class.forName(typeName), false);
+                    if (modified != null && modified.length > 0) {
+                        ctClass.defrost();
+                        ctClass = pool.makeClass(new ByteArrayInputStream(modified));
+                    }
                 }
 
                 CtMethod ctMethod;
-                if (methodParams.length == 0) {
-                    ctMethod = ctClass.getDeclaredMethod(methodName);
-                } else {
+                if (methodParams.length == 0) ctMethod = ctClass.getDeclaredMethod(methodName);
+                else {
                     CtClass[] paramTypes = Arrays.stream(methodParams)
                             .map(type -> {
                                 try {
@@ -180,24 +184,18 @@ public class MethodInjector {
                 }
 
                 String src = injectable.getInjectSourceCode();
-                if (src == null) {
-                    src = injectable.getInjectSourceCode(ctMethod);
-                }
+                if (src == null) src = injectable.getInjectSourceCode(ctMethod);
                 After afterAnn = method.getAnnotation(After.class);
                 Before beforeAnn = method.getAnnotation(Before.class);
                 At atAnn = method.getAnnotation(At.class);
                 ReplaceCall replaceCallAnn = method.getAnnotation(ReplaceCall.class);
-                if (afterAnn != null) {
-                    ctMethod.insertAfter(src);
-                } else if (beforeAnn != null) {
-                    ctMethod.insertBefore(src);
-                } else if (atAnn != null && atAnn.line() >= 0) {
-                    ctMethod.insertAt(atAnn.line(), src);
-                } else if (replaceCallAnn != null && !replaceCallAnn.value().isEmpty()) {
+
+                if (afterAnn != null) ctMethod.insertAfter(src);
+                else if (beforeAnn != null) ctMethod.insertBefore(src);
+                else if (atAnn != null && atAnn.line() >= 0) ctMethod.insertAt(atAnn.line(), src);
+                else if (replaceCallAnn != null && !replaceCallAnn.value().isEmpty()) {
                     String[] parts = replaceCallAnn.value().split("#");
-                    if (parts.length != 2) {
-                        throw new IllegalArgumentException("Invalid ReplaceCall format, expected 'class#method'");
-                    }
+                    if (parts.length != 2) throw new IllegalArgumentException("Invalid ReplaceCall format");
                     String replaceCallClass = parts[0];
                     String replaceCallMethod = parts[1];
                     int limit = replaceCallAnn.limit();
@@ -209,45 +207,27 @@ public class MethodInjector {
                         @Override
                         public void edit(MethodCall m) throws CannotCompileException {
                             if (m.getClassName().equals(replaceCallClass) && m.getMethodName().equals(replaceCallMethod)) {
-                                boolean shouldReplace = false;
-
-                                if (limit >= 0) {
-                                    shouldReplace = current <= limit;
-                                } else if (counts.length > 0) {
-                                    for (int c : counts) {
-                                        if (current == c) {
-                                            shouldReplace = true;
-                                            break;
-                                        }
-                                    }
-                                } else {
-                                    shouldReplace = true;
-                                }
-                                if (shouldReplace) {
-                                    m.replace(finalSrc);
-                                }
+                                boolean shouldReplace = limit >= 0 ? current <= limit : counts.length == 0 || Arrays.stream(counts).anyMatch(c -> c == current);
+                                if (shouldReplace) m.replace(finalSrc);
                                 current++;
                             }
                         }
                     });
-                } else {
-                    throw new IllegalArgumentException("No valid injection point specified via @After, @Before, @At or @ReplaceCall");
-                }
+                } else throw new IllegalArgumentException("No valid injection point specified");
 
-                byte[] bytecode = ctClass.toBytecode();
+                byte[] afterBytecode = ctClass.toBytecode();
+
                 if (JNIIL.isMethodOutputEnabled()) {
                     File outputDir = JNIIL.getMethodOutputDir();
-                    if (!outputDir.exists()) {
-                        outputDir.mkdirs();
-                    }
+                    if (!outputDir.exists()) outputDir.mkdirs();
                     ctClass.writeFile(outputDir.getAbsolutePath());
-                    System.out.println("Dumped injected method to: " + outputDir.getAbsolutePath());
                 }
-
                 Class<?> clazzz = Class.forName(typeName, true, targetLoader);
-                redefineClass(clazzz, bytecode);
+                redefineClass(clazzz, afterBytecode);
+                injectedClasses.add(typeName);
                 System.out.println("Injected method: " + typeName + "#" + methodName);
             }
+
         } catch (Throwable e) {
             throw new RuntimeException(e);
         }
@@ -373,8 +353,14 @@ public class MethodInjector {
                 CtClass ctClass = pool.get(typeName);
 
                 if (ctClass.isFrozen()) {
-                    System.out.println("Defrosting class: " + ctClass.getName());
                     ctClass.defrost();
+                }
+                if (method.isAnnotationPresent(FillLocalVariableTable.class)) {
+                    byte[] modified = new LocalVariableTableFiller().fillLocalVariableNames(Class.forName(typeName), false);
+                    if (modified != null && modified.length > 0) {
+                        ctClass.defrost();
+                        ctClass = pool.makeClass(new ByteArrayInputStream(modified));
+                    }
                 }
 
                 CtMethod ctMethod;
@@ -529,8 +515,15 @@ public class MethodInjector {
 
                 CtClass ctClass = pool.get(info.targetTypeInternalName());
                 if (ctClass.isFrozen()) {
-                    System.out.println("Defrosting class: " + ctClass.getName());
                     ctClass.defrost();
+                }
+
+                if (method.isAnnotationPresent(FillLocalVariableTable.class)) {
+                    byte[] modified = new LocalVariableTableFiller().fillLocalVariableNames(Class.forName(info.targetTypeInternalName()), false);
+                    if (modified != null && modified.length > 0) {
+                        ctClass.defrost();
+                        ctClass = pool.makeClass(new ByteArrayInputStream(modified));
+                    }
                 }
 
                 CtMethod ctMethod = ctClass.getDeclaredMethod(info.targetMethodName());

@@ -20,6 +20,7 @@ import top.nontage.jniil.asm.LocalVariableTableFiller;
 import top.nontage.jniil.interfaces.Injectable;
 import top.nontage.jniil.javassist.FileClassPath;
 import top.nontage.jniil.javassist.JarFileClassPath;
+import top.nontage.jniil.utils.InjectionUtil;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -111,14 +112,18 @@ public abstract class AbstractMethodInjector {
                 }
             }
 
+            ctClass = modifyCtClassBeforeInsertCode(ctClass, injectable);
+
             CtMethod ctMethod = getCtMethod(ctClass, info);
 
             String src = injectable.getInjectSourceCode();
             if (src == null) src = injectable.getInjectSourceCode(ctMethod);
 
+            if (ctClass.isFrozen()) ctClass.defrost();
+
             insertCode(ctMethod, method, src);
 
-            modifyCtClassBeforeRedefinition(ctClass, injectable);
+            ctClass = modifyCtClassBeforeRedefinition(ctClass, injectable);
 
             byte[] bytecode = ctClass.toBytecode();
             Class<?> targetClass = Class.forName(info.typeName, true, loader);
@@ -126,6 +131,8 @@ public abstract class AbstractMethodInjector {
             injectedClasses.add(info.typeName);
 
             onInjected(ctClass, injectable);
+
+            getModifiedCtClass(ctClass);
         }
     }
 
@@ -135,18 +142,24 @@ public abstract class AbstractMethodInjector {
      * Subclasses can append additional class paths or use a different ClassPool.
      *
      * @return a {@link ClassPool} to use for loading target classes
-     * @throws Exception if any error occurs while creating or configuring the ClassPool
      **/
-    protected abstract ClassPool prepareClassPool() throws Exception;
+    protected ClassPool prepareClassPool() {
+        return ClassPool.getDefault();
+    }
 
     /**
      * Allows subclasses to provide a custom {@link ClassLoader} for the target class.
      *
      * @param info target information including class name and optional thread name
      * @return the {@link ClassLoader} used to load the target class
-     * @throws Exception if loader resolution fails
+     * @throws ClassNotFoundException if the target class cannot be found
      **/
-    protected abstract ClassLoader getTargetLoader(TargetInfo info) throws Exception;
+    protected ClassLoader getTargetLoader(TargetInfo info) throws ClassNotFoundException {
+        if (info.targetTypeThreadName == null || info.targetTypeThreadName.isEmpty()) {
+            return InjectionUtil.findClassAcrossClassLoaders(info.typeName).getClassLoader();
+        }
+        return InjectionUtil.findClassLoaderByThread(info.targetTypeThreadName);
+    }
 
     /**
      * Allows subclasses to modify the {@link CtClass} before it is redefined.
@@ -155,9 +168,24 @@ public abstract class AbstractMethodInjector {
      *
      * @param ctClass    the target {@link CtClass} to modify
      * @param injectable the original {@link Injectable} providing injection information
-     * @throws Exception if any Javassist or transformation error occurs
-     **/
-    protected abstract void modifyCtClassBeforeRedefinition(CtClass ctClass, Injectable injectable) throws Exception;
+     * @return the modified {@link CtClass}, can be the same instance or a new one
+     */
+    protected CtClass modifyCtClassBeforeRedefinition(CtClass ctClass, Injectable injectable) {
+        return ctClass;
+    }
+
+    /**
+     * Allows subclasses to modify the {@link CtClass} before code insertion.
+     * <p>
+     * This can be used to prepare the class, add fields, or perform other setup before injecting code.
+     *
+     * @param ctClass    the target {@link CtClass} to modify
+     * @param injectable the original {@link Injectable} providing injection information
+     * @return the modified {@link CtClass}, can be the same instance or a new one
+     */
+    protected CtClass modifyCtClassBeforeInsertCode(CtClass ctClass, Injectable injectable) {
+        return ctClass;
+    }
 
     /**
      * Callback invoked after injection is complete.
@@ -170,11 +198,11 @@ public abstract class AbstractMethodInjector {
     protected abstract void onInjected(CtClass ctClass, Injectable injectable);
 
     /**
-     * Determines whether this injector should return the {@link CtClass} after injection.
+     * Retrieves the modified {@link CtClass} after injection.
      *
-     * @return true if the injector returns the modified {@link CtClass}, false otherwise
+     * @param ctClass the target {@link CtClass}
      **/
-    protected abstract boolean shouldReturnCtClass();
+    protected abstract void getModifiedCtClass(CtClass ctClass);
 
     /**
      * Retrieves the target method from the {@link CtClass} based on {@link TargetInfo}.

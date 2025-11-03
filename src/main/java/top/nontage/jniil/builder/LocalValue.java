@@ -41,6 +41,14 @@ public class LocalValue<T> implements Expr {
         return new BinaryExpr(this, "-", other);
     }
 
+    public Expr mul(Expr other) {
+        return new BinaryExpr(this, "*", other);
+    }
+
+    public Expr div(Expr other) {
+        return new BinaryExpr(this, "/", other);
+    }
+
     public Expr gt(Expr other) {
         return new BinaryExpr(this, ">", other);
     }

@@ -52,7 +52,6 @@ public class Block {
         return (LocalValue<T>) slotMap.get(name);
     }
 
-
     @SuppressWarnings("unchecked")
     public <T> LocalValue<T> addLocal(String name, Class<T> type) {
         if (!builderLocals.containsKey(name)) {
@@ -216,6 +215,20 @@ public class Block {
         addLine("System.out.println(" + sb + ");");
     }
 
+    public void printf(String format, Object... args) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("\"").append(format).append("\"");
+        for (Object arg : args) {
+            sb.append(", ");
+            if (arg instanceof String && !((String) arg).startsWith("$") && !((String) arg).contains("(")) {
+                sb.append("\"").append(arg).append("\"");
+            } else {
+                sb.append(arg);
+            }
+        }
+        addLine("System.out.printf(" + sb + ");");
+    }
+
     public void returnVoid() {
         lines.add("return;");
     }
@@ -223,6 +236,7 @@ public class Block {
     public void returnValue(String value) {
         lines.add("return " + value + ";");
     }
+
     public void returnString(String value) {
         lines.add("return \"" + value + "\";");
     }

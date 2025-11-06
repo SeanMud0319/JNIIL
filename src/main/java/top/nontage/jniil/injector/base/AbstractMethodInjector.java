@@ -125,6 +125,15 @@ public abstract class AbstractMethodInjector {
 
             ctClass = modifyCtClassBeforeRedefinition(ctClass, injectable);
 
+            if (JNIIL.isMethodOutputEnabled()) {
+                File outputDir = JNIIL.getMethodOutputDir();
+                if (!outputDir.exists()) {
+                    outputDir.mkdirs();
+                }
+                ctClass.writeFile(outputDir.getAbsolutePath());
+                System.out.println("Dumped injected method to: " + outputDir.getAbsolutePath());
+            }
+
             byte[] bytecode = ctClass.toBytecode();
             Class<?> targetClass = Class.forName(info.typeName, true, loader);
             redefineClass(targetClass, bytecode);

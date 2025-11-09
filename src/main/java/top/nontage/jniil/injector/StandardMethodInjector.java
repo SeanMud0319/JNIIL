@@ -19,6 +19,4 @@ public class StandardMethodInjector extends AbstractMethodInjector {
     protected void getModifiedCtClass(CtClass ctClass) {
 
     }
-
-
 }

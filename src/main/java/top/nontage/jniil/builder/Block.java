@@ -1,6 +1,7 @@
 package top.nontage.jniil.builder;
 
 import top.nontage.auth.library.annotation.Protect;
+import top.nontage.jniil.error.NoSuchLocalVariableError;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -41,7 +42,9 @@ public class Block {
     @SuppressWarnings("unchecked")
     public <T> LocalValue<T> local(int slot) {
         Map<String, LocalValue<?>> slotMap = existingLocals.get(slot);
-        if (slotMap == null || slotMap.isEmpty()) return null;
+        if (slotMap == null || slotMap.isEmpty()) {
+            throw new NoSuchLocalVariableError(slot);
+        }
         return (LocalValue<T>) slotMap.values().iterator().next();
     }
 

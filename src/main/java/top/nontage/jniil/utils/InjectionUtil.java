@@ -21,6 +21,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+
 @Protect
 public class InjectionUtil {
     public static Class<?> findClassAcrossClassLoaders(String className) throws ClassNotFoundException {
@@ -30,8 +31,9 @@ public class InjectionUtil {
                 return clazz;
             }
         }
-        throw new ClassNotFoundException("[FCACL] Class not found: " + className);
+        throw new ClassNotFoundException("[JNIIL] Class not found: " + className);
     }
+
     public static ClassLoader findClassLoaderByThread(String threadName) {
         for (Thread thread : Thread.getAllStackTraces().keySet()) {
             if (thread.getName().equals(threadName)) {
@@ -40,6 +42,7 @@ public class InjectionUtil {
         }
         throw new RuntimeException("Thread not found: " + threadName);
     }
+
     public static void printAllLoader() {
         NativeInstrumentation inst = new NativeInstrumentation();
         for (Class<?> clazz : inst.getAllLoadedClasses()) {
@@ -48,6 +51,7 @@ public class InjectionUtil {
             }
         }
     }
+
     public static Class<?> forceLoadClass(String className, ClassLoader loader) {
         try {
             return Class.forName(className, false, loader);
@@ -55,6 +59,7 @@ public class InjectionUtil {
             throw new RuntimeException(e);
         }
     }
+
     public static byte[] getClassBytes(Class<?> clazz) throws IOException {
         String path = clazz.getName().replace('.', '/') + ".class";
         try (InputStream in = clazz.getClassLoader().getResourceAsStream(path)) {
@@ -111,6 +116,7 @@ public class InjectionUtil {
         DefineClassInterface function = MethodHandleProxies.asInterfaceInstance(DefineClassInterface.class, methodHandle);
         return function.defineClass(loader, name, bytecode, 0, bytecode.length);
     }
+
     public static byte[] removeInjectMethodInfo(byte[] originalBytecode) throws Exception {
         ClassPool pool = new ClassPool(true);
         CtClass original = pool.makeClass(new ByteArrayInputStream(originalBytecode));

@@ -9,6 +9,18 @@ public class JNIIL {
     private static final InjectionOutputConfig classOutput = new InjectionOutputConfig();
     private static final InjectionOutputConfig methodOutput = new InjectionOutputConfig();
     private static boolean storeOriginalByteCode = false;
+    private static boolean bytecodeVerifying = true;
+
+    public static boolean isBytecodeVerifying() {
+        return bytecodeVerifying;
+    }
+
+    public static void setBytecodeVerifying(boolean bytecodeVerifying) {
+        if (!bytecodeVerifying) {
+            System.out.println("[JNIIL] Bytecode verifying is disabled. This may lead to runtime errors if the injected bytecode is invalid.");
+        }
+        JNIIL.bytecodeVerifying = bytecodeVerifying;
+    }
 
     public static void enableClassOutput(File dir) {
         classOutput.enable(dir, "classes");

@@ -83,7 +83,7 @@ public class InjectionUtil {
         Class<?> defineClass(ClassLoader loader, String name, byte[] b, int off, int len) throws Throwable;
     }
 
-    public static void unsafeInjectClass(ClassLoader loader, String name, byte[] bytecode) throws Throwable {
+    public static Class<?> unsafeInjectClass(ClassLoader loader, String name, byte[] bytecode) throws Throwable {
         Field unsafeField = Unsafe.class.getDeclaredField("theUnsafe");
         unsafeField.setAccessible(true);
         Unsafe unsafe = (Unsafe) unsafeField.get(null);
@@ -109,7 +109,7 @@ public class InjectionUtil {
         );
 
         DefineClassInterface function = MethodHandleProxies.asInterfaceInstance(DefineClassInterface.class, methodHandle);
-        function.defineClass(loader, name, bytecode, 0, bytecode.length);
+        return function.defineClass(loader, name, bytecode, 0, bytecode.length);
     }
     public static byte[] removeInjectMethodInfo(byte[] originalBytecode) throws Exception {
         ClassPool pool = new ClassPool(true);

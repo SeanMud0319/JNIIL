@@ -8,6 +8,8 @@ import javassist.NotFoundException;
 import javassist.expr.ExprEditor;
 import javassist.expr.MethodCall;
 import me.fan87.nativeinstrumentation.NativeInstrumentation;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.util.CheckClassAdapter;
 import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.annotations.After;
 import top.nontage.jniil.annotations.At;
@@ -17,10 +19,12 @@ import top.nontage.jniil.annotations.InjectMethodInfo;
 import top.nontage.jniil.annotations.Null;
 import top.nontage.jniil.annotations.ReplaceCall;
 import top.nontage.jniil.asm.LocalVariableTableFiller;
+import top.nontage.jniil.exception.BytecodeVerifyException;
 import top.nontage.jniil.interfaces.Injectable;
 import top.nontage.jniil.javassist.FileClassPath;
 import top.nontage.jniil.javassist.JarFileClassPath;
 import top.nontage.jniil.utils.InjectionUtil;
+import top.nontage.jniil.verify.BytecodeVerifier;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -104,8 +108,7 @@ public abstract class AbstractMethodInjector {
             if (ctClass.isFrozen()) ctClass.defrost();
 
             if (method.isAnnotationPresent(FillLocalVariableTable.class)) {
-                byte[] modified = new LocalVariableTableFiller().fillLocalVariableNames(
-                        Class.forName(info.typeName), false);
+                byte[] modified = new LocalVariableTableFiller().fillLocalVariableNames(Class.forName(info.typeName), false);
                 if (modified != null && modified.length > 0) {
                     ctClass.defrost();
                     ctClass = pool.makeClass(new ByteArrayInputStream(modified));
@@ -113,6 +116,8 @@ public abstract class AbstractMethodInjector {
             }
 
             ctClass = modifyCtClassBeforeInsertCode(ctClass, injectable);
+
+            byte[] originalBytecode = InjectionUtil.getClassBytes(Class.forName(info.typeName));
 
             CtMethod ctMethod = getCtMethod(ctClass, info);
 
@@ -135,6 +140,16 @@ public abstract class AbstractMethodInjector {
             }
 
             byte[] bytecode = ctClass.toBytecode();
+
+            if (JNIIL.isBytecodeVerifying()) {
+                BytecodeVerifier.Result result = BytecodeVerifier.verifyAll(info.typeName, originalBytecode, bytecode);
+                if (!result.isAsmValid() || !result.isJvmValid()) {
+                    String msg = "[BytecodeVerifier] Class " + ctClass.getName() +
+                            " failed verification:\n" + result.getDetails();
+                    throw new BytecodeVerifyException(msg);
+                }
+            }
+
             Class<?> targetClass = Class.forName(info.typeName, true, loader);
             redefineClass(targetClass, bytecode);
             injectedClasses.add(info.typeName);

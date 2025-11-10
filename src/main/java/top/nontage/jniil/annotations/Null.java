@@ -9,5 +9,6 @@ import java.lang.annotation.Target;
 @Protect
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
+@Deprecated
 public @interface Null {
 }

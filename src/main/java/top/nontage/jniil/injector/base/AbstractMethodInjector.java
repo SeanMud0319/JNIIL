@@ -64,19 +64,81 @@ public abstract class AbstractMethodInjector {
     }
 
     /**
-     * Performs the full injection process for a given {@link Injectable}.
+     * Performs bytecode injection for the specified {@link Injectable} instance.
      * <p>
-     * Iterates over all methods in the Injectable class that are annotated with
-     * {@link InjectMethodInfo} or {@link Null} and injects code into the target methods.
+     * This is the core method of the JNIIL framework. It scans all methods within the given
+     * {@code injectable} object for injection annotations (such as {@code @Before}, {@code @After},
+     * {@code @At}, etc.), determines the target class and method, modifies their bytecode using
+     * Javassist, and finally redefines the class through {@link java.lang.instrument.Instrumentation}.
+     * </p>
      *
-     * @param injectable the object providing injection information and source code
-     * @throws Exception if any Javassist, reflection, or instrumentation error occurs
+     * <h3>Workflow Overview</h3>
+     * <ol>
+     *   <li>Scan all declared methods of {@code injectable} for recognized injection annotations.</li>
+     *   <li>Extract target metadata using {@link #extractTargetInfo(Injectable, Method)}.</li>
+     *   <li>Prepare a {@link ClassPool} and insert all required class paths (including system, file, and JAR paths).</li>
+     *   <li>Load the target {@link CtClass} and, if annotated with {@link FillLocalVariableTable},
+     *       reconstruct its LocalVariableTable.</li>
+     *   <li>Obtain the corresponding {@link CtMethod} and insert the injection source code
+     *       (retrieved from {@link Injectable#getInjectSourceCode()} or
+     *       {@link Injectable#getInjectSourceCode(CtMethod)}).</li>
+     *   <li>If {@link JNIIL#isMethodOutputEnabled()} is enabled, dump the modified class file to
+     *       the configured output directory.</li>
+     *   <li>If {@link JNIIL#isBytecodeVerifying()} is enabled, verify the modified bytecode using
+     *       {@link BytecodeVerifier}. Verification failures raise a {@link BytecodeVerifyException}.</li>
+     *   <li>If verification succeeds, redefine the target class using the agent's API.</li>
+     *   <li>Invoke {@link #onInjected(CtClass, Injectable)} to notify post-injection callbacks.</li>
+     * </ol>
+     *
+     * <h3>Supported Injection Annotations</h3>
+     * <ul>
+     *   <li>{@link InjectMethodInfo}</li>
+     *   <li>{@link Before}</li>
+     *   <li>{@link After}</li>
+     *   <li>{@link At}</li>
+     *   <li>{@link ReplaceCall}</li>
+     *   <li>{@link Null}</li>
+     * </ul>
+     *
+     * <h3>Notes</h3>
+     * <ul>
+     *   <li>Frozen classes will be automatically defrosted before modification.</li>
+     *   <li>If bytecode verification fails, a {@link BytecodeVerifyException} is thrown and
+     *       the injection process is aborted.</li>
+     *   <li>This method performs unsafe runtime redefinition and must be executed in an environment
+     *       with instrumentation privileges.</li>
+     * </ul>
+     *
+     * @param injectable the {@link Injectable} instance containing annotated injection methods and logic.
+     * @throws Exception if any of the following occur:
+     *                   <ul>
+     *                     <li>The target class or method cannot be found.</li>
+     *                     <li>Javassist fails to read, modify, or write the class bytecode.</li>
+     *                     <li>The redefinition process via Instrumentation throws an exception.</li>
+     *                     <li>{@link BytecodeVerifier} detects an invalid or corrupted class structure.</li>
+     *                   </ul>
+     *
+     * @see Injectable
+     * @see BytecodeVerifier
+     * @see BytecodeVerifyException
+     * @see FillLocalVariableTable
+     * @see ClassPool
+     * @see CtMethod
+     * @see JNIIL
      */
     public final void inject(Injectable injectable) throws Exception {
         Class<?> clazz = injectable.getClass();
 
         for (Method method : clazz.getDeclaredMethods()) {
-            if (!method.isAnnotationPresent(InjectMethodInfo.class) && !method.isAnnotationPresent(Null.class)) {
+            boolean hasInjectAnnotation =
+                    method.isAnnotationPresent(InjectMethodInfo.class) ||
+                            method.isAnnotationPresent(After.class) ||
+                            method.isAnnotationPresent(Before.class) ||
+                            method.isAnnotationPresent(At.class) ||
+                            method.isAnnotationPresent(ReplaceCall.class) ||
+                            method.isAnnotationPresent(Null.class);
+
+            if (!hasInjectAnnotation) {
                 continue;
             }
 
@@ -335,12 +397,11 @@ public abstract class AbstractMethodInjector {
      * @param injectable the injectable instance
      * @param method     the method to read annotations from
      * @return the populated {@link TargetInfo}
-     * @throws Exception if reflection access fails
      **/
-    protected TargetInfo extractTargetInfo(Injectable injectable, Method method) throws Exception {
+    protected TargetInfo extractTargetInfo(Injectable injectable, Method method) {
         TargetInfo info = new TargetInfo();
-        boolean isNull = method.isAnnotationPresent(Null.class);
-
+        boolean isNull = !method.isAnnotationPresent(InjectMethodInfo.class);
+        System.out.println(isNull);
         if (isNull) {
             info.typeName = injectable.targetTypeInternalName();
             info.methodName = injectable.targetMethodName();

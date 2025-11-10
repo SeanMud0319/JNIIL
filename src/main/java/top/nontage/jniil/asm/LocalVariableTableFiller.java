@@ -4,6 +4,7 @@ import me.fan87.nativeinstrumentation.NativeInstrumentation;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.InsnList;
@@ -113,20 +114,20 @@ public class LocalVariableTableFiller {
                 VarInsnNode vi = (VarInsnNode) insn;
                 if (vi.var == slot) {
                     switch (vi.getOpcode()) {
-                        case org.objectweb.asm.Opcodes.ILOAD:
-                        case org.objectweb.asm.Opcodes.ISTORE:
+                        case Opcodes.ILOAD:
+                        case Opcodes.ISTORE:
                             return "I";
-                        case org.objectweb.asm.Opcodes.LLOAD:
-                        case org.objectweb.asm.Opcodes.LSTORE:
+                        case Opcodes.LLOAD:
+                        case Opcodes.LSTORE:
                             return "J";
-                        case org.objectweb.asm.Opcodes.FLOAD:
-                        case org.objectweb.asm.Opcodes.FSTORE:
+                        case Opcodes.FLOAD:
+                        case Opcodes.FSTORE:
                             return "F";
-                        case org.objectweb.asm.Opcodes.DLOAD:
-                        case org.objectweb.asm.Opcodes.DSTORE:
+                        case Opcodes.DLOAD:
+                        case Opcodes.DSTORE:
                             return "D";
-                        case org.objectweb.asm.Opcodes.ALOAD:
-                        case org.objectweb.asm.Opcodes.ASTORE:
+                        case Opcodes.ALOAD:
+                        case Opcodes.ASTORE:
                             return "Ljava/lang/Object;";
                     }
                 }

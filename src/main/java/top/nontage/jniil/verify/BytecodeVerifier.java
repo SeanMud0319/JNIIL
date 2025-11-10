@@ -64,19 +64,13 @@ public class BytecodeVerifier {
         boolean asmValid = asmVerify(classBytes, sw);
         boolean jvmValid = jvmVerify(className, oldClassBytes, classBytes);
         String details = sw.toString();
-
         if (asmValid) {
             System.out.println("ASM structure check passed");
-        } else {
-            System.err.println("ASM found issues:\n" + details);
         }
 
         if (jvmValid) {
             System.out.println("JVM verification passed");
-        } else {
-            System.err.println("JVM verification not implemented or failed");
         }
-
         return new Result(asmValid, jvmValid, details);
     }
 }

@@ -72,6 +72,9 @@ import java.util.zip.ZipOutputStream;
 public class JNIILBootstrap {
     public enum MODE {
         ATTACH_API,
+        /**
+         * May not support on your platform / JVM
+         */
         NATIVE
     }
     private static volatile Instrumentation instrumentation;
@@ -167,7 +170,7 @@ public class JNIILBootstrap {
     //fuck you asm
     private static byte[] generateTempAgent() {
         ClassWriter cw = new ClassWriter(0);
-        String cls = "TempAgent";
+        String cls = "top/nontage/jniil/agent/TempAgent";
 
         cw.visit(Opcodes.V1_8,
                 Opcodes.ACC_PUBLIC,
@@ -226,12 +229,12 @@ public class JNIILBootstrap {
             zos.putNextEntry(new ZipEntry("META-INF/MANIFEST.MF"));
             String manifest =
                     "Manifest-Version: 1.0\n" +
-                            "Agent-Class: TempAgent\n" +
+                            "Agent-Class: top.nontage.jniil.agent.TempAgent\n" +
                             "Can-Redefine-Classes: true\n" +
                             "Can-Retransform-Classes: true\n";
             zos.write(manifest.getBytes());
             zos.closeEntry();
-            zos.putNextEntry(new ZipEntry("TempAgent.class"));
+            zos.putNextEntry(new ZipEntry("top/nontage/jniil/agent/TempAgent.class"));
             zos.write(agentBytes);
             zos.closeEntry();
         }

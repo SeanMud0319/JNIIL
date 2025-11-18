@@ -123,7 +123,7 @@ public class MethodInjector {
                     InjectMethodInfo info = method.getAnnotation(InjectMethodInfo.class);
                     typeName = info.targetTypeInternalName();
                     methodName = info.targetMethodName();
-                    methodParams = info.targetMethodParms();
+                    methodParams = info.targetMethodParams();
                     appendClasses = info.appendClassLoader();
                     targetTypeThreadName = info.targetTypeThreadName();
                     appendFileLoader = info.appendFileLoader();
@@ -301,7 +301,7 @@ public class MethodInjector {
                     InjectMethodInfo info = method.getAnnotation(InjectMethodInfo.class);
                     typeName = info.targetTypeInternalName();
                     methodName = info.targetMethodName();
-                    methodParams = info.targetMethodParms();
+                    methodParams = info.targetMethodParams();
                     appendClasses = info.appendClassLoader();
                     targetTypeThreadName = info.targetTypeThreadName();
                     appendFileLoader = info.appendFileLoader();

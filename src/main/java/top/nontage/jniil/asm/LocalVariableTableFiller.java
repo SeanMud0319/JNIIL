@@ -1,6 +1,5 @@
 package top.nontage.jniil.asm;
 
-import me.fan87.nativeinstrumentation.NativeInstrumentation;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
@@ -13,17 +12,20 @@ import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.VarInsnNode;
 import top.nontage.auth.library.annotation.Protect;
+import top.nontage.jniil.JNIIL;
 
 import java.lang.instrument.ClassFileTransformer;
+import java.lang.instrument.Instrumentation;
+import java.lang.instrument.UnmodifiableClassException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
+
 @Protect
 public class LocalVariableTableFiller {
+    private final Instrumentation inst = JNIIL.getInstrumentation();
 
-    private final NativeInstrumentation inst = new NativeInstrumentation();
-
-    public byte[] fillLocalVariableNames(final Class<?> targetClass, boolean debug) {
+    public byte[] fillLocalVariableNames(final Class<?> targetClass, boolean debug) throws UnmodifiableClassException {
         final byte[][] transformedBytes = new byte[1][];
 
         ClassFileTransformer transformer = (loader, className, classBeingRedefined,

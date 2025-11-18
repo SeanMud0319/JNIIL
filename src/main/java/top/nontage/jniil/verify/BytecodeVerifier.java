@@ -1,18 +1,19 @@
 package top.nontage.jniil.verify;
 
-import me.fan87.nativeinstrumentation.NativeInstrumentation;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.util.CheckClassAdapter;
 import top.nontage.auth.library.annotation.Protect;
+import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.utils.InjectionUtil;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.instrument.ClassDefinition;
+import java.lang.instrument.Instrumentation;
 
 @Protect
 public class BytecodeVerifier {
-    private static final NativeInstrumentation inst = new NativeInstrumentation();
+    private static final Instrumentation inst = JNIIL.getInstrumentation();
 
     public static class Result {
         private final boolean asmValid;

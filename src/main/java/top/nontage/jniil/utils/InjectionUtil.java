@@ -1,20 +1,13 @@
 package top.nontage.jniil.utils;
 
-import javassist.ClassPool;
-import javassist.CtClass;
-import javassist.CtMethod;
-import javassist.bytecode.AnnotationsAttribute;
-import javassist.bytecode.MethodInfo;
-import javassist.bytecode.annotation.Annotation;
-
-import me.fan87.nativeinstrumentation.NativeInstrumentation;
 import sun.misc.Unsafe;
 import top.nontage.auth.library.annotation.Protect;
+import top.nontage.jniil.JNIIL;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.instrument.Instrumentation;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandleProxies;
 import java.lang.invoke.MethodHandles;
@@ -24,8 +17,8 @@ import java.lang.reflect.Method;
 
 @Protect
 public class InjectionUtil {
+    private static final Instrumentation inst = JNIIL.getInstrumentation();
     public static Class<?> findClassAcrossClassLoaders(String className) throws ClassNotFoundException {
-        NativeInstrumentation inst = new NativeInstrumentation();
         for (Class<?> clazz : inst.getAllLoadedClasses()) {
             if (clazz.getName().equals(className)) {
                 return clazz;
@@ -44,7 +37,6 @@ public class InjectionUtil {
     }
 
     public static void printAllLoader() {
-        NativeInstrumentation inst = new NativeInstrumentation();
         for (Class<?> clazz : inst.getAllLoadedClasses()) {
             if (!clazz.getName().contains(".")) {
                 System.out.println("Class: " + clazz.getName() + ", Loader: " + clazz.getClassLoader());
@@ -74,7 +66,6 @@ public class InjectionUtil {
             return buffer.toByteArray();
         }
     }
-
 
     public static void injectClass(ClassLoader loader, String name, byte[] bytecode) throws Exception {
         Method defineClass = ClassLoader.class.getDeclaredMethod(
@@ -116,31 +107,4 @@ public class InjectionUtil {
         DefineClassInterface function = MethodHandleProxies.asInterfaceInstance(DefineClassInterface.class, methodHandle);
         return function.defineClass(loader, name, bytecode, 0, bytecode.length);
     }
-
-    public static byte[] removeInjectMethodInfo(byte[] originalBytecode) throws Exception {
-        ClassPool pool = new ClassPool(true);
-        CtClass original = pool.makeClass(new ByteArrayInputStream(originalBytecode));
-        CtClass newClass = pool.makeClass(original.getName());
-        for (CtMethod method : original.getDeclaredMethods()) {
-            MethodInfo methodInfo = method.getMethodInfo();
-            AnnotationsAttribute visible = (AnnotationsAttribute) methodInfo.getAttribute(AnnotationsAttribute.visibleTag);
-            boolean hasInject = false;
-            if (visible != null) {
-                Annotation injectMethodInfoAnno = visible.getAnnotation("top.nontage.jniil.annotations.InjectMethodInfo");
-                if (injectMethodInfoAnno != null) {
-                    hasInject = true;
-                }
-            }
-            if (!hasInject) {
-                newClass.addMethod(new CtMethod(method, newClass, null));
-            }
-        }
-
-        byte[] bytecode = newClass.toBytecode();
-        original.detach();
-        newClass.detach();
-        return bytecode;
-    }
-
-
 }

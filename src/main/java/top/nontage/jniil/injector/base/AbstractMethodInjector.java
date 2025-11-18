@@ -7,9 +7,6 @@ import javassist.LoaderClassPath;
 import javassist.NotFoundException;
 import javassist.expr.ExprEditor;
 import javassist.expr.MethodCall;
-import me.fan87.nativeinstrumentation.NativeInstrumentation;
-import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.util.CheckClassAdapter;
 import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.annotations.After;
 import top.nontage.jniil.annotations.At;
@@ -29,6 +26,8 @@ import top.nontage.jniil.verify.BytecodeVerifier;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.lang.instrument.ClassFileTransformer;
+import java.lang.instrument.Instrumentation;
+import java.lang.instrument.UnmodifiableClassException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -45,7 +44,7 @@ import java.util.Set;
  **/
 public abstract class AbstractMethodInjector {
 
-    protected static final NativeInstrumentation inst = new NativeInstrumentation();
+    protected static final Instrumentation inst = JNIIL.getInstrumentation();
     protected static final Set<String> injectedClasses = new HashSet<>();
     protected static final Map<Class<?>, byte[]> originalBytecodes = new HashMap<>();
 
@@ -367,15 +366,14 @@ public abstract class AbstractMethodInjector {
     }
 
     /**
-     * Redefines a class using {@link NativeInstrumentation} with the new bytecode.
+     * Redefines a class using {@link Instrumentation} with the new bytecode.
      * <p>
      * Stores the original bytecode if JNIIL.isStoreOriginalByteCode() is enabled.
      *
      * @param clazz       the class to redefine
      * @param newBytecode the new bytecode
-     * @throws Exception if redefinition fails
      **/
-    protected void redefineClass(Class<?> clazz, byte[] newBytecode) throws Exception {
+    protected void redefineClass(Class<?> clazz, byte[] newBytecode) throws UnmodifiableClassException {
         ClassFileTransformer transformer = (loader, className, classBeingRedefined, protectionDomain, classfileBuffer) -> {
             if (classBeingRedefined == clazz) {
                 if (JNIIL.isStoreOriginalByteCode() && !originalBytecodes.containsKey(clazz)) {

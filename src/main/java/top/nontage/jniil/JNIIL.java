@@ -3,6 +3,8 @@ package top.nontage.jniil;
 import top.nontage.auth.library.annotation.Protect;
 
 import java.io.File;
+import java.lang.instrument.Instrumentation;
+
 @Protect
 public class JNIIL {
 
@@ -10,6 +12,15 @@ public class JNIIL {
     private static final InjectionOutputConfig methodOutput = new InjectionOutputConfig();
     private static boolean storeOriginalByteCode = false;
     private static boolean bytecodeVerifying = true;
+    private static Instrumentation instrumentation;
+
+    public static void setInstrumentation(Instrumentation instrumentation) {
+        JNIIL.instrumentation = instrumentation;
+    }
+
+    public static Instrumentation getInstrumentation() {
+        return instrumentation;
+    }
 
     public static boolean isBytecodeVerifying() {
         return bytecodeVerifying;

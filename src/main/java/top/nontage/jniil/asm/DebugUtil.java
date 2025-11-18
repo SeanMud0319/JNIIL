@@ -7,7 +7,7 @@ import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
 
 public class DebugUtil {
-    public static void printASMInfo(byte[] bytecode, String label) throws Exception {
+    public static void printASMInfo(byte[] bytecode, String label) {
         ClassReader cr = new ClassReader(bytecode);
         ClassNode cn = new ClassNode();
         cr.accept(cn, 0);

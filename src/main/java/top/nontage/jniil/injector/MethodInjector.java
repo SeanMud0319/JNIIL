@@ -6,15 +6,9 @@ import javassist.CtClass;
 import javassist.CtMethod;
 import javassist.LoaderClassPath;
 import javassist.NotFoundException;
-import javassist.bytecode.ClassFile;
 import javassist.expr.ExprEditor;
 import javassist.expr.MethodCall;
 import me.fan87.nativeinstrumentation.NativeInstrumentation;
-import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.tree.AbstractInsnNode;
-import org.objectweb.asm.tree.ClassNode;
-import org.objectweb.asm.tree.LocalVariableNode;
-import org.objectweb.asm.tree.MethodNode;
 import top.nontage.auth.library.annotation.Protect;
 import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.annotations.After;
@@ -32,10 +26,10 @@ import top.nontage.jniil.javassist.JarFileClassPath;
 import top.nontage.jniil.utils.InjectionUtil;
 
 import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.lang.instrument.ClassFileTransformer;
+import java.lang.instrument.UnmodifiableClassException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -47,6 +41,7 @@ import java.util.Map;
 import java.util.Set;
 
 @Protect
+@Deprecated
 public class MethodInjector {
     private static final NativeInstrumentation inst = new NativeInstrumentation();
     private static final Set<String> injectedClasses = new HashSet<>();
@@ -498,7 +493,7 @@ public class MethodInjector {
     }
 
     //因為上面那陀我爆改給Nontage Clint用了 所以插件暫時用這邊的
-    public static void injectPluginMethod(Injectable injectable) throws ClassNotFoundException, NotFoundException, CannotCompileException, IOException, IllegalAccessException {
+    public static void injectPluginMethod(Injectable injectable) throws ClassNotFoundException, NotFoundException, CannotCompileException, IOException, IllegalAccessException, UnmodifiableClassException {
         Class<?> clazz = injectable.getClass();
         for (Method method : clazz.getDeclaredMethods()) {
             if (method.isAnnotationPresent(InjectMethodInfo.class)) {

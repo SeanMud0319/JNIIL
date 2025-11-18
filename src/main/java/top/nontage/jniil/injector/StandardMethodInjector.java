@@ -5,7 +5,7 @@ import javassist.CtClass;
 import top.nontage.jniil.injector.base.AbstractMethodInjector;
 import top.nontage.jniil.interfaces.Injectable;
 
-public class StandardMethodInjector extends AbstractMethodInjector {
+public final class StandardMethodInjector extends AbstractMethodInjector {
     @Override
     protected ClassPool prepareClassPool() {
         return new ClassPool(null);

@@ -8,7 +8,7 @@ import top.nontage.jniil.interfaces.Injectable;
 import java.util.HashMap;
 import java.util.Map;
 
-public class ReusableMethodInjector extends AbstractMethodInjector {
+public final class ReusableMethodInjector extends AbstractMethodInjector {
 
     private final Map<String, CtClass> modifiedClasses = new HashMap<>();
 

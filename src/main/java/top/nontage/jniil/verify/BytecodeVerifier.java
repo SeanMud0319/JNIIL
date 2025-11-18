@@ -10,10 +10,15 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.instrument.ClassDefinition;
 import java.lang.instrument.Instrumentation;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 
 @Protect
 public class BytecodeVerifier {
     private static final Instrumentation inst = JNIIL.getInstrumentation();
+    public static final Set<ClassLoader> VERIFIER_LOADERS =
+            Collections.newSetFromMap(new IdentityHashMap<>());
 
     public static class Result {
         private final boolean asmValid;
@@ -49,8 +54,8 @@ public class BytecodeVerifier {
 
     public static boolean jvmVerify(String className, byte[] oldBytes, byte[] newBytes) {
         try {
-            ClassLoader tempLoader = new ClassLoader() {
-            };
+            ClassLoader tempLoader = new ClassLoader() {};
+            VERIFIER_LOADERS.add(tempLoader);
             Class<?> oldClass = InjectionUtil.unsafeInjectClass(tempLoader, className, oldBytes);
             inst.redefineClasses(new ClassDefinition(oldClass, newBytes));
             return true;

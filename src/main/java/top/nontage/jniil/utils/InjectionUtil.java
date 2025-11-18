@@ -3,6 +3,7 @@ package top.nontage.jniil.utils;
 import sun.misc.Unsafe;
 import top.nontage.auth.library.annotation.Protect;
 import top.nontage.jniil.JNIIL;
+import top.nontage.jniil.verify.BytecodeVerifier;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -18,8 +19,15 @@ import java.lang.reflect.Method;
 @Protect
 public class InjectionUtil {
     private static final Instrumentation inst = JNIIL.getInstrumentation();
+
     public static Class<?> findClassAcrossClassLoaders(String className) throws ClassNotFoundException {
         for (Class<?> clazz : inst.getAllLoadedClasses()) {
+            ClassLoader loader = clazz.getClassLoader();
+
+            if (BytecodeVerifier.VERIFIER_LOADERS.contains(loader)) {
+                continue;
+            }
+
             if (clazz.getName().equals(className)) {
                 return clazz;
             }

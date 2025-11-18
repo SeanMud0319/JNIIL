@@ -399,7 +399,6 @@ public abstract class AbstractMethodInjector {
     protected TargetInfo extractTargetInfo(Injectable injectable, Method method) {
         TargetInfo info = new TargetInfo();
         boolean isNull = !method.isAnnotationPresent(InjectMethodInfo.class);
-        System.out.println(isNull);
         if (isNull) {
             info.typeName = injectable.targetTypeInternalName();
             info.methodName = injectable.targetMethodName();
@@ -413,7 +412,7 @@ public abstract class AbstractMethodInjector {
             InjectMethodInfo annotation = method.getAnnotation(InjectMethodInfo.class);
             info.typeName = annotation.targetTypeInternalName();
             info.methodName = annotation.targetMethodName();
-            info.methodParams = annotation.targetMethodParms();
+            info.methodParams = annotation.targetMethodParams();
             info.appendClasses = annotation.appendClassLoader();
             info.targetTypeThreadName = annotation.targetTypeThreadName();
             info.appendFileLoader = annotation.appendFileLoader();

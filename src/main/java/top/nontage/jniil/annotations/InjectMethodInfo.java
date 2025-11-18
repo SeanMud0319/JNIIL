@@ -12,7 +12,7 @@ import java.lang.annotation.Target;
 public @interface InjectMethodInfo {
     String targetTypeInternalName();
     String targetMethodName();
-    String[] targetMethodParms() default {};
+    String[] targetMethodParams() default {};
     Class<?>[] appendClassLoader() default {};
     String targetTypeThreadName() default "";
     String[] appendFileLoader() default "";

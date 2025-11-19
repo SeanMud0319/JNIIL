@@ -4,6 +4,7 @@ import me.fan87.nativeinstrumentation.NativeInstrumentation;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import top.nontage.jniil.JNIIL;
 
 import java.io.File;
 import java.io.IOException;
@@ -79,8 +80,8 @@ public class JNIILBootstrap {
     }
     private static volatile Instrumentation instrumentation;
 
-    public static Instrumentation install(MODE mode) {
-        if (instrumentation != null) return instrumentation;
+    public static void install(MODE mode) {
+        if (instrumentation != null) return;
         switch (mode) {
             case ATTACH_API:
                 attachSelf();
@@ -89,7 +90,7 @@ public class JNIILBootstrap {
                 instrumentation = new NativeInstrumentation();
                 break;
         }
-        return instrumentation;
+        JNIIL.setInstrumentation(instrumentation);
     }
 
     public static void setInstrumentation(Instrumentation instrumentation) {

@@ -45,6 +45,13 @@ import java.util.zip.ZipOutputStream;
  *       --add-opens java.base/sun.management=ALL-UNNAMED
  *       </pre>
  *   </li>
+ *   <li><b>Full commands and ignore JVM warning</b>
+ *    <pre>
+ *        -XX:+EnableDynamicAgentLoading
+ *        -Djdk.attach.allowAttachSelf=true
+ *        --add-opens java.base/jdk.internal.misc=ALL-UNNAMED
+ *        --add-exports java.management/sun.management=ALL-UNNAMED
+ *   </pre>
  * </ul>
  *
  * <h3>Platform Notes</h3>
@@ -78,6 +85,7 @@ public class JNIILBootstrap {
          */
         NATIVE
     }
+
     private static volatile Instrumentation instrumentation;
 
     public static void install(MODE mode) {

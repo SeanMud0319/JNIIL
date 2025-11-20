@@ -14,6 +14,7 @@ import top.nontage.jniil.annotations.Before;
 import top.nontage.jniil.annotations.FillLocalVariableTable;
 import top.nontage.jniil.annotations.InjectMethodInfo;
 import top.nontage.jniil.annotations.Null;
+import top.nontage.jniil.annotations.ReplaceAll;
 import top.nontage.jniil.annotations.ReplaceCall;
 import top.nontage.jniil.asm.LocalVariableTableFiller;
 import top.nontage.jniil.exception.BytecodeVerifyException;
@@ -116,7 +117,6 @@ public abstract class AbstractMethodInjector {
      *                     <li>The redefinition process via Instrumentation throws an exception.</li>
      *                     <li>{@link BytecodeVerifier} detects an invalid or corrupted class structure.</li>
      *                   </ul>
-     *
      * @see Injectable
      * @see BytecodeVerifier
      * @see BytecodeVerifyException
@@ -134,6 +134,7 @@ public abstract class AbstractMethodInjector {
                             method.isAnnotationPresent(After.class) ||
                             method.isAnnotationPresent(Before.class) ||
                             method.isAnnotationPresent(At.class) ||
+                            method.isAnnotationPresent(ReplaceAll.class) ||
                             method.isAnnotationPresent(ReplaceCall.class) ||
                             method.isAnnotationPresent(Null.class);
 
@@ -326,21 +327,36 @@ public abstract class AbstractMethodInjector {
         After afterAnn = method.getAnnotation(After.class);
         Before beforeAnn = method.getAnnotation(Before.class);
         At atAnn = method.getAnnotation(At.class);
+        ReplaceAll replaceAllAnn = method.getAnnotation(ReplaceAll.class);
         ReplaceCall replaceCallAnn = method.getAnnotation(ReplaceCall.class);
 
         if (afterAnn != null) {
             ctMethod.insertAfter(src);
-        } else if (beforeAnn != null) {
+            return;
+        }
+        if (beforeAnn != null) {
             ctMethod.insertBefore(src);
-        } else if (atAnn != null && atAnn.line() >= 0) {
+            return;
+        }
+        if (atAnn != null && atAnn.line() >= 0) {
             ctMethod.insertAt(atAnn.line(), src);
-        } else if (replaceCallAnn != null && !replaceCallAnn.value().isEmpty()) {
+            return;
+        }
+        if (replaceAllAnn != null) {
+            if (!src.startsWith("{") && !src.endsWith("}")) {
+                src = "{" + src + "}";
+            }
+            ctMethod.setBody(src);
+            return;
+        }
+        if (replaceCallAnn != null && !replaceCallAnn.value().isEmpty()) {
             String[] parts = replaceCallAnn.value().split("#");
             if (parts.length != 2) throw new IllegalArgumentException("Invalid ReplaceCall format");
             String replaceCallClass = parts[0];
             String replaceCallMethod = parts[1];
             int limit = replaceCallAnn.limit();
             int[] counts = replaceCallAnn.counts();
+            String finalSrc = src;
             ctMethod.instrument(new ExprEditor() {
                 int current = 1;
 
@@ -351,7 +367,7 @@ public abstract class AbstractMethodInjector {
                                 : counts.length == 0 || Arrays.stream(counts).anyMatch(c -> c == current);
                         if (shouldReplace) {
                             try {
-                                m.replace(src);
+                                m.replace(finalSrc);
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
                             }
@@ -361,7 +377,7 @@ public abstract class AbstractMethodInjector {
                 }
             });
         } else {
-            throw new IllegalArgumentException("No valid injection point specified via @After, @Before, @At or @ReplaceCall");
+            throw new IllegalArgumentException("No valid injection point specified via @After, @Before, @At, @ReplaceAll or @ReplaceCall");
         }
     }
 

@@ -243,6 +243,10 @@ public class Block {
     public void returnString(String value) {
         lines.add("return \"" + value + "\";");
     }
+    public void invoke(Method method, String... params) {
+        String invokeMethod = method.getDeclaringClass().getName() + "." + method.getName() + "(" + String.join(", ", params) + ");";
+        lines.add(invokeMethod);
+    }
 
     public String build() {
         return String.join("\n", lines);

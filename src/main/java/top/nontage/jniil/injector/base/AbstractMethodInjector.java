@@ -399,7 +399,6 @@ public abstract class AbstractMethodInjector {
             }
             return null;
         };
-
         inst.addTransformer(transformer, true);
         inst.retransformClasses(clazz);
         inst.removeTransformer(transformer);

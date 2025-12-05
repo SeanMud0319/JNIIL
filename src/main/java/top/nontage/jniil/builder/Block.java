@@ -243,6 +243,11 @@ public class Block {
     public void returnString(String value) {
         lines.add("return \"" + value + "\";");
     }
+
+    public void returnBoolean(boolean value) {
+        lines.add("return java.lang.Boolean." + (value ? "TRUE" : "FALSE") + ";");
+    }
+
     public void invoke(Method method, String... params) {
         String invokeMethod = method.getDeclaringClass().getName() + "." + method.getName() + "(" + String.join(", ", params) + ");";
         lines.add(invokeMethod);

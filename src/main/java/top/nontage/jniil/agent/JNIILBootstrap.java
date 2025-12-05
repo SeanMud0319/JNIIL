@@ -77,7 +77,7 @@ import java.util.zip.ZipOutputStream;
  *
  * <p>Use at your own risk. Not guaranteed to work on all JVM implementations.</p>
  */
-public class JNIILBootstrap {
+public class JNIILBootstrap implements Opcodes{
     public enum MODE {
         ATTACH_API,
         /**
@@ -181,28 +181,28 @@ public class JNIILBootstrap {
         ClassWriter cw = new ClassWriter(0);
         String cls = "top/nontage/jniil/agent/TempAgent";
 
-        cw.visit(Opcodes.V1_8,
-                Opcodes.ACC_PUBLIC,
+        cw.visit(V1_8,
+                ACC_PUBLIC,
                 cls,
                 null,
                 "java/lang/Object",
                 null);
 
-        MethodVisitor init = cw.visitMethod(Opcodes.ACC_PUBLIC,
+        MethodVisitor init = cw.visitMethod(ACC_PUBLIC,
                 "<init>",
                 "()V",
                 null,
                 null);
         init.visitCode();
-        init.visitVarInsn(Opcodes.ALOAD, 0);
-        init.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object",
+        init.visitVarInsn(ALOAD, 0);
+        init.visitMethodInsn(INVOKESPECIAL, "java/lang/Object",
                 "<init>", "()V", false);
-        init.visitInsn(Opcodes.RETURN);
+        init.visitInsn(RETURN);
         init.visitMaxs(1, 1);
         init.visitEnd();
 
         // public static void agentmain(String args, Instrumentation inst)
-        MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
+        MethodVisitor mv = cw.visitMethod(ACC_PUBLIC | ACC_STATIC,
                 "agentmain",
                 "(Ljava/lang/String;Ljava/lang/instrument/Instrumentation;)V",
                 null,
@@ -210,17 +210,17 @@ public class JNIILBootstrap {
 
         mv.visitCode();
 
-        // AgentBootstrap.setInstrumentation(inst);
-        mv.visitVarInsn(Opcodes.ALOAD, 1);
+        // JNIILBootstrap.setInstrumentation(inst);
+        mv.visitVarInsn(ALOAD, 1);
         mv.visitMethodInsn(
-                Opcodes.INVOKESTATIC,
+                INVOKESTATIC,
                 "top/nontage/jniil/agent/JNIILBootstrap",
                 "setInstrumentation",
                 "(Ljava/lang/instrument/Instrumentation;)V",
                 false
         );
 
-        mv.visitInsn(Opcodes.RETURN);
+        mv.visitInsn(RETURN);
         mv.visitMaxs(1, 2);
         mv.visitEnd();
 

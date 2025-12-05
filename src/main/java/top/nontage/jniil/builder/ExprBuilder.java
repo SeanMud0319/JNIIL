@@ -10,19 +10,20 @@ import org.objectweb.asm.tree.MethodNode;
 import top.nontage.auth.library.annotation.Protect;
 
 import java.lang.reflect.Method;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 @Protect
 public class ExprBuilder {
 
     private Method method;
     private MethodParams methodParams;
-
+    private final Set<String> imports = new HashSet<>();
     private final Map<String, LocalValue<?>> builderLocals = new LinkedHashMap<>();
     private final Map<Integer, LocalValue<?>> paramLocals = new LinkedHashMap<>();
     private final Map<Integer, Map<String, LocalValue<?>>> existingLocals = new LinkedHashMap<>();
-
     private Block block;
 
     private ExprBuilder() {
@@ -45,6 +46,13 @@ public class ExprBuilder {
             paramLocals.put(slot, new LocalValue<>("$" + slot, type));
         }
         return (LocalValue<T>) paramLocals.get(slot);
+    }
+
+    public ExprBuilder imports(Import... imports) {
+        for (Import imp : imports) {
+            this.imports.add(imp.getClassName());
+        }
+        return this;
     }
 
     @SuppressWarnings({"unchecked", "UnusedReturnValue"})
@@ -72,16 +80,36 @@ public class ExprBuilder {
 
     public String compile() {
         StringBuilder sb = new StringBuilder();
+
         for (LocalValue<?> lv : builderLocals.values()) {
-            sb.append(lv.getType().getSimpleName())
+            String typeName = lv.getType().getSimpleName();
+
+            for (String fullName : imports) {
+                String shortName = fullName.substring(fullName.lastIndexOf('.') + 1);
+                if (typeName.equals(shortName)) {
+                    typeName = fullName;
+                    break;
+                }
+            }
+
+            sb.append(typeName)
                     .append(" ")
                     .append(lv.get())
                     .append(";")
                     .append("\n");
         }
-        if (block != null) sb.append(block.build());
+
+        String code = block != null ? block.build() : "";
+
+        for (String fullName : imports) {
+            String shortName = fullName.substring(fullName.lastIndexOf('.') + 1);
+            code = code.replaceAll("\\b" + shortName + "\\b", fullName);
+        }
+
+        sb.append(code);
         return sb.toString();
     }
+
 
     public void extractExistingLocals(byte[] classBytes, CtMethod ctMethod) {
         try {

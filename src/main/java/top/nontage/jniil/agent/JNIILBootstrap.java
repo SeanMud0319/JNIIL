@@ -77,7 +77,7 @@ import java.util.zip.ZipOutputStream;
  *
  * <p>Use at your own risk. Not guaranteed to work on all JVM implementations.</p>
  */
-public class JNIILBootstrap implements Opcodes{
+public class JNIILBootstrap implements Opcodes {
     public enum MODE {
         ATTACH_API,
         /**

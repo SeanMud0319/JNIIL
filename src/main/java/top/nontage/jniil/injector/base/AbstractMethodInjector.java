@@ -18,6 +18,7 @@ import top.nontage.jniil.annotations.ReplaceAll;
 import top.nontage.jniil.annotations.ReplaceCall;
 import top.nontage.jniil.asm.LocalVariableTableFiller;
 import top.nontage.jniil.exception.BytecodeVerifyException;
+import top.nontage.jniil.injector.cache.InjectionCache;
 import top.nontage.jniil.interfaces.Injectable;
 import top.nontage.jniil.javassist.FileClassPath;
 import top.nontage.jniil.javassist.JarFileClassPath;
@@ -166,7 +167,16 @@ public abstract class AbstractMethodInjector {
                 }
             }
 
-            CtClass ctClass = pool.get(info.typeName);
+            Class<?> targetClass = Class.forName(info.typeName, true, loader);
+
+            // Load CtClass from cache if available, because you can't get redefined class bytecode just from ClassPool or ClassLoader, even from retransformed class.
+            CtClass ctClass;
+            if (InjectionCache.contains(Class.forName(info.typeName))) {
+                ctClass = pool.makeClass(new ByteArrayInputStream(InjectionCache.get(targetClass)));
+            } else {
+                ctClass = pool.get(info.typeName);
+            }
+
             if (ctClass.isFrozen()) ctClass.defrost();
 
             if (method.isAnnotationPresent(FillLocalVariableTable.class)) {
@@ -179,7 +189,7 @@ public abstract class AbstractMethodInjector {
 
             ctClass = modifyCtClassBeforeInsertCode(ctClass, injectable);
 
-            byte[] originalBytecode = InjectionUtil.getClassBytes(Class.forName(info.typeName));
+            byte[] originalBytecode = InjectionUtil.getOriginalClassBytes(Class.forName(info.typeName));
 
             CtMethod ctMethod = getCtMethod(ctClass, info);
 
@@ -212,13 +222,14 @@ public abstract class AbstractMethodInjector {
                 }
             }
 
-            Class<?> targetClass = Class.forName(info.typeName, true, loader);
             redefineClass(targetClass, bytecode);
             injectedClasses.add(info.typeName);
 
             onInjected(ctClass, injectable);
 
             getModifiedCtClass(ctClass);
+
+            InjectionCache.put(targetClass, bytecode);
         }
     }
 

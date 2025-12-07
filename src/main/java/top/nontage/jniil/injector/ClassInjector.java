@@ -35,7 +35,7 @@ public class ClassInjector {
                                 } else {
                                     targetLoader = InjectionUtil.findClassLoaderByThread(anchorThreadName);
                                 }
-                                byte[] originalBytecode = InjectionUtil.getClassBytes(clazz);
+                                byte[] originalBytecode = InjectionUtil.getOriginalClassBytes(clazz);
                                 InjectionUtil.unsafeInjectClass(targetLoader, injectClassName, originalBytecode);
                                 System.out.println("Injected " + injectClassName + " into " + anchorClassName + anchorThreadName);
                                 if (JNIIL.isClassOutputEnabled()) {

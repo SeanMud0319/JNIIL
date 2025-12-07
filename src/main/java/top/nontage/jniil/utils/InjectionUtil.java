@@ -15,6 +15,8 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.HashSet;
+import java.util.Set;
 
 @Protect
 public class InjectionUtil {
@@ -44,11 +46,15 @@ public class InjectionUtil {
         throw new RuntimeException("Thread not found: " + threadName);
     }
 
-    public static void printAllLoader() {
+    public static void printAllClassLoader() {
+        Set<ClassLoader> loaders = new HashSet<>();
         for (Class<?> clazz : inst.getAllLoadedClasses()) {
-            if (!clazz.getName().contains(".")) {
-                System.out.println("Class: " + clazz.getName() + ", Loader: " + clazz.getClassLoader());
-            }
+            ClassLoader loader = clazz.getClassLoader();
+            loaders.add(loader);
+        }
+        System.out.println("All ClassLoaders:");
+        for (ClassLoader loader : loaders) {
+            System.out.println(loader);
         }
     }
 
@@ -60,7 +66,8 @@ public class InjectionUtil {
         }
     }
 
-    public static byte[] getClassBytes(Class<?> clazz) throws IOException {
+    // It will return the original bytecode of the class, not the modified one.
+    public static byte[] getOriginalClassBytes(Class<?> clazz) throws IOException {
         String path = clazz.getName().replace('.', '/') + ".class";
         try (InputStream in = clazz.getClassLoader().getResourceAsStream(path)) {
             if (in == null) throw new IOException("Class not found: " + path);
@@ -111,7 +118,6 @@ public class InjectionUtil {
                         defineClassMethod.getParameterTypes()
                 )
         );
-
         DefineClassInterface function = MethodHandleProxies.asInterfaceInstance(DefineClassInterface.class, methodHandle);
         return function.defineClass(loader, name, bytecode, 0, bytecode.length);
     }

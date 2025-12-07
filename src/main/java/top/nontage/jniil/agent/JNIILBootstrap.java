@@ -5,6 +5,7 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import top.nontage.jniil.JNIIL;
+import top.nontage.jniil.utils.InjectionUtil;
 
 import java.io.File;
 import java.io.IOException;

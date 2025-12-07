@@ -18,7 +18,7 @@ import top.nontage.jniil.annotations.ReplaceAll;
 import top.nontage.jniil.annotations.ReplaceCall;
 import top.nontage.jniil.asm.LocalVariableTableFiller;
 import top.nontage.jniil.exception.BytecodeVerifyException;
-import top.nontage.jniil.injector.cache.InjectionCache;
+import top.nontage.jniil.injector.cache.InjectionCacheProxy;
 import top.nontage.jniil.interfaces.Injectable;
 import top.nontage.jniil.javassist.FileClassPath;
 import top.nontage.jniil.javassist.JarFileClassPath;
@@ -171,8 +171,8 @@ public abstract class AbstractMethodInjector {
 
             // Load CtClass from cache if available, because you can't get redefined class bytecode just from ClassPool or ClassLoader, even from retransformed class.
             CtClass ctClass;
-            if (InjectionCache.contains(Class.forName(info.typeName))) {
-                ctClass = pool.makeClass(new ByteArrayInputStream(InjectionCache.get(targetClass)));
+            if (InjectionCacheProxy.contains(Class.forName(info.typeName))) {
+                ctClass = pool.makeClass(new ByteArrayInputStream(InjectionCacheProxy.get(targetClass)));
             } else {
                 ctClass = pool.get(info.typeName);
             }
@@ -229,7 +229,7 @@ public abstract class AbstractMethodInjector {
 
             getModifiedCtClass(ctClass);
 
-            InjectionCache.put(targetClass, bytecode);
+            InjectionCacheProxy.put(targetClass, bytecode);
         }
     }
 

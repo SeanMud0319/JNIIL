@@ -340,7 +340,6 @@ public abstract class AbstractMethodInjector {
         At atAnn = method.getAnnotation(At.class);
         ReplaceAll replaceAllAnn = method.getAnnotation(ReplaceAll.class);
         ReplaceCall replaceCallAnn = method.getAnnotation(ReplaceCall.class);
-
         if (afterAnn != null) {
             ctMethod.insertAfter(src);
             return;

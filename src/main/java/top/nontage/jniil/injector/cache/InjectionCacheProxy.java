@@ -9,6 +9,53 @@ import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * InjectionCacheProxy
+ *
+ * <p>This class provides a global bytecode cache shared across all ClassLoaders
+ * inside the same JVM instance. Normally, each plugin (or module) runs under a
+ * different ClassLoader, which means static fields are <b>not shared</b>, causing
+ * duplicated or overwritten bytecode injections.
+ *
+ * <p>To solve this, we dynamically define a hidden class named
+ * {@code top.nontage.jniil.injector.cache.InjectionCache} using a special
+ * ClassLoader whose parent is {@code null}. This effectively places the class
+ * at the highest possible loader level (near bootstrap), allowing:
+ *
+ * <ul>
+ *     <li>Every plugin's ClassLoader to discover the same InjectionCache class</li>
+ *     <li>A single static {@code Map<String, byte[]>} to be shared JVM-wide</li>
+ *     <li>Bytecode injection from different plugins to reference the same cache</li>
+ * </ul>
+ *
+ * <p>The logic is:
+ * <ol>
+ *     <li>Try to find InjectionCache across all loaders</li>
+ *     <li>If it exists → reuse its static CACHE map</li>
+ *     <li>If it does not exist → generate the class bytecode and inject it</li>
+ * </ol>
+ *
+ * <p>This technique is known as:
+ * <b>"Global static storage via a bootstrap-level bridge class"</b>
+ * or
+ * <b>"Cross-ClassLoader shared state via artificially lifted ClassLoader scope"</b>.
+ *
+ * <p>We expose simple wrapper methods (put/get/contains/clear) so other code
+ * does not need to directly reflect into the hidden InjectionCache class.
+ *
+ * <p>Why this approach is necessary:
+ * <ul>
+ *     <li>Plugin ClassLoaders cannot share static fields by default</li>
+ *     <li>Returning the same class name in different loaders produces isolated classes</li>
+ *     <li>Java 8–21 does not allow easily adding classes to bootstrap without Unsafe</li>
+ *     <li>A dedicated parent=null loader allows deterministic class placement</li>
+ * </ul>
+ *
+ * <p>Outcome:
+ * <br>All plugins using different ClassLoaders share a single global cache,
+ * avoiding duplicated injections and preventing second injections from overriding
+ * the first one.
+ */
 public class InjectionCacheProxy implements Opcodes {
     private static Map<String, byte[]> CACHE;
 
@@ -69,28 +116,23 @@ public class InjectionCacheProxy implements Opcodes {
         String mapDesc = "Ljava/util/Map;";
         String concurrentMap = "java/util/concurrent/ConcurrentHashMap";
 
-        // class header
         cw.visit(V17, ACC_PUBLIC | ACC_SUPER,
                 className, null, "java/lang/Object", null);
 
-        // static field: private static final Map<String, byte[]> CACHE;
         cw.visitField(ACC_PRIVATE | ACC_STATIC | ACC_FINAL,
                 "CACHE",
                 "Ljava/util/Map;",
                 "Ljava/util/Map<Ljava/lang/String;[B>;",
                 null).visitEnd();
 
-        /* <clinit> static block */
         {
             MethodVisitor mv = cw.visitMethod(ACC_STATIC, "<clinit>", "()V", null, null);
             mv.visitCode();
 
-            // new ConcurrentHashMap()
             mv.visitTypeInsn(NEW, concurrentMap);
             mv.visitInsn(DUP);
             mv.visitMethodInsn(INVOKESPECIAL, concurrentMap, "<init>", "()V", false);
 
-            // put into CACHE
             mv.visitFieldInsn(PUTSTATIC, className, "CACHE", mapDesc);
 
             mv.visitInsn(RETURN);
@@ -98,7 +140,6 @@ public class InjectionCacheProxy implements Opcodes {
             mv.visitEnd();
         }
 
-        /* constructor */
         {
             MethodVisitor mv = cw.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
             mv.visitCode();

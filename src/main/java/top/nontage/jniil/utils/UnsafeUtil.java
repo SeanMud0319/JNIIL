@@ -1,4 +1,5 @@
 package top.nontage.jniil.utils;
+
 import sun.misc.Unsafe;
 import top.nontage.auth.library.annotation.Protect;
 
@@ -7,6 +8,7 @@ import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+
 @Protect
 public class UnsafeUtil {
 
@@ -106,6 +108,7 @@ public class UnsafeUtil {
             throw new RuntimeException(t);
         }
     }
+
     public static Object forceAllocateInstance(Class<?> clazz) {
         try {
             return unsafe.allocateInstance(clazz);

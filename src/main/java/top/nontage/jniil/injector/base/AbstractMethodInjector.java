@@ -145,7 +145,6 @@ public abstract class AbstractMethodInjector {
 
             TargetInfo info = extractTargetInfo(injectable, method);
             ClassPool pool = prepareClassPool();
-
             ClassLoader loader = getTargetLoader(info);
 
             if (info.defaultLoader) {
@@ -153,14 +152,18 @@ public abstract class AbstractMethodInjector {
                 pool.appendSystemPath();
             }
 
-            for (Class<?> append : info.appendClasses) {
-                pool.appendClassPath(new LoaderClassPath(append.getClassLoader()));
+            if (info.appendClasses != null) {
+                for (Class<?> append : info.appendClasses) {
+                    pool.appendClassPath(new LoaderClassPath(append.getClassLoader()));
+                }
             }
+
             if (info.appendFileLoader != null) {
                 for (String f : info.appendFileLoader) {
                     if (!f.isEmpty()) pool.appendClassPath(new FileClassPath(new File(f)));
                 }
             }
+
             if (info.appendJarLoader != null) {
                 for (String f : info.appendJarLoader) {
                     if (!f.isEmpty()) pool.insertClassPath(new JarFileClassPath(new File(f)));
@@ -425,9 +428,9 @@ public abstract class AbstractMethodInjector {
         TargetInfo info = new TargetInfo();
         boolean isNull = !method.isAnnotationPresent(InjectMethodInfo.class);
         if (isNull) {
-            info.typeName = injectable.targetTypeInternalName();
+            info.typeName = injectable.targetType() != null && injectable.targetType() != Object.class ? injectable.targetType().getName() : injectable.targetTypeInternalName();
             info.methodName = injectable.targetMethodName();
-            info.methodParams = injectable.targetMethodParams();
+            info.methodParams = classArrayToName(injectable.targetMethodParamTypes(), injectable.targetMethodParams());
             info.appendClasses = injectable.appendClassLoader();
             info.targetTypeThreadName = injectable.targetTypeThreadName();
             info.appendFileLoader = injectable.appendFileLoader();
@@ -435,9 +438,9 @@ public abstract class AbstractMethodInjector {
             info.defaultLoader = injectable.defaultLoader();
         } else {
             InjectMethodInfo annotation = method.getAnnotation(InjectMethodInfo.class);
-            info.typeName = annotation.targetTypeInternalName();
+            info.typeName = annotation.targetType() != null ? annotation.targetType().getTypeName() : annotation.targetTypeInternalName();
             info.methodName = annotation.targetMethodName();
-            info.methodParams = annotation.targetMethodParams();
+            info.methodParams = classArrayToName(annotation.targetMethodParamTypes(), annotation.targetMethodParams());
             info.appendClasses = annotation.appendClassLoader();
             info.targetTypeThreadName = annotation.targetTypeThreadName();
             info.appendFileLoader = annotation.appendFileLoader();
@@ -445,6 +448,15 @@ public abstract class AbstractMethodInjector {
             info.defaultLoader = annotation.defaultLoader();
         }
         return info;
+    }
+
+    private String[] classArrayToName(Class<?>[] classes, String[] fallback) {
+        if (classes != null) {
+            return Arrays.stream(classes)
+                    .map(Class::getName)
+                    .toArray(String[]::new);
+        }
+        return fallback != null ? fallback : new String[0];
     }
 
     /**

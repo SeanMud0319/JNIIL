@@ -14,39 +14,47 @@ public interface Injectable {
      * @return the source code to be injected
      */
     default String getInjectSourceCode() {
-        return null;
+        return "";
     }
 
     default String getInjectSourceCode(CtMethod ctMethod) {
-        return null;
+        return "";
     }
 
     default String targetTypeInternalName() {
-        throw new UnsupportedOperationException("Must override if @Null is used");
+        return "";
+    }
+
+    default Class<?> targetType() {
+        return null;
     }
 
     default String targetMethodName() {
-        throw new UnsupportedOperationException("Must override if @Null is used");
+        return "";
     }
 
     default String[] targetMethodParams() {
         return new String[0];
     }
 
-    default Class<?>[] appendClassLoader() {
+    default Class<?>[] targetMethodParamTypes() {
         return new Class<?>[0];
     }
 
     default String targetTypeThreadName() {
-        return null;
+        return "";
+    }
+
+    default Class<?>[] appendClassLoader() {
+        return new Class<?>[0];
     }
 
     default String[] appendFileLoader() {
-        return null;
+        return new String[]{};
     }
 
     default String[] appendJarLoader() {
-        return null;
+        return new String[]{};
     }
 
     default boolean defaultLoader() {

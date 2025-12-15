@@ -6,11 +6,14 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+
 @Protect
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface ReplaceCall {
     String value();
+
     int limit() default -1;
+
     int[] counts() default {};
 }

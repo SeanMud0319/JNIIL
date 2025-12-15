@@ -54,7 +54,8 @@ public class BytecodeVerifier {
 
     public static boolean jvmVerify(String className, byte[] oldBytes, byte[] newBytes) {
         try {
-            ClassLoader tempLoader = new ClassLoader() {};
+            ClassLoader tempLoader = new ClassLoader() {
+            };
             VERIFIER_LOADERS.add(tempLoader);
             Class<?> oldClass = InjectionUtil.unsafeInjectClass(tempLoader, className, oldBytes);
             inst.redefineClasses(new ClassDefinition(oldClass, newBytes));

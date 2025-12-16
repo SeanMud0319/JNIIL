@@ -25,7 +25,7 @@ public class LocalValue<T> implements Expr {
         return name + " = " + value + ";";
     }
 
-    public String setString(String value) {
+    public String setExprString(String value) {
         return name + " = \"" + value + "\";";
     }
 

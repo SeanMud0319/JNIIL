@@ -36,6 +36,7 @@ public class LocalValue<T> implements Expr {
     public Expr add(Expr other) {
         return new BinaryExpr(this, "+", other);
     }
+
     public Expr sub(Expr other) {
         return new BinaryExpr(this, "-", other);
     }

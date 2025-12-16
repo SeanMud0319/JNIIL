@@ -178,8 +178,7 @@ public class MethodInjector {
                     ctMethod = ctClass.getDeclaredMethod(methodName, paramTypes);
                 }
 
-                String src = injectable.getInjectSourceCode();
-                if (src == null) src = injectable.getInjectSourceCode(ctMethod);
+                String src = injectable.getInjectSourceCode(ctMethod);
                 After afterAnn = method.getAnnotation(After.class);
                 Before beforeAnn = method.getAnnotation(Before.class);
                 At atAnn = method.getAnnotation(At.class);
@@ -373,10 +372,7 @@ public class MethodInjector {
                             .toArray(CtClass[]::new);
                     ctMethod = ctClass.getDeclaredMethod(methodName, paramTypes);
                 }
-                String src = injectable.getInjectSourceCode();
-                if (src == null) {
-                    src = injectable.getInjectSourceCode(ctMethod);
-                }
+                String src = injectable.getInjectSourceCode(ctMethod);
                 After afterAnn = method.getAnnotation(After.class);
                 Before beforeAnn = method.getAnnotation(Before.class);
                 At atAnn = method.getAnnotation(At.class);
@@ -522,10 +518,7 @@ public class MethodInjector {
                 }
 
                 CtMethod ctMethod = ctClass.getDeclaredMethod(info.targetMethodName());
-                String src = injectable.getInjectSourceCode();
-                if (src == null) {
-                    src = injectable.getInjectSourceCode(ctMethod);
-                }
+                String src = injectable.getInjectSourceCode(ctMethod);
                 After afterAnn = method.getAnnotation(After.class);
                 Before beforeAnn = method.getAnnotation(Before.class);
                 At atAnn = method.getAnnotation(At.class);

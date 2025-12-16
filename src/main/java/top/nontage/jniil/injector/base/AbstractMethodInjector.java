@@ -196,8 +196,7 @@ public abstract class AbstractMethodInjector {
 
             CtMethod ctMethod = getCtMethod(ctClass, info);
 
-            String src = injectable.getInjectSourceCode();
-            if (src == null) src = injectable.getInjectSourceCode(ctMethod);
+            String src = injectable.getInjectSourceCode(ctMethod);
 
             if (ctClass.isFrozen()) ctClass.defrost();
 

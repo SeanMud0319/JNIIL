@@ -24,6 +24,7 @@ public class ExprBuilder {
     private final Map<String, LocalValue<?>> builderLocals = new LinkedHashMap<>();
     private final Map<Integer, LocalValue<?>> paramLocals = new LinkedHashMap<>();
     private final Map<Integer, Map<String, LocalValue<?>>> existingLocals = new LinkedHashMap<>();
+    private CtMethod ctMethod;
     private Block block;
 
     private ExprBuilder() {
@@ -38,7 +39,6 @@ public class ExprBuilder {
         this.methodParams = params;
         return this;
     }
-
 
     @SuppressWarnings("unchecked")
     public <T> LocalValue<T> param(int slot, Class<T> type) {
@@ -73,7 +73,7 @@ public class ExprBuilder {
     }
 
     public ExprBuilder codeBlock(Block.CodeBlockConsumer consumer) {
-        this.block = new Block(builderLocals, paramLocals, existingLocals, method, methodParams);
+        this.block = new Block(builderLocals, paramLocals, existingLocals, method, methodParams, this.ctMethod);
         consumer.accept(block);
         return this;
     }
@@ -113,6 +113,7 @@ public class ExprBuilder {
 
     public void extractExistingLocals(byte[] classBytes, CtMethod ctMethod) {
         try {
+            this.ctMethod = ctMethod;
             ClassReader reader = new ClassReader(classBytes);
             ClassNode classNode = new ClassNode();
             reader.accept(classNode, 0);
@@ -141,6 +142,7 @@ public class ExprBuilder {
 
     public void extractExistingLocals(CtMethod ctMethod) {
         try {
+            this.ctMethod = ctMethod;
             CodeAttribute codeAttr = ctMethod.getMethodInfo().getCodeAttribute();
             if (codeAttr == null) return;
             LocalVariableAttribute attr = (LocalVariableAttribute) codeAttr.getAttribute(LocalVariableAttribute.tag);

@@ -8,7 +8,7 @@ public interface Expr {
         if (value instanceof Number)
             return value::toString;
         if (value instanceof String)
-            return () -> (String) value;
+            return () -> "\"" + value + "\"";
         throw new IllegalArgumentException("Unsupported expression type: " + value);
     }
 }

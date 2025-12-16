@@ -1,5 +1,8 @@
 package top.nontage.jniil.builder;
 
+import javassist.CtClass;
+import javassist.CtMethod;
+import javassist.NotFoundException;
 import top.nontage.auth.library.annotation.Protect;
 import top.nontage.jniil.error.NoSuchLocalVariableError;
 
@@ -16,19 +19,21 @@ public class Block {
     private final Map<Integer, Map<String, LocalValue<?>>> existingLocals;
     private final Method method;
     private final MethodParams methodParams;
-
+    private final CtMethod ctMethod;
     private final List<String> lines = new ArrayList<>();
 
     public Block(Map<String, LocalValue<?>> builderLocals,
                  Map<Integer, LocalValue<?>> paramLocals,
                  Map<Integer, Map<String, LocalValue<?>>> existingLocals,
                  Method method,
-                 MethodParams methodParams) {
+                 MethodParams methodParams,
+                 CtMethod ctMethod) {
         this.builderLocals = builderLocals;
         this.paramLocals = paramLocals;
         this.existingLocals = existingLocals;
         this.method = method;
         this.methodParams = methodParams;
+        this.ctMethod = ctMethod;
     }
 
     @SuppressWarnings("unchecked")
@@ -243,9 +248,29 @@ public class Block {
     public void returnString(String value) {
         lines.add("return \"" + value + "\";");
     }
-
+    // if used extractExistingLocals
     public void returnBoolean(boolean value) {
-        lines.add("return java.lang.Boolean." + (value ? "TRUE" : "FALSE") + ";");
+        try {
+            addReturnStatement(this.ctMethod.getReturnType(), value);
+        } catch (NotFoundException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void returnBoolean(boolean value, CtMethod ctMethod) {
+        try {
+            addReturnStatement(ctMethod.getReturnType(), value);
+        } catch (NotFoundException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void addReturnStatement(CtClass ret, boolean value) throws NotFoundException {
+        if ("java.lang.Boolean".equals(ret.getName())) {
+            lines.add("return java.lang.Boolean." + (value ? "TRUE" : "FALSE") + ";");
+        } else {
+            lines.add("return " + value + ";");
+        }
     }
 
     public void invoke(Method method, String... params) {

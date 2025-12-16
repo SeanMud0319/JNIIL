@@ -294,14 +294,18 @@ public abstract class AbstractMethodInjector {
      * @param ctClass    the target {@link CtClass} after injection
      * @param injectable the original {@link Injectable} used for injection
      **/
-    protected abstract void onInjected(CtClass ctClass, Injectable injectable);
+    protected void onInjected(CtClass ctClass, Injectable injectable) {
+
+    }
 
     /**
      * Retrieves the modified {@link CtClass} after injection.
      *
      * @param ctClass the target {@link CtClass}
      **/
-    protected abstract void getModifiedCtClass(CtClass ctClass);
+    protected void getModifiedCtClass(CtClass ctClass) {
+
+    }
 
     /**
      * Retrieves the target method from the {@link CtClass} based on {@link TargetInfo}.

@@ -10,13 +10,9 @@ public final class StandardMethodInjector extends AbstractMethodInjector {
     protected ClassPool prepareClassPool() {
         return new ClassPool(null);
     }
-
-    @Override
-    protected void onInjected(CtClass ctClass, Injectable injectable) {
-    }
-
-    @Override
-    protected void getModifiedCtClass(CtClass ctClass) {
-
+    public void inject(Injectable... injectable) throws Exception {
+        for (Injectable IInjectable : injectable) {
+            inject(IInjectable);
+        }
     }
 }

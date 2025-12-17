@@ -47,13 +47,33 @@ tasks.shadowJar {
     relocate 'javassist', 'top.nontage.relocated.javassist'
 }
 
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.withType(Javadoc).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+java {
+    withSourcesJar()
+    withJavadocJar()
+}
+
 publishing {
     publications {
         mavenJava(MavenPublication) {
-            artifact(tasks.shadowJar)
-            groupId = project.group.toString()
+            from components.java
+
+            artifact(tasks.shadowJar) {
+                classifier = 'all'
+            }
+
+            groupId = group
             artifactId = project.name
-            version = project.version.toString()
+            version = version
         }
     }
 }
+
+

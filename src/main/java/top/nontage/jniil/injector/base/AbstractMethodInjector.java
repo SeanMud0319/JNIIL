@@ -404,6 +404,7 @@ public abstract class AbstractMethodInjector {
      *
      * @param clazz       the class to redefine
      * @param newBytecode the new bytecode
+     * @throws UnmodifiableClassException when can't modify
      **/
     protected void redefineClass(Class<?> clazz, byte[] newBytecode) throws UnmodifiableClassException {
         ClassFileTransformer transformer = (loader, className, classBeingRedefined, protectionDomain, classfileBuffer) -> {

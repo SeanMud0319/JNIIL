@@ -24,6 +24,10 @@ public class UnsafeUtil {
         }
     }
 
+    private UnsafeUtil() {
+
+    }
+
     private static Object getAny(Class<?> type, Object base, long offset) {
         if (type == boolean.class) return unsafe.getBoolean(base, offset);
         if (type == byte.class) return unsafe.getByte(base, offset);

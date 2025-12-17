@@ -248,6 +248,7 @@ public class Block {
     public void returnString(String value) {
         lines.add("return \"" + value + "\";");
     }
+
     // if used extractExistingLocals
     public void returnBoolean(boolean value) {
         try {
@@ -276,6 +277,10 @@ public class Block {
     public void invoke(Method method, String... params) {
         String invokeMethod = method.getDeclaringClass().getName() + "." + method.getName() + "(" + String.join(", ", params) + ");";
         lines.add(invokeMethod);
+    }
+
+    public String getInvokeExpr(Method method, String... params) {
+        return method.getDeclaringClass().getName() + "." + method.getName() + "(" + String.join(", ", params) + ");";
     }
 
     public String build() {

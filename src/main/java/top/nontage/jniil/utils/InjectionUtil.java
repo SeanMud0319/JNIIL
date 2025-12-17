@@ -22,6 +22,10 @@ import java.util.Set;
 public class InjectionUtil {
     private static final Instrumentation inst = JNIIL.getInstrumentation();
 
+    private InjectionUtil() {
+
+    }
+
     public static Class<?> findClassAcrossClassLoaders(String className) throws ClassNotFoundException {
         for (Class<?> clazz : inst.getAllLoadedClasses()) {
             ClassLoader loader = clazz.getClassLoader();

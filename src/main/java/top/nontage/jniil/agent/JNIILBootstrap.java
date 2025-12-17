@@ -25,7 +25,7 @@ import java.util.zip.ZipOutputStream;
  * dynamically attaching the current JVM to itself. The mechanism is based on the official
  * Attach API when available, and falls back to alternative "risky" attach methods when required.
  *
- * <h3>Requirements & JVM Compatibility</h3>
+ * <h3>Requirements &amp; JVM Compatibility</h3>
  * <ul>
  *   <li><b>Java 8 (JDK only)</b> — Requires <code>tools.jar</code> to be present.
  *       If running under a JRE, this class will attempt to load <code>../lib/tools.jar</code>

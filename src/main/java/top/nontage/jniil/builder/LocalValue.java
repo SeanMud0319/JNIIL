@@ -22,15 +22,15 @@ public class LocalValue<T> implements Expr {
     }
 
     public String setExpr(Object value) {
-        return name + " = " + value + ";";
+        return ExprUtil.trimEndingSemicolon( name + " = " + value + ";");
     }
 
     public String setExprString(String value) {
-        return name + " = \"" + value + "\";";
+        return ExprUtil.trimEndingSemicolon(name + " = \"" + value + "\";");
     }
 
     public String setFrom(LocalValue<?> other) {
-        return name + " = " + other.get() + ";";
+        return ExprUtil.trimEndingSemicolon(name + " = " + other.get() + ";");
     }
 
     @Override

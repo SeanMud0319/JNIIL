@@ -280,7 +280,7 @@ public class Block {
     }
 
     public String getInvokeExpr(Method method, String... params) {
-        return method.getDeclaringClass().getName() + "." + method.getName() + "(" + String.join(", ", params) + ");";
+        return method.getDeclaringClass().getName() + "." + method.getName() + "(" + String.join(", ", params) + ")";
     }
 
     public String build() {

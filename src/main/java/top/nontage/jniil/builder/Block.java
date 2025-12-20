@@ -4,7 +4,7 @@ import javassist.CtClass;
 import javassist.CtMethod;
 import javassist.NotFoundException;
 import top.nontage.auth.library.annotation.Protect;
-import top.nontage.jniil.error.NoSuchLocalVariableError;
+import top.nontage.jniil.exception.NoSuchLocalVariableException;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -48,7 +48,7 @@ public class Block {
     public <T> LocalValue<T> local(int slot) {
         Map<String, LocalValue<?>> slotMap = existingLocals.get(slot);
         if (slotMap == null || slotMap.isEmpty()) {
-            throw new NoSuchLocalVariableError(slot);
+            throw new NoSuchLocalVariableException(slot);
         }
         return (LocalValue<T>) slotMap.values().iterator().next();
     }

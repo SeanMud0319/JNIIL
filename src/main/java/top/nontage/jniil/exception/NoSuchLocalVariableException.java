@@ -1,10 +1,10 @@
-package top.nontage.jniil.error;
+package top.nontage.jniil.exception;
 
-public class NoSuchLocalVariableError extends Error {
+public class NoSuchLocalVariableException extends RuntimeException {
 
     private final int index;
 
-    public NoSuchLocalVariableError(int index) {
+    public NoSuchLocalVariableException(int index) {
         super("Local variable at index " + index + " not found");
         this.index = index;
     }

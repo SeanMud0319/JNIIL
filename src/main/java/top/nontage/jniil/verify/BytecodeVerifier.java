@@ -11,14 +11,15 @@ import java.io.StringWriter;
 import java.lang.instrument.ClassDefinition;
 import java.lang.instrument.Instrumentation;
 import java.util.Collections;
-import java.util.IdentityHashMap;
 import java.util.Set;
+import java.util.WeakHashMap;
 
 @Protect
 public class BytecodeVerifier {
     private static final Instrumentation inst = JNIIL.getInstrumentation();
+
     public static final Set<ClassLoader> VERIFIER_LOADERS =
-            Collections.newSetFromMap(new IdentityHashMap<>());
+            Collections.newSetFromMap(new WeakHashMap<>());
 
     public static class Result {
         private final boolean asmValid;

@@ -17,6 +17,7 @@ import top.nontage.jniil.annotations.Before;
 import top.nontage.jniil.annotations.FillLocalVariableTable;
 import top.nontage.jniil.annotations.InjectMethodInfo;
 import top.nontage.jniil.annotations.Null;
+import top.nontage.jniil.annotations.ReplaceAll;
 import top.nontage.jniil.annotations.ReplaceCall;
 import top.nontage.jniil.asm.LocalVariableTableFiller;
 import top.nontage.jniil.interfaces.CtClassCallback;
@@ -277,7 +278,7 @@ public class MethodInjector {
             System.out.println("Injecting method (return CtClass): " + injectable.getClass().getName());
             Class<?> clazz = injectable.getClass();
             for (Method method : clazz.getDeclaredMethods()) {
-                boolean isNull = method.isAnnotationPresent(Null.class);
+                boolean isNull = !method.isAnnotationPresent(InjectMethodInfo.class);
                 String typeName;
                 String methodName;
                 String[] methodParams;
@@ -454,7 +455,9 @@ public class MethodInjector {
             for (Injectable injectable : injectables) {
                 try {
                     Method method = Arrays.stream(injectable.getClass().getDeclaredMethods())
-                            .filter(m -> m.isAnnotationPresent(InjectMethodInfo.class) || m.isAnnotationPresent(Null.class))
+                            .filter(m -> m.isAnnotationPresent(InjectMethodInfo.class) || m.isAnnotationPresent(Null.class)
+                             || m.isAnnotationPresent(At.class) || m.isAnnotationPresent(After.class) || m.isAnnotationPresent(Before.class)
+                            || m.isAnnotationPresent(ReplaceAll.class) || m.isAnnotationPresent(ReplaceCall.class))
                             .findFirst().orElse(null);
                     if (method == null) continue;
                     String key = method.isAnnotationPresent(InjectMethodInfo.class)

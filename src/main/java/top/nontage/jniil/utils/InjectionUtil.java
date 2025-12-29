@@ -8,6 +8,7 @@ import top.nontage.jniil.verify.BytecodeVerifier;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandleProxies;
@@ -84,6 +85,25 @@ public class InjectionUtil {
             buffer.flush();
             return buffer.toByteArray();
         }
+    }
+
+    public static byte[] getOriginalClassBytes(String targetClassName) throws Exception {
+        final byte[][] result = new byte[1][];
+        ClassFileTransformer transformer = (loader, className, classBeingRedefined, protectionDomain, classfileBuffer) -> {
+            if (className.equals(targetClassName.replace('.', '/'))) {
+                result[0] = classfileBuffer;
+            }
+            return null;
+        };
+        inst.addTransformer(transformer, true);
+        for (Class<?> clazz : inst.getAllLoadedClasses()) {
+            if (clazz.getName().equals(targetClassName)) {
+                inst.retransformClasses(clazz);
+                break;
+            }
+        }
+        inst.removeTransformer(transformer);
+        return result[0];
     }
 
     public static void injectClass(ClassLoader loader, String name, byte[] bytecode) throws Exception {

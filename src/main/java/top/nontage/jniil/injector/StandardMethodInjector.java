@@ -1,7 +1,6 @@
 package top.nontage.jniil.injector;
 
 import javassist.ClassPool;
-import javassist.CtClass;
 import top.nontage.jniil.injector.base.AbstractMethodInjector;
 import top.nontage.jniil.interfaces.Injectable;
 

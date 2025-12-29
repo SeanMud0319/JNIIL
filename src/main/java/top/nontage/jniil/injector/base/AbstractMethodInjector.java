@@ -455,7 +455,7 @@ public abstract class AbstractMethodInjector {
     }
 
     private String[] classArrayToName(Class<?>[] classes, String[] fallback) {
-        if (classes != null) {
+        if (classes != null && classes.length != 0) {
             return Arrays.stream(classes)
                     .map(Class::getName)
                     .toArray(String[]::new);

@@ -3,6 +3,9 @@ package top.nontage.jniil.interfaces;
 import javassist.CtMethod;
 import top.nontage.auth.library.annotation.Protect;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Represents an injectable unit used by the JNIIL injection framework.
  * <p>
@@ -92,6 +95,10 @@ public interface Injectable {
 
     default String[] appendJarLoader() {
         return new String[]{};
+    }
+
+    default Map<String, byte[]> appendByteLoader() {
+        return new HashMap<>();
     }
 
     default boolean defaultLoader() {

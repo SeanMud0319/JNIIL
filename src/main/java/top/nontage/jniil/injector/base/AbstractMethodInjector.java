@@ -1,5 +1,6 @@
 package top.nontage.jniil.injector.base;
 
+import javassist.ByteArrayClassPath;
 import javassist.ClassPool;
 import javassist.CtClass;
 import javassist.CtMethod;
@@ -61,6 +62,7 @@ public abstract class AbstractMethodInjector {
         public String targetTypeThreadName;
         public String[] appendFileLoader;
         public String[] appendJarLoader;
+        public Map<String, byte[]> appendByteLoader;
         public boolean defaultLoader;
     }
 
@@ -168,6 +170,12 @@ public abstract class AbstractMethodInjector {
                 for (String f : info.appendJarLoader) {
                     if (!f.isEmpty()) pool.insertClassPath(new JarFileClassPath(new File(f)));
                 }
+            }
+
+            if (info.appendByteLoader != null) {
+                info.appendByteLoader.forEach((className, bytes) -> {
+                    pool.insertClassPath(new ByteArrayClassPath(className, bytes));
+                });
             }
 
             Class<?> targetClass = Class.forName(info.typeName, true, loader);
@@ -439,6 +447,7 @@ public abstract class AbstractMethodInjector {
             info.targetTypeThreadName = injectable.targetTypeThreadName();
             info.appendFileLoader = injectable.appendFileLoader();
             info.appendJarLoader = injectable.appendJarLoader();
+            info.appendByteLoader = injectable.appendByteLoader();
             info.defaultLoader = injectable.defaultLoader();
         } else {
             InjectMethodInfo annotation = method.getAnnotation(InjectMethodInfo.class);

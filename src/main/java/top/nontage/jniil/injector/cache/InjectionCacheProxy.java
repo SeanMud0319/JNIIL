@@ -116,7 +116,7 @@ public class InjectionCacheProxy implements Opcodes {
         String mapDesc = "Ljava/util/Map;";
         String concurrentMap = "java/util/concurrent/ConcurrentHashMap";
 
-        cw.visit(V17, ACC_PUBLIC | ACC_SUPER,
+        cw.visit(V1_8, ACC_PUBLIC | ACC_SUPER,
                 className, null, "java/lang/Object", null);
 
         cw.visitField(ACC_PRIVATE | ACC_STATIC | ACC_FINAL,

@@ -4,6 +4,13 @@ plugins {
     id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
+
+
 group = 'top.nontage'
 version = '1.0-SNAPSHOT'
 

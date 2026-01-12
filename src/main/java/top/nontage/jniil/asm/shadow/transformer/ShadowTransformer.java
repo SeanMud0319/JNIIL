@@ -16,66 +16,80 @@ import top.nontage.jniil.utils.InjectionUtil;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.lang.instrument.UnmodifiableClassException;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ShadowTransformer {
     private static final Instrumentation inst = JNIIL.getInstrumentation();
+    private static final ShadowContext context = ShadowContextHolder.INSTANCE;
+
+    private static final Set<Class<?>> transformedClasses = ConcurrentHashMap.newKeySet();
 
     public static void apply(ShadowBinding... bindings) throws Exception {
-        ShadowContext context = ShadowContextHolder.INSTANCE;
-        context.reset();
-
-        Map<String, ClassNode> classNodeMap = new HashMap<>();
+        Set<Class<?>> classesToTransform = new HashSet<>();
 
         for (ShadowBinding binding : bindings) {
-            context.bindInstance(binding.shadowClass, binding.instance);
-        }
+            context.bindInstance(binding.shadowClass, binding.instanceSupplier);
 
-        Map<String, Class<?>> classesToProcess = new HashMap<>();
-        for (ShadowBinding binding : bindings) {
-            classesToProcess.put(binding.shadowClass.getName(), binding.shadowClass);
-            if (binding.instance != null) {
-                classesToProcess.put(binding.instance.getClass().getName(), binding.instance.getClass());
+            if (!transformedClasses.contains(binding.shadowClass)) {
+                classesToTransform.add(binding.shadowClass);
             }
         }
 
+        if (classesToTransform.isEmpty()) {
+            return;
+        }
+
         ShadowMetadataCollector collector = new ShadowMetadataCollector(context);
-        for (Class<?> clazz : classesToProcess.values()) {
+        ShadowFieldRewriter fieldRewriter = new ShadowFieldRewriter(context);
+        ShadowMethodRewriter methodRewriter = new ShadowMethodRewriter(context);
+
+        for (Class<?> clazz : classesToTransform) {
             byte[] bytes = InjectionUtil.getOriginalClassBytes(clazz);
             ClassReader cr = new ClassReader(bytes);
             ClassNode classNode = new ClassNode();
             cr.accept(classNode, 0);
 
             collector.collect(classNode);
-            classNodeMap.put(classNode.name, classNode);
-        }
 
-        for (Map.Entry<String, ClassNode> entry : classNodeMap.entrySet()) {
-            ClassNode classNode = entry.getValue();
-            new ShadowFieldRewriter(context).rewrite(classNode);
-            new ShadowMethodRewriter(context).rewrite(classNode);
+            fieldRewriter.rewrite(classNode);
+            methodRewriter.rewrite(classNode);
 
             ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES);
             classNode.accept(cw);
             byte[] newBytes = cw.toByteArray();
 
-            Class<?> targetClass = Class.forName(entry.getKey().replace('/', '.'), true, Thread.currentThread().getContextClassLoader());
-            transform(targetClass, newBytes);
-            InjectionCacheProxy.put(targetClass, newBytes);
+            transform(clazz, newBytes);
+            InjectionCacheProxy.put(clazz, newBytes);
+
+            transformedClasses.add(clazz);
         }
     }
 
+    public static void unbind(Class<?>... shadowClasses) {
+        for (Class<?> shadowClass : shadowClasses) {
+            context.unbindInstance(shadowClass);
+        }
+    }
+
+    public static void reset() {
+        context.reset();
+        transformedClasses.clear();
+    }
 
     private static void transform(Class<?> clazz, byte[] classBytes) throws UnmodifiableClassException {
         ClassFileTransformer transformer = (loader, className, classBeingRedefined, protectionDomain, classfileBuffer) -> {
-            if (clazz == classBeingRedefined) {
+            if (clazz.getName().equals(className.replace('/', '.'))) {
                 return classBytes;
             }
             return null;
         };
         inst.addTransformer(transformer, true);
-        inst.retransformClasses(clazz);
-        inst.removeTransformer(transformer);
+        try {
+            inst.retransformClasses(clazz);
+        } finally {
+            inst.removeTransformer(transformer);
+        }
     }
 }

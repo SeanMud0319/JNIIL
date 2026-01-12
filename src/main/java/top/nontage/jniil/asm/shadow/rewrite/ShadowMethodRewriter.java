@@ -1,3 +1,4 @@
+// java/top/nontage/jniil/asm/shadow/rewrite/ShadowMethodRewriter.java
 package top.nontage.jniil.asm.shadow.rewrite;
 
 import org.objectweb.asm.Handle;
@@ -21,6 +22,9 @@ public class ShadowMethodRewriter {
             MethodKey key = new MethodKey(node.name, method.name, method.desc);
             ShadowMethodInfo info = context.shadowMethods.get(key);
             if (info == null) continue;
+
+            method.access &= ~Opcodes.ACC_NATIVE;
+            method.access &= ~Opcodes.ACC_ABSTRACT;
 
             boolean isStatic = (method.access & Opcodes.ACC_STATIC) != 0;
 

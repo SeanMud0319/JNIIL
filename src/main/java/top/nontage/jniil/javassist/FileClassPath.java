@@ -5,9 +5,10 @@ import javassist.NotFoundException;
 import top.nontage.auth.library.annotation.Protect;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.InputStream;
 import java.net.URL;
+import java.nio.file.Files;
+
 @Protect
 public class FileClassPath implements ClassPath {
     private final File baseDir;
@@ -22,7 +23,7 @@ public class FileClassPath implements ClassPath {
             String path = classname.replace('.', File.separatorChar) + ".class";
             File classFile = new File(baseDir, path);
             if (classFile.exists()) {
-                return new FileInputStream(classFile);
+                return Files.newInputStream(classFile.toPath());
             }
             return null;
         } catch (Exception e) {

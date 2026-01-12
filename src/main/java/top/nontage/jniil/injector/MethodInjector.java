@@ -19,7 +19,7 @@ import top.nontage.jniil.annotations.InjectMethodInfo;
 import top.nontage.jniil.annotations.Null;
 import top.nontage.jniil.annotations.ReplaceAll;
 import top.nontage.jniil.annotations.ReplaceCall;
-import top.nontage.jniil.asm.LocalVariableTableFiller;
+import top.nontage.jniil.asm.utils.LocalVariableTableFiller;
 import top.nontage.jniil.interfaces.CtClassCallback;
 import top.nontage.jniil.interfaces.Injectable;
 import top.nontage.jniil.javassist.FileClassPath;

@@ -97,12 +97,24 @@ public class InjectionCacheProxy implements Opcodes {
         CACHE.put(clazz.getName(), bytecode);
     }
 
+    public static void put(String className, byte[] bytecode) {
+        CACHE.put(className, bytecode);
+    }
+
     public static byte[] get(Class<?> clazz) {
         return CACHE.get(clazz.getName());
     }
 
+    public static byte[] get(String className) {
+        return CACHE.get(className);
+    }
+
     public static boolean contains(Class<?> clazz) {
         return CACHE.containsKey(clazz.getName());
+    }
+
+    public static boolean contains(String className) {
+        return CACHE.containsKey(className);
     }
 
     public static void clear() {

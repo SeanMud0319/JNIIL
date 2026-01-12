@@ -1,0 +1,5 @@
+package top.nontage.jniil.asm.shadow.metadata;
+
+public class ShadowContextHolder {
+    public static final ShadowContext INSTANCE = new ShadowContext();
+}

@@ -5,7 +5,11 @@ import org.objectweb.asm.Type;
 import sun.misc.Unsafe;
 import top.nontage.jniil.asm.shadow.metadata.ShadowContextHolder;
 
-import java.lang.invoke.*;
+import java.lang.invoke.CallSite;
+import java.lang.invoke.ConstantCallSite;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 import java.util.function.Supplier;
 
@@ -67,8 +71,13 @@ public class ShadowBootstrap {
         if (isStatic) {
             invoker = targetHandle;
         } else {
-            MethodHandle getInstanceHandle = IMPL_LOOKUP.findStatic(ShadowBootstrap.class, "getInstance", MethodType.methodType(Object.class, String.class))
-                    .bindTo(shadowOwner);
+            MethodHandle getInstanceHandle = IMPL_LOOKUP.findStatic(
+                            ShadowBootstrap.class,
+                            "getInstance",
+                            MethodType.methodType(Object.class, String.class, String.class)
+                    )
+                    .bindTo(shadowOwner)
+                    .bindTo(targetOwner);
 
             Class<?> instanceType = targetHandle.type().parameterType(0);
             MethodHandle castedGetInstanceHandle = MethodHandles.explicitCastArguments(getInstanceHandle, MethodType.methodType(instanceType));
@@ -82,31 +91,41 @@ public class ShadowBootstrap {
         return new ConstantCallSite(invoker.asType(callSiteType));
     }
 
-    public static Object getInstance(String shadowOwner) {
-        Supplier<Object> supplier = ShadowContextHolder.INSTANCE.getBoundInstanceSupplier(shadowOwner);
+    public static Object getInstance(String shadowOwner, String targetOwner) {
+        Supplier<Object> supplier = ShadowContextHolder.INSTANCE.getBoundInstanceSupplier(shadowOwner, targetOwner);
         if (supplier == null) {
-            throw new IllegalStateException("No bound instance supplier for " + shadowOwner);
+            throw new IllegalStateException("No bound instance supplier for shadow '" + shadowOwner + "' targeting '" + targetOwner + "'");
         }
         Object instance = supplier.get();
         if (instance == null) {
-            throw new IllegalStateException("Instance supplier for " + shadowOwner + " returned null");
+            throw new IllegalStateException("Instance supplier for shadow '" + shadowOwner + "' targeting '" + targetOwner + "' returned null");
         }
         return instance;
     }
 
     private static Class<?> getJavaClass(Type type, ClassLoader classLoader) throws ClassNotFoundException {
         switch (type.getSort()) {
-            case Type.BOOLEAN: return boolean.class;
-            case Type.CHAR: return char.class;
-            case Type.BYTE: return byte.class;
-            case Type.SHORT: return short.class;
-            case Type.INT: return int.class;
-            case Type.FLOAT: return float.class;
-            case Type.LONG: return long.class;
-            case Type.DOUBLE: return double.class;
+            case Type.BOOLEAN:
+                return boolean.class;
+            case Type.CHAR:
+                return char.class;
+            case Type.BYTE:
+                return byte.class;
+            case Type.SHORT:
+                return short.class;
+            case Type.INT:
+                return int.class;
+            case Type.FLOAT:
+                return float.class;
+            case Type.LONG:
+                return long.class;
+            case Type.DOUBLE:
+                return double.class;
             case Type.ARRAY:
-            case Type.OBJECT: return Class.forName(type.getClassName(), false, classLoader);
-            default: throw new IllegalArgumentException("Invalid type: " + type);
+            case Type.OBJECT:
+                return Class.forName(type.getClassName(), false, classLoader);
+            default:
+                throw new IllegalArgumentException("Invalid type: " + type);
         }
     }
 }

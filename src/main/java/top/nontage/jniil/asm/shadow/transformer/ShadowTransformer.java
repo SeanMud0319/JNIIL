@@ -4,7 +4,7 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.tree.ClassNode;
 import top.nontage.jniil.JNIIL;
-import top.nontage.jniil.asm.shadow.metadata.ShadowBinding;
+import top.nontage.jniil.asm.shadow.metadata.MultiBinding;
 import top.nontage.jniil.asm.shadow.metadata.ShadowContext;
 import top.nontage.jniil.asm.shadow.metadata.ShadowContextHolder;
 import top.nontage.jniil.asm.shadow.rewrite.ShadowFieldRewriter;
@@ -23,17 +23,16 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ShadowTransformer {
     private static final Instrumentation inst = JNIIL.getInstrumentation();
     private static final ShadowContext context = ShadowContextHolder.INSTANCE;
-
     private static final Set<Class<?>> transformedClasses = ConcurrentHashMap.newKeySet();
 
-    public static void apply(ShadowBinding... bindings) throws Exception {
+    public static void apply(MultiBinding... bindings) throws Exception {
         Set<Class<?>> classesToTransform = new HashSet<>();
 
-        for (ShadowBinding binding : bindings) {
-            context.bindInstance(binding.shadowClass, binding.instanceSupplier);
+        for (MultiBinding binding : bindings) {
+            context.bindInstances(binding.getShadowClass().getName(), binding.getSuppliers());
 
-            if (!transformedClasses.contains(binding.shadowClass)) {
-                classesToTransform.add(binding.shadowClass);
+            if (!transformedClasses.contains(binding.getShadowClass())) {
+                classesToTransform.add(binding.getShadowClass());
             }
         }
 
@@ -69,7 +68,7 @@ public class ShadowTransformer {
 
     public static void unbind(Class<?>... shadowClasses) {
         for (Class<?> shadowClass : shadowClasses) {
-            context.unbindInstance(shadowClass);
+            context.unbindInstances(shadowClass.getName());
         }
     }
 

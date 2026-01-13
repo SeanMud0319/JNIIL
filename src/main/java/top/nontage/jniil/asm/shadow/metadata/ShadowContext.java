@@ -2,37 +2,34 @@ package top.nontage.jniil.asm.shadow.metadata;
 
 import java.util.Map;
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 public class ShadowContext {
     public final Map<FieldKey, ShadowFieldInfo> shadowFields = new HashMap<>();
     public final Map<MethodKey, ShadowMethodInfo> shadowMethods = new HashMap<>();
 
-    private final Map<String, Supplier<Object>> boundInstances = new HashMap<>();
+    private final Map<String, Map<String, Supplier<Object>>> boundInstanceSuppliers = new ConcurrentHashMap<>();
 
-    public void bindInstance(Class<?> shadowClass, Supplier<Object> instanceSupplier) {
-        bindInstance(shadowClass.getName(), instanceSupplier);
+    public void bindInstances(String shadowClassName, Map<String, Supplier<Object>> suppliers) {
+        boundInstanceSuppliers.put(shadowClassName.replace('.', '/'), suppliers);
     }
 
-    public void bindInstance(String className, Supplier<Object> instanceSupplier) {
-        boundInstances.put(className.replace('.','/'), instanceSupplier);
+    public void unbindInstances(String shadowClassName) {
+        boundInstanceSuppliers.remove(shadowClassName.replace('.', '/'));
     }
 
-    public void unbindInstance(Class<?> shadowClass) {
-        unbindInstance(shadowClass.getName());
-    }
-
-    public void unbindInstance(String className) {
-        boundInstances.remove(className.replace('.', '/'));
-    }
-
-    public Supplier<Object> getBoundInstanceSupplier(String shadowClassInternalName) {
-        return boundInstances.get(shadowClassInternalName);
+    public Supplier<Object> getBoundInstanceSupplier(String shadowClassInternalName, String targetClassInternalName) {
+        Map<String, Supplier<Object>> targets = boundInstanceSuppliers.get(shadowClassInternalName);
+        if (targets == null) {
+            return null;
+        }
+        return targets.get(targetClassInternalName);
     }
 
     public void reset() {
         shadowFields.clear();
         shadowMethods.clear();
-        boundInstances.clear();
+        boundInstanceSuppliers.clear();
     }
 }

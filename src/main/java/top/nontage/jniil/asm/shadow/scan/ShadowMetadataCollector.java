@@ -6,7 +6,11 @@ import top.nontage.jniil.annotations.Shadow;
 import top.nontage.jniil.annotations.ShadowOf;
 import top.nontage.jniil.asm.shadow.metadata.*;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class ShadowMetadataCollector {
 
@@ -18,19 +22,15 @@ public class ShadowMetadataCollector {
 
     public void collect(ClassNode node) {
         String owner = node.name;
-
         String classTargetOwner = resolveShadowOf(node);
+        ClassLoader classLoader = this.getClass().getClassLoader();
 
         for (FieldNode field : node.fields) {
             AnnotationNode shadow = findAnnotation(field.visibleAnnotations, Shadow.class);
             if (shadow != null) {
-                String targetOwner = resolveShadowTarget(
-                        shadow,
-                        classTargetOwner,
-                        "field",
-                        field.name,
-                        node.name
-                );
+                String targetOwner = resolveShadowTarget(shadow, classTargetOwner, "field", field.name, node.name);
+
+                validateFieldExists(targetOwner, field.name, field.desc, classLoader, owner);
 
                 context.shadowFields.put(
                         new FieldKey(owner, field.name, field.desc),
@@ -42,13 +42,9 @@ public class ShadowMetadataCollector {
         for (MethodNode method : node.methods) {
             AnnotationNode shadow = findAnnotation(method.visibleAnnotations, Shadow.class);
             if (shadow != null) {
-                String targetOwner = resolveShadowTarget(
-                        shadow,
-                        classTargetOwner,
-                        "method",
-                        method.name + method.desc,
-                        node.name
-                );
+                String targetOwner = resolveShadowTarget(shadow, classTargetOwner, "method", method.name + method.desc, node.name);
+
+                validateMethodExists(targetOwner, method.name, method.desc, classLoader, owner);
 
                 context.shadowMethods.put(
                         new MethodKey(owner, method.name, method.desc),
@@ -57,7 +53,6 @@ public class ShadowMetadataCollector {
             }
         }
     }
-
 
     private String resolveShadowOf(ClassNode node) {
         AnnotationNode an = findAnnotation(node.visibleAnnotations, ShadowOf.class);
@@ -91,7 +86,6 @@ public class ShadowMetadataCollector {
         );
     }
 
-
     private AnnotationNode findAnnotation(List<AnnotationNode> anns, Class<?> type) {
         if (anns == null) return null;
         String desc = Type.getDescriptor(type);
@@ -123,5 +117,79 @@ public class ShadowMetadataCollector {
             }
         }
         return null;
+    }
+
+    private void validateFieldExists(String targetOwner, String fieldName, String fieldDesc, ClassLoader loader, String shadowOwner) {
+        try {
+            Class<?> targetClass = Class.forName(targetOwner.replace('/', '.'), false, loader);
+            Type expectedType = Type.getType(fieldDesc);
+
+            Field field = targetClass.getDeclaredField(fieldName);
+            Type actualType = Type.getType(field.getType());
+
+            if (!actualType.equals(expectedType)) {
+                throw new NoSuchFieldError("Field type mismatch. Expected " + expectedType.getClassName() + " but found " + actualType.getClassName());
+            }
+        } catch (ClassNotFoundException e) {
+            throw new IllegalStateException("Shadow target class not found: " + targetOwner.replace('/', '.') + " for shadow field " + fieldName + " in " + shadowOwner, e);
+        } catch (NoSuchFieldException e) {
+            throw new IllegalStateException("Shadow target field not found: " + fieldName + " in class " + targetOwner.replace('/', '.') + " for shadow in " + shadowOwner, e);
+        }
+    }
+
+    private void validateMethodExists(String targetOwner, String methodName, String methodDesc, ClassLoader loader, String shadowOwner) {
+        try {
+            Class<?> targetClass = Class.forName(targetOwner.replace('/', '.'), false, loader);
+            Type[] expectedArgTypes = Type.getArgumentTypes(methodDesc);
+
+            Class<?>[] argClasses = Arrays.stream(expectedArgTypes)
+                    .map(t -> {
+                        try {
+                            return classFromType(t, loader);
+                        } catch (ClassNotFoundException e) {
+                            throw new RuntimeException(e);
+                        }
+                    })
+                    .toArray(Class<?>[]::new);
+
+            Method method = targetClass.getDeclaredMethod(methodName, argClasses);
+            Type expectedReturnType = Type.getReturnType(methodDesc);
+            Type actualReturnType = Type.getType(method.getReturnType());
+
+            if (!actualReturnType.equals(expectedReturnType)) {
+                throw new NoSuchMethodError("Method return type mismatch. Expected " + expectedReturnType.getClassName() + " but found " + actualReturnType.getClassName());
+            }
+
+        } catch (ClassNotFoundException e) {
+            throw new IllegalStateException("Shadow target class not found: " + targetOwner.replace('/', '.') + " for shadow method " + methodName + " in " + shadowOwner, e);
+        } catch (NoSuchMethodException e) {
+            String args = Arrays.stream(Type.getArgumentTypes(methodDesc)).map(Type::getClassName).collect(Collectors.joining(", "));
+            throw new IllegalStateException("Shadow target method not found: " + methodName + "(" + args + ") in class " + targetOwner.replace('/', '.') + " for shadow in " + shadowOwner, e);
+        }
+    }
+
+    private Class<?> classFromType(Type type, ClassLoader classLoader) throws ClassNotFoundException {
+        switch (type.getSort()) {
+            case Type.BOOLEAN:
+                return boolean.class;
+            case Type.CHAR:
+                return char.class;
+            case Type.BYTE:
+                return byte.class;
+            case Type.SHORT:
+                return short.class;
+            case Type.INT:
+                return int.class;
+            case Type.FLOAT:
+                return float.class;
+            case Type.LONG:
+                return long.class;
+            case Type.DOUBLE:
+                return double.class;
+            case Type.VOID:
+                return void.class;
+            default:
+                return Class.forName(type.getClassName(), false, classLoader);
+        }
     }
 }

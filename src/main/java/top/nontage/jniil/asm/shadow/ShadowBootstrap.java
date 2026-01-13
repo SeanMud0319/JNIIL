@@ -4,6 +4,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import sun.misc.Unsafe;
 import top.nontage.jniil.asm.shadow.metadata.ShadowContextHolder;
+import top.nontage.jniil.utils.UnsafeUtil;
 
 import java.lang.invoke.CallSite;
 import java.lang.invoke.ConstantCallSite;
@@ -16,18 +17,15 @@ import java.util.function.Supplier;
 public class ShadowBootstrap {
 
     private static final MethodHandles.Lookup IMPL_LOOKUP;
+    private static final Unsafe UNSAFE = UnsafeUtil.unsafe;
 
     static {
         try {
-            Field unsafeField = Unsafe.class.getDeclaredField("theUnsafe");
-            unsafeField.setAccessible(true);
-            Unsafe unsafe = (Unsafe) unsafeField.get(null);
-
             Field implLookupField = MethodHandles.Lookup.class.getDeclaredField("IMPL_LOOKUP");
             IMPL_LOOKUP = (MethodHandles.Lookup)
-                    unsafe.getObject(
-                            unsafe.staticFieldBase(implLookupField),
-                            unsafe.staticFieldOffset(implLookupField)
+                    UNSAFE.getObject(
+                            UNSAFE.staticFieldBase(implLookupField),
+                            UNSAFE.staticFieldOffset(implLookupField)
                     );
         } catch (Exception e) {
             throw new RuntimeException("Failed to get IMPL_LOOKUP", e);
@@ -42,8 +40,10 @@ public class ShadowBootstrap {
             String targetOwner,
             String targetName,
             String targetDesc,
-            int opcode
+            int opcode,
+            int isMutableInt
     ) throws Throwable {
+        boolean isMutable = isMutableInt != 0;
         ClassLoader loader = lookup.lookupClass().getClassLoader();
         Class<?> targetClass = Class.forName(targetOwner.replace('/', '.'), true, loader);
 
@@ -62,9 +62,17 @@ public class ShadowBootstrap {
                     : privilegedLookup.findVirtual(targetClass, targetName, targetType);
         } else { // Field access
             Class<?> fieldType = getJavaClass(Type.getType(targetDesc), loader);
-            targetHandle = isStatic
-                    ? (isGet ? privilegedLookup.findStaticGetter(targetClass, targetName, fieldType) : privilegedLookup.findStaticSetter(targetClass, targetName, fieldType))
-                    : (isGet ? privilegedLookup.findGetter(targetClass, targetName, fieldType) : privilegedLookup.findSetter(targetClass, targetName, fieldType));
+
+            if (isPut && isMutable) {
+                Field field = targetClass.getDeclaredField(targetName);
+                Object staticFieldBase = isStatic ? UNSAFE.staticFieldBase(field) : null;
+                long fieldOffset = isStatic ? UNSAFE.staticFieldOffset(field) : UNSAFE.objectFieldOffset(field);
+                targetHandle = createUnsafeSetter(fieldType, staticFieldBase, fieldOffset, isStatic);
+            } else {
+                targetHandle = isStatic
+                        ? (isGet ? privilegedLookup.findStaticGetter(targetClass, targetName, fieldType) : privilegedLookup.findStaticSetter(targetClass, targetName, fieldType))
+                        : (isGet ? privilegedLookup.findGetter(targetClass, targetName, fieldType) : privilegedLookup.findSetter(targetClass, targetName, fieldType));
+            }
         }
 
         MethodHandle invoker;
@@ -89,6 +97,40 @@ public class ShadowBootstrap {
         }
 
         return new ConstantCallSite(invoker.asType(callSiteType));
+    }
+
+    private static MethodHandle createUnsafeSetter(Class<?> fieldType, Object staticFieldBase, long fieldOffset, boolean isStatic) throws NoSuchMethodException, IllegalAccessException {
+        String setterName;
+        Class<?> unsafeParamType = fieldType;
+
+        if (fieldType.isPrimitive()) {
+            String capitalized = capitalize(fieldType.getName());
+            setterName = "put" + capitalized;
+        } else {
+            setterName = "putObject";
+            unsafeParamType = Object.class;
+        }
+
+        MethodHandle unsafeSetter;
+        if (isStatic) {
+            // Unsafe static setter: putX(Object base, long offset, ValueType value)
+            unsafeSetter = IMPL_LOOKUP.findVirtual(Unsafe.class, setterName, MethodType.methodType(void.class, Object.class, long.class, unsafeParamType))
+                    .bindTo(UNSAFE)
+                    .bindTo(staticFieldBase)
+                    .bindTo(fieldOffset); // (ValueType) -> void
+        } else {
+            // Unsafe instance setter: putX(Object instance, long offset, ValueType value)
+            unsafeSetter = IMPL_LOOKUP.findVirtual(Unsafe.class, setterName, MethodType.methodType(void.class, Object.class, long.class, unsafeParamType))
+                    .bindTo(UNSAFE); // (Object instance, long offset, ValueType value) -> void
+            // Bind offset and permute to match (Instance, Value)
+            unsafeSetter = MethodHandles.insertArguments(unsafeSetter, 1, fieldOffset); // (Object instance, ValueType value) -> void
+        }
+        return unsafeSetter.asType(MethodType.methodType(void.class, isStatic ? new Class[0] : new Class[]{Object.class}).appendParameterTypes(fieldType));
+    }
+
+    private static String capitalize(String str) {
+        if (str == null || str.isEmpty()) return str;
+        return Character.toUpperCase(str.charAt(0)) + str.substring(1);
     }
 
     public static Object getInstance(String shadowOwner, String targetOwner) {
@@ -121,9 +163,11 @@ public class ShadowBootstrap {
                 return long.class;
             case Type.DOUBLE:
                 return double.class;
+            case Type.VOID:
+                return void.class;
             case Type.ARRAY:
             case Type.OBJECT:
-                return Class.forName(type.getClassName(), false, classLoader);
+                return Class.forName(type.getInternalName().replace('/', '.'), false, classLoader);
             default:
                 throw new IllegalArgumentException("Invalid type: " + type);
         }

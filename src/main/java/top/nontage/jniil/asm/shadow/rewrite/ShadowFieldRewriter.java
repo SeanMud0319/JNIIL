@@ -23,7 +23,6 @@ public class ShadowFieldRewriter {
             if (method.instructions == null) continue;
 
             InsnList insns = method.instructions;
-
             for (AbstractInsnNode insn : insns.toArray()) {
                 if (!(insn instanceof FieldInsnNode)) continue;
 
@@ -46,6 +45,7 @@ public class ShadowFieldRewriter {
                                 "Ljava/lang/String;" +
                                 "Ljava/lang/String;" +
                                 "Ljava/lang/String;" +
+                                "I" +
                                 "I)Ljava/lang/invoke/CallSite;",
                         false
                 );
@@ -71,7 +71,8 @@ public class ShadowFieldRewriter {
                         info.targetOwner,
                         info.targetName,
                         info.desc,
-                        fi.getOpcode()
+                        fi.getOpcode(),
+                        info.isMutable ? 1 : 0
                 );
 
                 insns.set(fi, indy);

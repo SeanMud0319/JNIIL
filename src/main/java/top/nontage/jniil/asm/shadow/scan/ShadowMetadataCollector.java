@@ -1,8 +1,8 @@
-// src/main/java/top/nontage/jniil/asm/shadow/scan/ShadowMetadataCollector.java
 package top.nontage.jniil.asm.shadow.scan;
 
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import top.nontage.jniil.annotations.Mutable;
 import top.nontage.jniil.annotations.Shadow;
 import top.nontage.jniil.annotations.ShadowOf;
 import top.nontage.jniil.asm.shadow.metadata.*;
@@ -31,12 +31,13 @@ public class ShadowMetadataCollector {
             if (shadow != null) {
                 String targetOwner = resolveShadowTarget(shadow, classTargetOwner, "field", field.name, node.name);
                 String targetName = resolveTargetName(shadow, field.name);
+                boolean isMutable = findAnnotation(field.visibleAnnotations, Mutable.class) != null;
 
                 validateFieldExists(targetOwner, targetName, field.desc, classLoader, owner);
 
                 context.shadowFields.put(
                         new FieldKey(owner, field.name, field.desc),
-                        new ShadowFieldInfo(targetOwner, targetName, field.desc)
+                        new ShadowFieldInfo(targetOwner, targetName, field.desc, isMutable)
                 );
             }
         }

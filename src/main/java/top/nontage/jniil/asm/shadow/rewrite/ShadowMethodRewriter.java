@@ -1,11 +1,12 @@
-// java/top/nontage/jniil/asm/shadow/rewrite/ShadowMethodRewriter.java
 package top.nontage.jniil.asm.shadow.rewrite;
 
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import top.nontage.jniil.asm.shadow.metadata.*;
+import top.nontage.jniil.asm.shadow.metadata.MethodKey;
+import top.nontage.jniil.asm.shadow.metadata.ShadowContext;
+import top.nontage.jniil.asm.shadow.metadata.ShadowMethodInfo;
 
 public class ShadowMethodRewriter {
 
@@ -19,28 +20,12 @@ public class ShadowMethodRewriter {
         String shadowOwner = node.name;
 
         for (MethodNode method : node.methods) {
-            MethodKey key = new MethodKey(node.name, method.name, method.desc);
+            if (method.instructions == null) continue;
+
+            MethodKey key = new MethodKey(shadowOwner, method.name, method.desc);
             ShadowMethodInfo info = context.shadowMethods.get(key);
+
             if (info == null) continue;
-
-            method.access &= ~Opcodes.ACC_NATIVE;
-            method.access &= ~Opcodes.ACC_ABSTRACT;
-
-            boolean isStatic = (method.access & Opcodes.ACC_STATIC) != 0;
-
-            method.instructions.clear();
-
-            int index = 0;
-            if (!isStatic) {
-                method.instructions.add(new VarInsnNode(Opcodes.ALOAD, 0));
-                index = 1;
-            }
-
-            Type[] args = Type.getArgumentTypes(method.desc);
-            for (Type t : args) {
-                method.instructions.add(new VarInsnNode(t.getOpcode(Opcodes.ILOAD), index));
-                index += t.getSize();
-            }
 
             Handle bootstrap = new Handle(
                     Opcodes.H_INVOKESTATIC,
@@ -53,30 +38,43 @@ public class ShadowMethodRewriter {
                             "Ljava/lang/String;" +
                             "Ljava/lang/String;" +
                             "Ljava/lang/String;" +
+                            "I" +
                             "I)Ljava/lang/invoke/CallSite;",
                     false
             );
 
-            String indyDesc = method.desc;
-            if (!isStatic) {
-                indyDesc = "(" + Type.getObjectType(shadowOwner) + method.desc.substring(1);
-            }
-
+            boolean isStatic = (method.access & Opcodes.ACC_STATIC) != 0;
             int opcode = isStatic ? Opcodes.INVOKESTATIC : Opcodes.INVOKEVIRTUAL;
 
             InvokeDynamicInsnNode indy = new InvokeDynamicInsnNode(
                     method.name,
-                    indyDesc,
+                    method.desc,
                     bootstrap,
                     shadowOwner,
                     info.targetOwner,
                     info.targetName,
                     info.desc,
-                    opcode
+                    opcode,
+                    0
             );
 
-            method.instructions.add(indy);
-            method.instructions.add(new InsnNode(getReturnOpcode(Type.getReturnType(info.desc))));
+            InsnList newInsns = new InsnList();
+            Type[] argTypes = Type.getArgumentTypes(method.desc);
+            int varIndex = 0;
+            if (!isStatic) {
+                newInsns.add(new VarInsnNode(Opcodes.ALOAD, 0)); // this
+                varIndex++;
+            }
+            for (Type argType : argTypes) {
+                newInsns.add(new VarInsnNode(argType.getOpcode(Opcodes.ILOAD), varIndex));
+                varIndex += argType.getSize();
+            }
+
+            newInsns.add(indy);
+            newInsns.add(new InsnNode(getReturnOpcode(Type.getReturnType(method.desc))));
+
+            method.instructions.clear();
+            method.instructions.add(newInsns);
         }
     }
 

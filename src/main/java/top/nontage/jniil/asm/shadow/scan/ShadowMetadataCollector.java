@@ -1,3 +1,4 @@
+// src/main/java/top/nontage/jniil/asm/shadow/scan/ShadowMetadataCollector.java
 package top.nontage.jniil.asm.shadow.scan;
 
 import org.objectweb.asm.Type;
@@ -29,12 +30,13 @@ public class ShadowMetadataCollector {
             AnnotationNode shadow = findAnnotation(field.visibleAnnotations, Shadow.class);
             if (shadow != null) {
                 String targetOwner = resolveShadowTarget(shadow, classTargetOwner, "field", field.name, node.name);
+                String targetName = resolveTargetName(shadow, field.name);
 
-                validateFieldExists(targetOwner, field.name, field.desc, classLoader, owner);
+                validateFieldExists(targetOwner, targetName, field.desc, classLoader, owner);
 
                 context.shadowFields.put(
                         new FieldKey(owner, field.name, field.desc),
-                        new ShadowFieldInfo(targetOwner, field.name, field.desc)
+                        new ShadowFieldInfo(targetOwner, targetName, field.desc)
                 );
             }
         }
@@ -43,12 +45,13 @@ public class ShadowMetadataCollector {
             AnnotationNode shadow = findAnnotation(method.visibleAnnotations, Shadow.class);
             if (shadow != null) {
                 String targetOwner = resolveShadowTarget(shadow, classTargetOwner, "method", method.name + method.desc, node.name);
+                String targetName = resolveTargetName(shadow, method.name);
 
-                validateMethodExists(targetOwner, method.name, method.desc, classLoader, owner);
+                validateMethodExists(targetOwner, targetName, method.desc, classLoader, owner);
 
                 context.shadowMethods.put(
                         new MethodKey(owner, method.name, method.desc),
-                        new ShadowMethodInfo(targetOwner, method.name, method.desc)
+                        new ShadowMethodInfo(targetOwner, targetName, method.desc)
                 );
             }
         }
@@ -58,7 +61,7 @@ public class ShadowMetadataCollector {
         AnnotationNode an = findAnnotation(node.visibleAnnotations, ShadowOf.class);
         if (an == null) return null;
 
-        String owner = extractTargetOwner(an);
+        String owner = extractAnnotationString(an, "value", "className");
         if (owner == null) {
             throw new IllegalStateException(
                     "@ShadowOf on class " + node.name + " must specify value or className"
@@ -74,7 +77,7 @@ public class ShadowMetadataCollector {
             String member,
             String owner
     ) {
-        String target = extractTargetOwner(shadow);
+        String target = extractAnnotationString(shadow, "value", "className");
 
         if (target != null) return target;
         if (classTarget != null) return classTarget;
@@ -86,6 +89,11 @@ public class ShadowMetadataCollector {
         );
     }
 
+    private String resolveTargetName(AnnotationNode shadow, String defaultName) {
+        String targetName = extractAnnotationString(shadow, "targetName");
+        return (targetName != null && !targetName.isEmpty()) ? targetName : defaultName;
+    }
+
     private AnnotationNode findAnnotation(List<AnnotationNode> anns, Class<?> type) {
         if (anns == null) return null;
         String desc = Type.getDescriptor(type);
@@ -95,24 +103,26 @@ public class ShadowMetadataCollector {
         return null;
     }
 
-    private String extractTargetOwner(AnnotationNode an) {
+    private String extractAnnotationString(AnnotationNode an, String... keys) {
         if (an.values == null) return null;
 
         for (int i = 0; i < an.values.size(); i += 2) {
             String key = (String) an.values.get(i);
             Object value = an.values.get(i + 1);
 
-            if (key.equals("value") && value instanceof Type) {
-                Type t = (Type) value;
-                if (!t.getClassName().equals(Object.class.getName())) {
-                    return t.getInternalName();
-                }
-            }
-
-            if (key.equals("className") && value instanceof String) {
-                String s = (String) value;
-                if (!s.isEmpty()) {
-                    return s.replace('.', '/');
+            for (String targetKey : keys) {
+                if (key.equals(targetKey)) {
+                    if (value instanceof Type) {
+                        Type t = (Type) value;
+                        if (!t.getClassName().equals(Object.class.getName())) {
+                            return t.getInternalName();
+                        }
+                    } else if (value instanceof String) {
+                        String s = (String) value;
+                        if (!s.isEmpty()) {
+                            return s.replace('.', '/');
+                        }
+                    }
                 }
             }
         }
@@ -128,7 +138,7 @@ public class ShadowMetadataCollector {
             Type actualType = Type.getType(field.getType());
 
             if (!actualType.equals(expectedType)) {
-                throw new NoSuchFieldError("Field type mismatch. Expected " + expectedType.getClassName() + " but found " + actualType.getClassName());
+                throw new NoSuchFieldError("Field type mismatch for '" + fieldName + "'. Expected " + expectedType.getClassName() + " but found " + actualType.getClassName());
             }
         } catch (ClassNotFoundException e) {
             throw new IllegalStateException("Shadow target class not found: " + targetOwner.replace('/', '.') + " for shadow field " + fieldName + " in " + shadowOwner, e);
@@ -157,7 +167,7 @@ public class ShadowMetadataCollector {
             Type actualReturnType = Type.getType(method.getReturnType());
 
             if (!actualReturnType.equals(expectedReturnType)) {
-                throw new NoSuchMethodError("Method return type mismatch. Expected " + expectedReturnType.getClassName() + " but found " + actualReturnType.getClassName());
+                throw new NoSuchMethodError("Method return type mismatch for '" + methodName + "'. Expected " + expectedReturnType.getClassName() + " but found " + actualReturnType.getClassName());
             }
 
         } catch (ClassNotFoundException e) {
@@ -170,24 +180,15 @@ public class ShadowMetadataCollector {
 
     private Class<?> classFromType(Type type, ClassLoader classLoader) throws ClassNotFoundException {
         switch (type.getSort()) {
-            case Type.BOOLEAN:
-                return boolean.class;
-            case Type.CHAR:
-                return char.class;
-            case Type.BYTE:
-                return byte.class;
-            case Type.SHORT:
-                return short.class;
-            case Type.INT:
-                return int.class;
-            case Type.FLOAT:
-                return float.class;
-            case Type.LONG:
-                return long.class;
-            case Type.DOUBLE:
-                return double.class;
-            case Type.VOID:
-                return void.class;
+            case Type.BOOLEAN: return boolean.class;
+            case Type.CHAR:    return char.class;
+            case Type.BYTE:    return byte.class;
+            case Type.SHORT:   return short.class;
+            case Type.INT:     return int.class;
+            case Type.FLOAT:   return float.class;
+            case Type.LONG:    return long.class;
+            case Type.DOUBLE:  return double.class;
+            case Type.VOID:    return void.class;
             default:
                 return Class.forName(type.getClassName(), false, classLoader);
         }

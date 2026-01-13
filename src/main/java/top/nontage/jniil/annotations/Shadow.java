@@ -14,4 +14,6 @@ public @interface Shadow {
     Class<?> value() default Object.class;
 
     String className() default "";
+
+    String targetName() default "";
 }

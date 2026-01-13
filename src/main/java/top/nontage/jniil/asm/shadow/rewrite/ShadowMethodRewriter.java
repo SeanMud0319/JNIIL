@@ -20,12 +20,27 @@ public class ShadowMethodRewriter {
         String shadowOwner = node.name;
 
         for (MethodNode method : node.methods) {
-            if (method.instructions == null) continue;
-
             MethodKey key = new MethodKey(shadowOwner, method.name, method.desc);
             ShadowMethodInfo info = context.shadowMethods.get(key);
 
             if (info == null) continue;
+
+            boolean isNative = (method.access & Opcodes.ACC_NATIVE) != 0;
+            boolean isAbstract = (method.access & Opcodes.ACC_ABSTRACT) != 0;
+
+            if (method.instructions == null) {
+                method.instructions = new InsnList();
+            } else {
+                if (!isNative && !isAbstract && method.instructions.size() > 0) {
+                    System.err.println("WARN: Method '" + method.name + "' in shadow class '" + shadowOwner.replace('/', '.') +
+                            "' has both a @Shadow annotation and a method body. The existing body will be discarded.");
+                }
+                method.instructions.clear();
+            }
+
+            method.access &= ~Opcodes.ACC_NATIVE;
+            method.access &= ~Opcodes.ACC_ABSTRACT;
+
 
             Handle bootstrap = new Handle(
                     Opcodes.H_INVOKESTATIC,
@@ -46,9 +61,21 @@ public class ShadowMethodRewriter {
             boolean isStatic = (method.access & Opcodes.ACC_STATIC) != 0;
             int opcode = isStatic ? Opcodes.INVOKESTATIC : Opcodes.INVOKEVIRTUAL;
 
+            String indyDesc;
+            if (isStatic) {
+                indyDesc = method.desc;
+            } else {
+                Type[] argTypes = Type.getArgumentTypes(method.desc);
+                Type returnType = Type.getReturnType(method.desc);
+                Type[] newArgTypes = new Type[argTypes.length + 1];
+                newArgTypes[0] = Type.getObjectType(shadowOwner);
+                System.arraycopy(argTypes, 0, newArgTypes, 1, argTypes.length);
+                indyDesc = Type.getMethodDescriptor(returnType, newArgTypes);
+            }
+
             InvokeDynamicInsnNode indy = new InvokeDynamicInsnNode(
                     method.name,
-                    method.desc,
+                    indyDesc,
                     bootstrap,
                     shadowOwner,
                     info.targetOwner,
@@ -58,13 +85,15 @@ public class ShadowMethodRewriter {
                     0
             );
 
-            InsnList newInsns = new InsnList();
+            InsnList newInsns = method.instructions;
             Type[] argTypes = Type.getArgumentTypes(method.desc);
             int varIndex = 0;
+
             if (!isStatic) {
-                newInsns.add(new VarInsnNode(Opcodes.ALOAD, 0)); // this
+                newInsns.add(new VarInsnNode(Opcodes.ALOAD, 0));
                 varIndex++;
             }
+
             for (Type argType : argTypes) {
                 newInsns.add(new VarInsnNode(argType.getOpcode(Opcodes.ILOAD), varIndex));
                 varIndex += argType.getSize();
@@ -72,9 +101,6 @@ public class ShadowMethodRewriter {
 
             newInsns.add(indy);
             newInsns.add(new InsnNode(getReturnOpcode(Type.getReturnType(method.desc))));
-
-            method.instructions.clear();
-            method.instructions.add(newInsns);
         }
     }
 

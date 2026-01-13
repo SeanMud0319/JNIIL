@@ -175,7 +175,21 @@ public class ShadowMetadataCollector {
             throw new IllegalStateException("Shadow target class not found: " + targetOwner.replace('/', '.') + " for shadow method " + methodName + " in " + shadowOwner, e);
         } catch (NoSuchMethodException e) {
             String args = Arrays.stream(Type.getArgumentTypes(methodDesc)).map(Type::getClassName).collect(Collectors.joining(", "));
-            throw new IllegalStateException("Shadow target method not found: " + methodName + "(" + args + ") in class " + targetOwner.replace('/', '.') + " for shadow in " + shadowOwner, e);
+            String message = "Shadow target method not found: " + methodName + "(" + args + ") in class " + targetOwner.replace('/', '.') + " for shadow in " + shadowOwner;
+
+            try {
+                Class<?> targetClass = Class.forName(targetOwner.replace('/', '.'), false, loader);
+                String similarMethods = Arrays.stream(targetClass.getDeclaredMethods())
+                        .filter(m -> m.getName().equals(methodName))
+                        .map(m -> "    " + m.getName() + "(" + Arrays.stream(m.getParameterTypes()).map(Class::getName).collect(Collectors.joining(", ")) + ")")
+                        .collect(Collectors.joining("\n"));
+                if (!similarMethods.isEmpty()) {
+                    message += ".\nDid you mean one of these?\n" + similarMethods;
+                }
+            } catch (Exception ignored) {
+                // Ignore, just throw original exception
+            }
+            throw new IllegalStateException(message, e);
         }
     }
 

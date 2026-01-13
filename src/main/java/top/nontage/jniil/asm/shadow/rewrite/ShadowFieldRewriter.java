@@ -34,6 +34,17 @@ public class ShadowFieldRewriter {
                 ShadowFieldInfo info = context.shadowFields.get(key);
                 if (info == null) continue;
 
+                boolean isStatic = fi.getOpcode() == Opcodes.GETSTATIC || fi.getOpcode() == Opcodes.PUTSTATIC;
+
+                // Optimization: For non-mutable static fields, we can directly rewrite the instruction.
+                // For instance fields, we must use indy to get the bound target instance.
+                // For mutable final fields, we must use indy to call Unsafe.
+                if (isStatic && !info.isMutable) {
+                    FieldInsnNode newInsn = new FieldInsnNode(fi.getOpcode(), info.targetOwner, info.targetName, info.desc);
+                    insns.set(fi, newInsn);
+                    continue;
+                }
+
                 Handle bootstrap = new Handle(
                         Opcodes.H_INVOKESTATIC,
                         "top/nontage/jniil/asm/shadow/ShadowBootstrap",
@@ -50,7 +61,6 @@ public class ShadowFieldRewriter {
                         false
                 );
 
-                boolean isStatic = fi.getOpcode() == Opcodes.GETSTATIC || fi.getOpcode() == Opcodes.PUTSTATIC;
                 boolean isGet = fi.getOpcode() == Opcodes.GETFIELD || fi.getOpcode() == Opcodes.GETSTATIC;
 
                 String indyName = (isGet ? "get$" : "set$") + fi.name;

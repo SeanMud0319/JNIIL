@@ -187,7 +187,6 @@ public class ShadowMetadataCollector {
                     message += ".\nDid you mean one of these?\n" + similarMethods;
                 }
             } catch (Exception ignored) {
-                // Ignore, just throw original exception
             }
             throw new IllegalStateException(message, e);
         }

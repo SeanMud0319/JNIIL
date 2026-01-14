@@ -36,9 +36,6 @@ public class ShadowFieldRewriter {
 
                 boolean isStatic = fi.getOpcode() == Opcodes.GETSTATIC || fi.getOpcode() == Opcodes.PUTSTATIC;
 
-                // Optimization: For non-mutable static fields, we can directly rewrite the instruction.
-                // For instance fields, we must use indy to get the bound target instance.
-                // For mutable final fields, we must use indy to call Unsafe.
                 if (isStatic && !info.isMutable) {
                     FieldInsnNode newInsn = new FieldInsnNode(fi.getOpcode(), info.targetOwner, info.targetName, info.desc);
                     insns.set(fi, newInsn);

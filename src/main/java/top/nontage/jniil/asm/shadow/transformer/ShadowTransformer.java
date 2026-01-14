@@ -85,10 +85,8 @@ public class ShadowTransformer {
             return null;
         };
         inst.addTransformer(transformer, true);
-        try {
-            inst.retransformClasses(clazz);
-        } finally {
-            inst.removeTransformer(transformer);
-        }
+        inst.retransformClasses(clazz);
+        inst.removeTransformer(transformer);
+
     }
 }

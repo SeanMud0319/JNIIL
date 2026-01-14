@@ -16,6 +16,9 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -60,6 +63,19 @@ public class InjectionUtil {
         System.out.println("All ClassLoaders:");
         for (ClassLoader loader : loaders) {
             System.out.println(loader);
+        }
+    }
+
+    public static void dumpClass(byte[] bytes, String path) {
+        try {
+            Path out = Paths.get(path);
+            Path parent = out.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            Files.write(out, bytes);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to dump class to " + path, e);
         }
     }
 

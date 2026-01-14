@@ -5,11 +5,13 @@ public class ShadowFieldInfo {
     public final String targetName;
     public final String desc;
     public final boolean isMutable;
+    public final boolean isViewOnly;
 
-    public ShadowFieldInfo(String targetOwner, String targetName, String desc, boolean isMutable) {
+    public ShadowFieldInfo(String targetOwner, String targetName, String desc, boolean isMutable, boolean isViewOnly) {
         this.targetOwner = targetOwner;
         this.targetName = targetName;
         this.desc = desc;
         this.isMutable = isMutable;
+        this.isViewOnly = isViewOnly;
     }
 }

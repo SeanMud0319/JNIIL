@@ -5,6 +5,7 @@ import org.objectweb.asm.tree.*;
 import top.nontage.jniil.annotations.Mutable;
 import top.nontage.jniil.annotations.Shadow;
 import top.nontage.jniil.annotations.ShadowOf;
+import top.nontage.jniil.annotations.ViewOnly; // 匯入新註解
 import top.nontage.jniil.asm.shadow.metadata.*;
 
 import java.lang.reflect.Field;
@@ -32,12 +33,18 @@ public class ShadowMetadataCollector {
                 String targetOwner = resolveShadowTarget(shadow, classTargetOwner, "field", field.name, node.name);
                 String targetName = resolveTargetName(shadow, field.name);
                 boolean isMutable = findAnnotation(field.visibleAnnotations, Mutable.class) != null;
+                boolean isViewOnly = findAnnotation(field.visibleAnnotations, ViewOnly.class) != null;
+
+                if (isMutable && isViewOnly) {
+                    throw new IllegalStateException("Field '" + field.name + "' in shadow class '" + owner.replace('/', '.') +
+                            "' cannot be marked with both @Mutable and @ViewOnly.");
+                }
 
                 validateFieldExists(targetOwner, targetName, field.desc, classLoader, owner);
 
                 context.shadowFields.put(
                         new FieldKey(owner, field.name, field.desc),
-                        new ShadowFieldInfo(targetOwner, targetName, field.desc, isMutable)
+                        new ShadowFieldInfo(targetOwner, targetName, field.desc, isMutable, isViewOnly) // 傳入 isViewOnly
                 );
             }
         }

@@ -34,6 +34,14 @@ public class ShadowFieldRewriter {
                 ShadowFieldInfo info = context.shadowFields.get(key);
                 if (info == null) continue;
 
+                boolean isGet = fi.getOpcode() == Opcodes.GETFIELD || fi.getOpcode() == Opcodes.GETSTATIC;
+                boolean isPut = fi.getOpcode() == Opcodes.PUTFIELD || fi.getOpcode() == Opcodes.PUTSTATIC;
+
+                if (info.isViewOnly && isPut) {
+                    throw new IllegalStateException("Attempted to write to a @ViewOnly shadow field '" + fi.name +
+                            "' in method '" + method.name + "' of class '" + shadowOwner.replace('/', '.') + "'");
+                }
+
                 boolean isStatic = fi.getOpcode() == Opcodes.GETSTATIC || fi.getOpcode() == Opcodes.PUTSTATIC;
 
                 if (isStatic && !info.isMutable) {
@@ -57,8 +65,6 @@ public class ShadowFieldRewriter {
                                 "I)Ljava/lang/invoke/CallSite;",
                         false
                 );
-
-                boolean isGet = fi.getOpcode() == Opcodes.GETFIELD || fi.getOpcode() == Opcodes.GETSTATIC;
 
                 String indyName = (isGet ? "get$" : "set$") + fi.name;
                 String indyDesc;

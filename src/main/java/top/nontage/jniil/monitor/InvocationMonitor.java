@@ -198,21 +198,25 @@ public final class InvocationMonitor {
 
     public static Class<?> getCaller(Class<?> skipClass) throws Exception {
         CallerSnapshot snap = SNAPSHOT.get();
-        int currentDepth = Thread.currentThread().getStackTrace().length;
+        StackTraceElement[] stack = Thread.currentThread().getStackTrace();
+        int currentDepth = stack.length;
 
-        if (snap.lastCaller != null && currentDepth == snap.lastStackDepth && !snap.lastCaller.equals(skipClass)) {
+        String fingerprint = (currentDepth > 4) ? stack[4].getClassName() : "";
+
+        if (snap.lastCaller != null && currentDepth == snap.lastStackDepth && snap.lastTargetClass == skipClass && fingerprint.equals(snap.lastFingerprint)) {
             return snap.lastCaller;
         }
 
         Class<?> result;
         if (isJava8) {
             result = null;
-            for (int i = 3; i < 8; i++) {
+            for (int i = 3; i < 10; i++) {
                 Class<?> c = (Class<?>) getCallerMethod8.invoke(null, i);
-                if (c != null && !isFramework(c.getName()) && !c.equals(skipClass)) {
-                    result = c;
-                    break;
-                }
+                if (c == null) break;
+                String cn = c.getName();
+                if (isFramework(cn) || c.equals(skipClass)) continue;
+                result = c;
+                break;
             }
         } else {
             SKIP_TARGET_HOLDER.set(skipClass);
@@ -227,6 +231,9 @@ public final class InvocationMonitor {
 
         snap.lastCaller = result;
         snap.lastStackDepth = currentDepth;
+        snap.lastTargetClass = skipClass;
+        snap.lastFingerprint = fingerprint;
+
         return result;
     }
 
@@ -260,6 +267,8 @@ public final class InvocationMonitor {
 
     private static class CallerSnapshot {
         Class<?> lastCaller;
+        Class<?> lastTargetClass;
         int lastStackDepth;
+        String lastFingerprint;
     }
 }

@@ -1,4 +1,6 @@
-package top.nontage.jniil.asm.shadow.metadata;
+package top.nontage.jniil.shadow.metadata;
+
+import top.nontage.jniil.shadow.transformer.ShadowTransformer;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -13,7 +15,7 @@ import java.util.function.Supplier;
  * {@code MultiBinding} holds one shadow class and a map of target class names
  * to suppliers that provide the actual instances.
  *
- * @see top.nontage.jniil.asm.shadow.transformer.ShadowTransformer#apply(MultiBinding...)
+ * @see ShadowTransformer#apply(MultiBinding...)
  */
 public class MultiBinding {
     private final Class<?> shadowClass;

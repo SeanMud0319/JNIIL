@@ -1,12 +1,12 @@
-package top.nontage.jniil.asm.shadow.rewrite;
+package top.nontage.jniil.shadow.rewrite;
 
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import top.nontage.jniil.asm.shadow.metadata.MethodKey;
-import top.nontage.jniil.asm.shadow.metadata.ShadowContext;
-import top.nontage.jniil.asm.shadow.metadata.ShadowMethodInfo;
+import top.nontage.jniil.shadow.metadata.MethodKey;
+import top.nontage.jniil.shadow.metadata.ShadowContext;
+import top.nontage.jniil.shadow.metadata.ShadowMethodInfo;
 
 public class ShadowMethodRewriter {
 
@@ -44,7 +44,7 @@ public class ShadowMethodRewriter {
 
             Handle bootstrap = new Handle(
                     Opcodes.H_INVOKESTATIC,
-                    "top/nontage/jniil/asm/shadow/ShadowBootstrap",
+                    "top/nontage/jniil/shadow/ShadowBootstrap",
                     "bootstrap",
                     "(Ljava/lang/invoke/MethodHandles$Lookup;" +
                             "Ljava/lang/String;" +

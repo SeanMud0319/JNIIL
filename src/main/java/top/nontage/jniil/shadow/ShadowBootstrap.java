@@ -1,9 +1,9 @@
-package top.nontage.jniil.asm.shadow;
+package top.nontage.jniil.shadow;
 
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import sun.misc.Unsafe;
-import top.nontage.jniil.asm.shadow.metadata.ShadowContextHolder;
+import top.nontage.jniil.shadow.metadata.ShadowContextHolder;
 import top.nontage.jniil.utils.UnsafeUtil;
 
 import java.lang.invoke.CallSite;

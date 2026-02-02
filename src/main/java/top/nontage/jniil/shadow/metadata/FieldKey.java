@@ -1,13 +1,13 @@
-package top.nontage.jniil.asm.shadow.metadata;
+package top.nontage.jniil.shadow.metadata;
 
 import java.util.Objects;
 
-public class MethodKey {
+public class FieldKey {
     public final String owner;
     public final String name;
     public final String desc;
 
-    public MethodKey(String owner, String name, String desc) {
+    public FieldKey(String owner, String name, String desc) {
         this.owner = owner;
         this.name = name;
         this.desc = desc;
@@ -16,8 +16,8 @@ public class MethodKey {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof MethodKey)) return false;
-        MethodKey that = (MethodKey) o;
+        if (!(o instanceof FieldKey)) return false;
+        FieldKey that = (FieldKey) o;
         return owner.equals(that.owner) && name.equals(that.name) && desc.equals(that.desc);
     }
 

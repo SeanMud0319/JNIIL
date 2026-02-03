@@ -103,19 +103,24 @@ public final class InvocationMonitor {
             Method targetMethod = findMethodByKey(methodKey);
             if (targetMethod == null) return new InvocationControl();
 
-            Class<?> callerClass = getCaller(targetMethod.getDeclaringClass());
-
             List<InvocationListener> listeners = LISTENERS.get(targetMethod);
-            InvocationControl control = new InvocationControl();
 
-            if (listeners != null) {
-                for (InvocationListener listener : listeners) {
-                    try {
-                        listener.onInvoke(callerClass, target, args, control);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+            boolean anyNeedsCaller = false;
+            for (InvocationListener l : listeners) {
+                if (l.needsCaller()) {
+                    anyNeedsCaller = true;
+                    break;
                 }
+            }
+
+            Class<?> callerClass = anyNeedsCaller ? getCaller(targetMethod.getDeclaringClass()) : null;
+
+            InvocationControl control = new InvocationControl();
+            for (InvocationListener listener : listeners) {
+                if (control.isCancelled()) {
+                    break;
+                }
+                listener.onInvoke(callerClass, target, args, control);
             }
             return control;
         } catch (Exception e) {
@@ -196,7 +201,7 @@ public final class InvocationMonitor {
         }
     }
 
-    public static Class<?> getCaller(Class<?> skipClass) throws Exception {
+    private static Class<?> getCaller(Class<?> skipClass) throws Exception {
         CallerSnapshot snap = SNAPSHOT.get();
         StackTraceElement[] stack = Thread.currentThread().getStackTrace();
         int currentDepth = stack.length;

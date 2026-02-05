@@ -20,16 +20,12 @@ public class ClassInjector {
 
     public static void injectClass(Class<?> clazz) {
         try {
-            if (!Injectable.class.isAssignableFrom(clazz)) {
-                return;
-            }
-
             InjectClassInfo info = clazz.getAnnotation(InjectClassInfo.class);
             if (info == null) {
                 return;
             }
 
-            String anchorClassName = info.anchorClass();
+            String anchorClassName = info.anchorClass().isEmpty() ? info.anchorClassType().getName() : info.anchorClass();
             String injectClassName = clazz.getName();
             String anchorThreadName = info.anchorThread();
 

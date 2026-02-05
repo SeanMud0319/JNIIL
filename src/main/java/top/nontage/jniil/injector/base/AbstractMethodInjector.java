@@ -152,6 +152,7 @@ public abstract class AbstractMethodInjector {
             if (info.defaultLoader) {
                 pool.insertClassPath(new LoaderClassPath(loader));
                 pool.appendSystemPath();
+                pool.appendClassPath(new LoaderClassPath(injectable.getClass().getClassLoader()));
             }
 
             if (info.appendClasses != null) {

@@ -11,7 +11,9 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 public @interface InjectClassInfo {
-    String anchorClass();
+    String anchorClass() default "";
+
+    Class<?> anchorClassType() default Object.class;
 
     String anchorThread() default "";
 }

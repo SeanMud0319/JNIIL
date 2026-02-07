@@ -1,11 +1,10 @@
-package top.nontage.jniil.asm.utils;
+package top.nontage.jniil.utils;
 
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
-import top.nontage.jniil.utils.InjectionUtil;
 
 import java.io.IOException;
 import java.lang.instrument.UnmodifiableClassException;

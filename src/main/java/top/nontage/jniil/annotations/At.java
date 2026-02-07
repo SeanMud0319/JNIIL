@@ -7,9 +7,53 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+/**
+ * Specifies the injection point within a method.
+ * <p>
+ * You must provide <b>EITHER</b> a direct line number <b>OR</b> an opcode-based
+ * search pattern. Using both or neither will lead to ambiguity or errors.
+ * </p>
+ *
+ * <h3>Usage Patterns:</h3>
+ * <ul>
+ * <li><b>Pattern 1 (Line-based):</b> Use {@link #line()} to target a specific source code line.</li>
+ * <li><b>Pattern 2 (Opcode-based):</b> Use {@link #opcode()} along with {@link #identifier()}
+ * and {@link #ordinal()} to find a specific bytecode instruction and derive its line number.</li>
+ * </ul>
+ */
 @Protect
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface At {
+
+    /**
+     * The direct line number to inject at.
+     * If set to a value >= 0, this will override any opcode search logic.
+     */
     int line() default -1;
+
+    /**
+     * The mnemonic of the instruction to search for (e.g., "INVOKEVIRTUAL", "ALOAD").
+     */
+    String opcode() default "";
+
+    /**
+     * An optional identifier to filter the opcode search (e.g., field name, method name, or variable index).
+     */
+    String identifier() default "";
+
+    /**
+     * The nth occurrence of the specified opcode (starting from 1).
+     */
+    int ordinal() default 1;
+
+    /**
+     * If true, the injection will occur at the beginning of the NEXT line following the target opcode.
+     */
+    boolean shiftAfter() default false;
+
+    /**
+     * Enables debug logs in the console during the injection process.
+     */
+    boolean debug() default false;
 }

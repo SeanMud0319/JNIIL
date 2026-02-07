@@ -1,4 +1,4 @@
-package top.nontage.jniil.asm.utils;
+package top.nontage.jniil.utils;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;

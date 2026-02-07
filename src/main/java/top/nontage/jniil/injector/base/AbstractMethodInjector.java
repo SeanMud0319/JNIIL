@@ -6,8 +6,18 @@ import javassist.CtClass;
 import javassist.CtMethod;
 import javassist.LoaderClassPath;
 import javassist.NotFoundException;
+import javassist.bytecode.CodeAttribute;
+import javassist.bytecode.CodeIterator;
+import javassist.bytecode.ConstPool;
+import javassist.bytecode.MethodInfo;
+import javassist.bytecode.Mnemonic;
 import javassist.expr.ExprEditor;
 import javassist.expr.MethodCall;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.util.Printer;
 import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.annotations.After;
 import top.nontage.jniil.annotations.At;
@@ -17,7 +27,7 @@ import top.nontage.jniil.annotations.InjectMethodInfo;
 import top.nontage.jniil.annotations.Null;
 import top.nontage.jniil.annotations.ReplaceAll;
 import top.nontage.jniil.annotations.ReplaceCall;
-import top.nontage.jniil.asm.utils.LocalVariableTableFiller;
+import top.nontage.jniil.utils.LocalVariableTableFiller;
 import top.nontage.jniil.exception.BytecodeVerifyException;
 import top.nontage.jniil.injector.cache.InjectionCacheProxy;
 import top.nontage.jniil.interfaces.Injectable;
@@ -342,7 +352,7 @@ public abstract class AbstractMethodInjector {
     /**
      * Inserts code into the {@link CtMethod} based on annotations.
      * <p>
-     * Supports @After, @Before, @At(line), and @ReplaceCall.
+     * Supports @After, @Before, @At(line, opcode), and @ReplaceCall.
      *
      * @param ctMethod the target method
      * @param method   the method in the {@link Injectable} class
@@ -359,14 +369,23 @@ public abstract class AbstractMethodInjector {
             ctMethod.insertAfter(src);
             return;
         }
+
         if (beforeAnn != null) {
             ctMethod.insertBefore(src);
             return;
         }
-        if (atAnn != null && atAnn.line() >= 0) {
-            ctMethod.insertAt(atAnn.line(), src);
-            return;
+
+        if (atAnn != null) {
+            if (atAnn.line() >= 0) {
+                ctMethod.insertAt(atAnn.line(), src);
+                return;
+            }
+            if (!atAnn.opcode().isEmpty()) {
+                injectByGenericOpcode(ctMethod, atAnn, src);
+                return;
+            }
         }
+
         if (replaceAllAnn != null) {
             if (!src.startsWith("{") && !src.endsWith("}")) {
                 src = "{" + src + "}";
@@ -374,6 +393,7 @@ public abstract class AbstractMethodInjector {
             ctMethod.setBody(src);
             return;
         }
+
         if (replaceCallAnn != null && !replaceCallAnn.value().isEmpty()) {
             String[] parts = replaceCallAnn.value().split("#");
             if (parts.length != 2) throw new IllegalArgumentException("Invalid ReplaceCall format");
@@ -401,10 +421,203 @@ public abstract class AbstractMethodInjector {
                     }
                 }
             });
-        } else {
-            throw new IllegalArgumentException("No valid injection point specified via @After, @Before, @At, @ReplaceAll or @ReplaceCall");
+            return;
+        }
+        throw new IllegalArgumentException("No valid injection point specified via @After, @Before, @At, @ReplaceAll or @ReplaceCall");
+    }
+
+    private void injectByGenericOpcode(CtMethod ctMethod, At at, String src) throws Exception {
+        boolean debug = at.debug();
+        byte[] classBytes = ctMethod.getDeclaringClass().toBytecode();
+        ClassReader classReader = new ClassReader(classBytes);
+
+        String targetMethodName = ctMethod.getName();
+        String targetMethodDesc = ctMethod.getSignature();
+        String targetOpcodeName = at.opcode();
+        String targetIdentifier = at.identifier();
+        int targetOrdinal = at.ordinal();
+        boolean shiftAfter = at.shiftAfter();
+
+        if (debug) {
+            System.out.println("[JNIIL-Debug] Starting opcode injection for: " + ctMethod.getName());
+            System.out.println("[JNIIL-Debug] Target Opcode: " + targetOpcodeName + ", Identifier: " + targetIdentifier + ", Ordinal: " + targetOrdinal + ", ShiftAfter: " + shiftAfter);
+        }
+
+        final int[] foundLineNumber = {-1};
+
+        classReader.accept(new ClassVisitor(Opcodes.ASM9) {
+            @Override
+            public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
+                if (!name.equals(targetMethodName) || !descriptor.equals(targetMethodDesc)) {
+                    return null;
+                }
+
+                if (debug) {
+                    System.out.println("[JNIIL-Debug] Found target method: " + name + descriptor);
+                }
+
+                return new MethodVisitor(Opcodes.ASM9) {
+                    private int currentLine = -1;
+                    private int currentOrdinal = 0;
+                    private int lastOpcodeLine = -1;
+
+                    @Override
+                    public void visitLineNumber(int line, org.objectweb.asm.Label start) {
+                        if (debug) {
+                            System.out.println("[JNIIL-Debug] Visiting LINENUMBER " + line);
+                        }
+                        if (lastOpcodeLine != -1) {
+                            if (debug) {
+                                System.out.println("[JNIIL-Debug] ShiftAfter is active. Setting injection line to " + line + " from previous opcode at line " + lastOpcodeLine);
+                            }
+                            foundLineNumber[0] = line;
+                            lastOpcodeLine = -1;
+                            return;
+                        }
+                        this.currentLine = line;
+                    }
+
+                    private void processOpcode(int opcode, String... identifiers) {
+                        if (foundLineNumber[0] != -1) return;
+
+                        String opcodeName = Printer.OPCODES[opcode];
+                        if (debug) {
+                            System.out.println("[JNIIL-Debug]   Processing opcode: " + opcodeName + " at line " + currentLine + " with identifiers: " + Arrays.toString(identifiers));
+                        }
+
+                        boolean isLdcFamily = "LDC".equalsIgnoreCase(targetOpcodeName) &&
+                                ("LDC".equalsIgnoreCase(opcodeName) || "LDC_W".equalsIgnoreCase(opcodeName) || "LDC2_W".equalsIgnoreCase(opcodeName));
+
+                        if (opcodeName.equalsIgnoreCase(targetOpcodeName) || isLdcFamily) {
+                            boolean identifierMatch = targetIdentifier.isEmpty();
+                            if (!identifierMatch) {
+                                for (String id : identifiers) {
+                                    if (id != null && id.contains(targetIdentifier)) {
+                                        identifierMatch = true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (identifierMatch) {
+                                if (debug) {
+                                    System.out.println("[JNIIL-Debug]     -> Opcode and Identifier match found.");
+                                }
+                                checkAndSetLineNumber();
+                            }
+                        }
+                    }
+
+                    private void checkAndSetLineNumber() {
+                        if (currentLine == -1) {
+                            if (debug) System.out.println("[JNIIL-Debug]     -> Match found but no line number information available yet. Skipping.");
+                            return;
+                        }
+
+                        currentOrdinal++;
+                        if (debug) {
+                            System.out.println("[JNIIL-Debug]     -> Current ordinal is now: " + currentOrdinal);
+                        }
+                        if (currentOrdinal == targetOrdinal) {
+                            if (debug) {
+                                System.out.println("[JNIIL-Debug]       -> Ordinal match. (" + currentOrdinal + " == " + targetOrdinal + ")");
+                            }
+                            if (shiftAfter) {
+                                lastOpcodeLine = currentLine;
+                                if (debug) {
+                                    System.out.println("[JNIIL-Debug]       -> ShiftAfter is true. Storing line " + currentLine + " and waiting for next LINENUMBER.");
+                                }
+                            } else {
+                                foundLineNumber[0] = currentLine;
+                                if (debug) {
+                                    System.out.println("[JNIIL-Debug]       -> ShiftAfter is false. Setting injection line to " + currentLine + ".");
+                                }
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void visitInsn(int opcode) {
+                        processOpcode(opcode);
+                    }
+
+                    @Override
+                    public void visitIntInsn(int opcode, int operand) {
+                        processOpcode(opcode, String.valueOf(operand));
+                    }
+
+                    @Override
+                    public void visitVarInsn(int opcode, int var) {
+                        processOpcode(opcode, String.valueOf(var));
+                    }
+
+                    @Override
+                    public void visitTypeInsn(int opcode, String type) {
+                        processOpcode(opcode, type.replace('/', '.'));
+                    }
+
+                    @Override
+                    public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
+                        processOpcode(opcode, owner.replace('/', '.'), name);
+                    }
+
+                    @Override
+                    public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
+                        processOpcode(opcode, owner.replace('/', '.'), name);
+                    }
+
+                    @Override
+                    public void visitInvokeDynamicInsn(String name, String descriptor, org.objectweb.asm.Handle bootstrapMethodHandle, Object... bootstrapMethodArguments) {
+                        processOpcode(Opcodes.INVOKEDYNAMIC, name, bootstrapMethodHandle.getOwner().replace('/', '.'), bootstrapMethodHandle.getName());
+                    }
+
+                    @Override
+                    public void visitJumpInsn(int opcode, org.objectweb.asm.Label label) {
+                        processOpcode(opcode);
+                    }
+
+                    @Override
+                    public void visitLdcInsn(Object value) {
+                        processOpcode(Opcodes.LDC, value.toString());
+                    }
+
+                    @Override
+                    public void visitIincInsn(int var, int increment) {
+                        processOpcode(Opcodes.IINC, String.valueOf(var));
+                    }
+
+                    @Override
+                    public void visitEnd() {
+                        if (lastOpcodeLine != -1 && foundLineNumber[0] == -1) {
+                            if (debug) {
+                                System.out.println("[JNIIL-Debug] Reached end of method. ShiftAfter was active but no new line number was found. Using last opcode line: " + lastOpcodeLine);
+                            }
+                            foundLineNumber[0] = lastOpcodeLine;
+                        }
+                        if (debug) {
+                            System.out.println("[JNIIL-Debug] Finished visiting method.");
+                        }
+                    }
+                };
+            }
+        }, ClassReader.SKIP_FRAMES);
+
+        if (foundLineNumber[0] < 0) {
+            throw new IllegalStateException("Cannot find specified opcode '" + targetOpcodeName +
+                    "' with identifier '" + targetIdentifier + "' at ordinal " + targetOrdinal +
+                    ". Or the target class was compiled without line number information.");
+        }
+
+        if (debug) {
+            System.out.println("[JNIIL-Debug] Injection point found at line: " + foundLineNumber[0] + ". Injecting code...");
+        }
+        ctMethod.getDeclaringClass().defrost();
+        ctMethod.insertAt(foundLineNumber[0], src);
+        if (debug) {
+            System.out.println("[JNIIL-Debug] Injection complete.");
         }
     }
+
 
     /**
      * Redefines a class using {@link Instrumentation} with the new bytecode.

@@ -21,6 +21,7 @@ import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.TypeInsnNode;
+import org.objectweb.asm.tree.VarInsnNode;
 import org.objectweb.asm.util.Printer;
 import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.annotations.After;
@@ -817,13 +818,29 @@ public abstract class AbstractMethodInjector {
     }
 
     private boolean checkIdentifierSafe(AbstractInsnNode insn, String id) {
-        if (insn instanceof MethodInsnNode) return id.equals(((MethodInsnNode) insn).name);
-        if (insn instanceof FieldInsnNode) return id.equals(((FieldInsnNode) insn).name);
+        if (id == null || id.isEmpty()) return true;
+        
+        if (insn instanceof MethodInsnNode) {
+            return id.equals(((MethodInsnNode) insn).name);
+        }
+
+        if (insn instanceof FieldInsnNode) {
+            return id.equals(((FieldInsnNode) insn).name);
+        }
+
+        if (insn instanceof VarInsnNode) {
+            return id.equals(String.valueOf(((VarInsnNode) insn).var));
+        }
+
         if (insn instanceof LdcInsnNode) {
             Object cst = ((LdcInsnNode) insn).cst;
             return cst != null && cst.toString().contains(id);
         }
-        if (insn instanceof TypeInsnNode) return ((TypeInsnNode) insn).desc.contains(id.replace('.', '/'));
+
+        if (insn instanceof TypeInsnNode) {
+            return ((TypeInsnNode) insn).desc.contains(id.replace('.', '/'));
+        }
+
         return false;
     }
 

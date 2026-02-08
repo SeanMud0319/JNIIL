@@ -763,15 +763,9 @@ public abstract class AbstractMethodInjector {
         injectedClasses.add(info.typeName);
 
         if (JNIIL.isMethodOutputEnabled()) {
-            // 1. 將 top.nontage.Service 轉換為 top/nontage/Service.class
             String relativePath = info.typeName.replace('.', File.separatorChar) + ".class";
-
-            // 2. 結合輸出根目錄
             File outputFile = new File(JNIIL.getMethodOutputDir(), relativePath);
-
-            // 3. 執行 Dump
             InjectionUtil.dumpClass(finalBytecode, outputFile.getAbsolutePath());
-
             System.out.println("[JNIIL-DEBUG] Class dumped to hierarchy: " + outputFile.getAbsolutePath());
         }
     }

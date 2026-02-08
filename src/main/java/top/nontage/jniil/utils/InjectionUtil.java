@@ -122,6 +122,35 @@ public class InjectionUtil {
         return result[0];
     }
 
+    public static String getMethodDescriptor(String[] params, String returnType) {
+        StringBuilder sb = new StringBuilder("(");
+        if (params != null) {
+            for (String param : params) {
+                sb.append(getDescriptor(param));
+            }
+        }
+        sb.append(")");
+        sb.append(getDescriptor(returnType));
+        return sb.toString();
+    }
+
+    public static String getDescriptor(String className) {
+        switch (className) {
+            case "int": return "I";
+            case "long": return "J";
+            case "boolean": return "Z";
+            case "char": return "C";
+            case "byte": return "B";
+            case "short": return "S";
+            case "float": return "F";
+            case "double": return "D";
+            case "void": return "V";
+            case "V": return "V"; // 容錯
+            default:
+                return "L" + className.replace('.', '/') + ";";
+        }
+    }
+
     public static void injectClass(ClassLoader loader, String name, byte[] bytecode) throws Exception {
         Method defineClass = ClassLoader.class.getDeclaredMethod(
                 "defineClass", String.class, byte[].class, int.class, int.class);

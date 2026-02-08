@@ -1,6 +1,7 @@
 package top.nontage.jniil.interfaces;
 
 import javassist.CtMethod;
+import org.objectweb.asm.Opcodes;
 import top.nontage.auth.library.annotation.Protect;
 
 import java.util.HashMap;
@@ -54,7 +55,7 @@ import java.util.Map;
  * @see top.nontage.jniil.annotations.InjectMethodInfo
  */
 @Protect
-public interface Injectable {
+public interface Injectable extends Opcodes {
     String getInjectSourceCode(CtMethod ctMethod);
 
     default String getInjectSourceCode() {

@@ -6,17 +6,21 @@ import javassist.CtClass;
 import javassist.CtMethod;
 import javassist.LoaderClassPath;
 import javassist.NotFoundException;
-import javassist.bytecode.CodeAttribute;
-import javassist.bytecode.CodeIterator;
-import javassist.bytecode.ConstPool;
-import javassist.bytecode.MethodInfo;
-import javassist.bytecode.Mnemonic;
 import javassist.expr.ExprEditor;
 import javassist.expr.MethodCall;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.FieldInsnNode;
+import org.objectweb.asm.tree.InsnList;
+import org.objectweb.asm.tree.LdcInsnNode;
+import org.objectweb.asm.tree.MethodInsnNode;
+import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.TypeInsnNode;
 import org.objectweb.asm.util.Printer;
 import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.annotations.After;
@@ -24,16 +28,17 @@ import top.nontage.jniil.annotations.At;
 import top.nontage.jniil.annotations.Before;
 import top.nontage.jniil.annotations.FillLocalVariableTable;
 import top.nontage.jniil.annotations.InjectMethodInfo;
-import top.nontage.jniil.annotations.Null;
 import top.nontage.jniil.annotations.ReplaceAll;
 import top.nontage.jniil.annotations.ReplaceCall;
-import top.nontage.jniil.utils.LocalVariableTableFiller;
 import top.nontage.jniil.exception.BytecodeVerifyException;
 import top.nontage.jniil.injector.cache.InjectionCacheProxy;
+import top.nontage.jniil.injector.insn.InsnContext;
 import top.nontage.jniil.interfaces.Injectable;
+import top.nontage.jniil.interfaces.InsnInjectable;
 import top.nontage.jniil.javassist.FileClassPath;
 import top.nontage.jniil.javassist.JarFileClassPath;
 import top.nontage.jniil.utils.InjectionUtil;
+import top.nontage.jniil.utils.LocalVariableTableFiller;
 import top.nontage.jniil.verify.BytecodeVerifier;
 
 import java.io.ByteArrayInputStream;
@@ -42,9 +47,11 @@ import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.lang.instrument.UnmodifiableClassException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -110,7 +117,6 @@ public abstract class AbstractMethodInjector {
      *   <li>{@link After}</li>
      *   <li>{@link At}</li>
      *   <li>{@link ReplaceCall}</li>
-     *   <li>{@link Null}</li>
      * </ul>
      *
      * <h3>Notes</h3>
@@ -139,6 +145,11 @@ public abstract class AbstractMethodInjector {
      * @see JNIIL
      */
     public final void inject(Injectable injectable) throws Exception {
+        if (injectable instanceof InsnInjectable) {
+            InsnInjectable insnInjectable = (InsnInjectable) injectable;
+            instructionInject(insnInjectable);
+            return;
+        }
         Class<?> clazz = injectable.getClass();
 
         for (Method method : clazz.getDeclaredMethods()) {
@@ -148,8 +159,7 @@ public abstract class AbstractMethodInjector {
                             method.isAnnotationPresent(Before.class) ||
                             method.isAnnotationPresent(At.class) ||
                             method.isAnnotationPresent(ReplaceAll.class) ||
-                            method.isAnnotationPresent(ReplaceCall.class) ||
-                            method.isAnnotationPresent(Null.class);
+                            method.isAnnotationPresent(ReplaceCall.class);
 
             if (!hasInjectAnnotation) {
                 continue;
@@ -510,7 +520,8 @@ public abstract class AbstractMethodInjector {
 
                     private void checkAndSetLineNumber() {
                         if (currentLine == -1) {
-                            if (debug) System.out.println("[JNIIL-Debug]     -> Match found but no line number information available yet. Skipping.");
+                            if (debug)
+                                System.out.println("[JNIIL-Debug]     -> Match found but no line number information available yet. Skipping.");
                             return;
                         }
 
@@ -675,6 +686,151 @@ public abstract class AbstractMethodInjector {
             info.defaultLoader = annotation.defaultLoader();
         }
         return info;
+    }
+
+    // not open
+    private void instructionInject(InsnInjectable insnInjectable) throws Exception {
+        Method applyMethod = insnInjectable.getClass().getDeclaredMethod("apply", InsnContext.class, InsnList.class);
+        At at = applyMethod.getAnnotation(At.class);
+        if (at == null) {
+            throw new IllegalStateException("InsnInjectable implementation must have @At annotation on apply method: "
+                    + insnInjectable.getClass().getName());
+        }
+
+        TargetInfo info = extractTargetInfo(insnInjectable, applyMethod);
+        ClassLoader loader = getTargetLoader(info);
+        Class<?> targetClass = Class.forName(info.typeName, true, loader);
+
+        byte[] currentBytecode = InjectionCacheProxy.contains(info.typeName)
+                ? InjectionCacheProxy.get(targetClass)
+                : InjectionUtil.getOriginalClassBytes(targetClass);
+
+        ClassReader cr = new ClassReader(currentBytecode);
+        ClassNode cn = new ClassNode();
+        cr.accept(cn, ClassReader.EXPAND_FRAMES);
+
+        MethodNode targetMethod = null;
+        for (MethodNode mn : cn.methods) {
+            if (mn.name.equals(info.methodName)) {
+                String[] targetParams = info.methodParams;
+                if (targetParams.length > 0) {
+                    String currentParamsDesc = mn.desc.substring(0, mn.desc.indexOf(')') + 1);
+                    String expectedParamsDesc = InjectionUtil.getMethodDescriptor(targetParams, "V");
+                    expectedParamsDesc = expectedParamsDesc.substring(0, expectedParamsDesc.indexOf(')') + 1);
+                    if (currentParamsDesc.equals(expectedParamsDesc)) {
+                        targetMethod = mn;
+                        break;
+                    }
+                } else {
+                    targetMethod = mn;
+                    break;
+                }
+            }
+        }
+
+        if (targetMethod == null) throw new NoSuchMethodException(info.methodName + " in " + info.typeName);
+
+        AbstractInsnNode anchor = findAnchorByAt(targetMethod, at);
+
+        InsnContext ctx = new InsnContext(targetMethod, anchor);
+        InsnList toPush = new InsnList();
+        InsnList resultInsnList = insnInjectable.apply(ctx, toPush);
+
+        InsnList finalToInject = (resultInsnList != null) ? resultInsnList : toPush;
+        if (finalToInject.size() > 0) {
+            if (at.debug())
+                System.out.println("[JNIIL-DEBUG] Injecting " + finalToInject.size() + " instructions " + (at.shiftAfter() ? "AFTER" : "BEFORE") + " anchor.");
+            if (at.shiftAfter()) {
+                targetMethod.instructions.insert(anchor, finalToInject);
+            } else {
+                targetMethod.instructions.insertBefore(anchor, finalToInject);
+            }
+        }
+
+        ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_FRAMES);
+        cn.accept(cw);
+        byte[] finalBytecode = cw.toByteArray();
+
+        if (JNIIL.isBytecodeVerifying()) {
+            BytecodeVerifier.Result result = BytecodeVerifier.verifyAll(info.typeName, currentBytecode, finalBytecode);
+            if (!result.isAsmValid() || !result.isJvmValid()) {
+                throw new BytecodeVerifyException(result.getDetails());
+            }
+        }
+
+        redefineClass(targetClass, finalBytecode);
+        InjectionCacheProxy.put(targetClass, finalBytecode);
+        injectedClasses.add(info.typeName);
+
+        if (JNIIL.isMethodOutputEnabled()) {
+            // 1. 將 top.nontage.Service 轉換為 top/nontage/Service.class
+            String relativePath = info.typeName.replace('.', File.separatorChar) + ".class";
+
+            // 2. 結合輸出根目錄
+            File outputFile = new File(JNIIL.getMethodOutputDir(), relativePath);
+
+            // 3. 執行 Dump
+            InjectionUtil.dumpClass(finalBytecode, outputFile.getAbsolutePath());
+
+            System.out.println("[JNIIL-DEBUG] Class dumped to hierarchy: " + outputFile.getAbsolutePath());
+        }
+    }
+
+    private AbstractInsnNode findAnchorByAt(MethodNode mn, At at) {
+        String targetOpcodeName = at.opcode();
+        String targetId = at.identifier();
+        int targetOrdinal = at.ordinal();
+        boolean debug = at.debug();
+
+        if (debug) {
+            System.out.println("[JNIIL-DEBUG] Scanning method: " + mn.name + mn.desc);
+            System.out.println("[JNIIL-DEBUG] Target: Opcode=" + targetOpcodeName + ", ID=" + targetId + ", Ordinal=" + targetOrdinal);
+        }
+
+        if (targetOpcodeName == null || targetOpcodeName.isEmpty()) {
+            return mn.instructions.getFirst();
+        }
+
+        List<AbstractInsnNode> candidates = new ArrayList<>();
+        AbstractInsnNode[] allInsns = mn.instructions.toArray();
+        for (int i = 0; i < allInsns.length; i++) {
+            AbstractInsnNode insn = allInsns[i];
+            int opcode = insn.getOpcode();
+            if (opcode < 0) continue;
+
+            String opName = Printer.OPCODES[opcode];
+            if (opName.equalsIgnoreCase(targetOpcodeName)) {
+                boolean idMatch = (targetId == null || targetId.isEmpty() || checkIdentifierSafe(insn, targetId));
+                if (debug)
+                    System.out.println("[JNIIL-DEBUG] Found match at index " + i + ": " + opName + " (ID Match: " + idMatch + ")");
+
+                if (idMatch) {
+                    candidates.add(insn);
+                }
+            }
+        }
+
+        try {
+            AbstractInsnNode result = candidates.get(targetOrdinal - 1);
+            if (debug) System.out.println("[JNIIL-DEBUG] Successfully located anchor at ordinal " + targetOrdinal);
+            return result;
+        } catch (IndexOutOfBoundsException e) {
+            throw new IndexOutOfBoundsException(String.format(
+                    "Injection error in method %s: @At(opcode=%s, ordinal=%d) failed. Only %d occurrence(s) found.",
+                    mn.name, targetOpcodeName, targetOrdinal, candidates.size()
+            ));
+        }
+    }
+
+    private boolean checkIdentifierSafe(AbstractInsnNode insn, String id) {
+        if (insn instanceof MethodInsnNode) return id.equals(((MethodInsnNode) insn).name);
+        if (insn instanceof FieldInsnNode) return id.equals(((FieldInsnNode) insn).name);
+        if (insn instanceof LdcInsnNode) {
+            Object cst = ((LdcInsnNode) insn).cst;
+            return cst != null && cst.toString().contains(id);
+        }
+        if (insn instanceof TypeInsnNode) return ((TypeInsnNode) insn).desc.contains(id.replace('.', '/'));
+        return false;
     }
 
     private String[] classArrayToName(Class<?>[] classes, String[] fallback) {

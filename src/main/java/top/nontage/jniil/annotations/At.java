@@ -36,7 +36,7 @@ public @interface At {
      * The mnemonic of the instruction to search for (e.g., "INVOKEVIRTUAL", "ALOAD").
      * @return the opcode mnemonic
      */
-    String opcode() default "";
+    int opcode() default 114514;
 
     /**
      * An optional identifier to filter the opcode search (e.g., field name, method name, or variable index).

@@ -144,8 +144,9 @@ public class InjectionUtil {
             case "short": return "S";
             case "float": return "F";
             case "double": return "D";
-            case "void": return "V";
-            case "V": return "V"; // 容錯
+            case "void":
+            case "V":
+                return "V";
             default:
                 return "L" + className.replace('.', '/') + ";";
         }

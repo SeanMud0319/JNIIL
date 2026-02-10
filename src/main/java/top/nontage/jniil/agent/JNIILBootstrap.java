@@ -1,11 +1,10 @@
 package top.nontage.jniil.agent;
 
-import me.fan87.nativeinstrumentation.NativeInstrumentation;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import top.nontage.jniil.JNIIL;
-import top.nontage.jniil.utils.InjectionUtil;
+import top.nontage.jvmcontext.JvmContext;
 
 import java.io.File;
 import java.io.IOException;
@@ -96,7 +95,7 @@ public class JNIILBootstrap implements Opcodes {
                 attachSelf();
                 break;
             case NATIVE:
-                instrumentation = new NativeInstrumentation();
+                instrumentation = JvmContext.getInstrumentation();
                 break;
         }
         JNIIL.setInstrumentation(instrumentation);

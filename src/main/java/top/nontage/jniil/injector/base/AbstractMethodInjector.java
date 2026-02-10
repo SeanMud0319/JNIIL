@@ -391,7 +391,7 @@ public abstract class AbstractMethodInjector {
                 ctMethod.insertAt(atAnn.line(), src);
                 return;
             }
-            if (!atAnn.opcode().isEmpty()) {
+            if (atAnn.opcode() != 114514) {
                 injectByGenericOpcode(ctMethod, atAnn, src);
                 return;
             }
@@ -439,19 +439,31 @@ public abstract class AbstractMethodInjector {
 
     private void injectByGenericOpcode(CtMethod ctMethod, At at, String src) throws Exception {
         boolean debug = at.debug();
+
+        int targetOpcode = at.opcode();
+        if (targetOpcode == 114514 || targetOpcode <= 0) {
+            throw new IllegalArgumentException(String.format(
+                    "Illegal @At configuration in method %s: Opcode %d is invalid! " +
+                            "You must specify a target opcode for injection.",
+                    ctMethod.getName(), targetOpcode
+            ));
+        }
+
         byte[] classBytes = ctMethod.getDeclaringClass().toBytecode();
         ClassReader classReader = new ClassReader(classBytes);
 
         String targetMethodName = ctMethod.getName();
         String targetMethodDesc = ctMethod.getSignature();
-        String targetOpcodeName = at.opcode();
         String targetIdentifier = at.identifier();
         int targetOrdinal = at.ordinal();
         boolean shiftAfter = at.shiftAfter();
 
+        String targetOpcodeName = targetOpcode < Printer.OPCODES.length
+                ? Printer.OPCODES[targetOpcode] : "UNKNOWN_" + targetOpcode;
+
         if (debug) {
             System.out.println("[JNIIL-Debug] Starting opcode injection for: " + ctMethod.getName());
-            System.out.println("[JNIIL-Debug] Target Opcode: " + targetOpcodeName + ", Identifier: " + targetIdentifier + ", Ordinal: " + targetOrdinal + ", ShiftAfter: " + shiftAfter);
+            System.out.println("[JNIIL-Debug] Target: " + targetOpcodeName + "(" + targetOpcode + "), ID: " + targetIdentifier + ", Ordinal: " + targetOrdinal);
         }
 
         final int[] foundLineNumber = {-1};
@@ -491,16 +503,13 @@ public abstract class AbstractMethodInjector {
                     private void processOpcode(int opcode, String... identifiers) {
                         if (foundLineNumber[0] != -1) return;
 
-                        String opcodeName = Printer.OPCODES[opcode];
-                        if (debug) {
-                            System.out.println("[JNIIL-Debug]   Processing opcode: " + opcodeName + " at line " + currentLine + " with identifiers: " + Arrays.toString(identifiers));
+                        boolean opcodeMatch = (opcode == targetOpcode);
+                        if (!opcodeMatch && targetOpcode == Opcodes.LDC) {
+                            opcodeMatch = (opcode == 19 || opcode == 20);
                         }
 
-                        boolean isLdcFamily = "LDC".equalsIgnoreCase(targetOpcodeName) &&
-                                ("LDC".equalsIgnoreCase(opcodeName) || "LDC_W".equalsIgnoreCase(opcodeName) || "LDC2_W".equalsIgnoreCase(opcodeName));
-
-                        if (opcodeName.equalsIgnoreCase(targetOpcodeName) || isLdcFamily) {
-                            boolean identifierMatch = targetIdentifier.isEmpty();
+                        if (opcodeMatch) {
+                            boolean identifierMatch = (targetIdentifier == null || targetIdentifier.isEmpty());
                             if (!identifierMatch) {
                                 for (String id : identifiers) {
                                     if (id != null && id.contains(targetIdentifier)) {
@@ -511,9 +520,6 @@ public abstract class AbstractMethodInjector {
                             }
 
                             if (identifierMatch) {
-                                if (debug) {
-                                    System.out.println("[JNIIL-Debug]     -> Opcode and Identifier match found.");
-                                }
                                 checkAndSetLineNumber();
                             }
                         }
@@ -615,9 +621,11 @@ public abstract class AbstractMethodInjector {
         }, ClassReader.SKIP_FRAMES);
 
         if (foundLineNumber[0] < 0) {
-            throw new IllegalStateException("Cannot find specified opcode '" + targetOpcodeName +
-                    "' with identifier '" + targetIdentifier + "' at ordinal " + targetOrdinal +
-                    ". Or the target class was compiled without line number information.");
+            throw new IllegalStateException(String.format(
+                    "Cannot find anchor: @At(opcode=%s(%d), identifier='%s', ordinal=%d) in method %s. " +
+                            "Check if target exists or if LineNumberTable was stripped.",
+                    targetOpcodeName, targetOpcode, targetIdentifier, targetOrdinal, ctMethod.getName()
+            ));
         }
 
         if (debug) {
@@ -629,7 +637,6 @@ public abstract class AbstractMethodInjector {
             System.out.println("[JNIIL-Debug] Injection complete.");
         }
     }
-
 
     /**
      * Redefines a class using {@link Instrumentation} with the new bytecode.
@@ -772,32 +779,39 @@ public abstract class AbstractMethodInjector {
     }
 
     private AbstractInsnNode findAnchorByAt(MethodNode mn, At at) {
-        String targetOpcodeName = at.opcode();
+        int targetOpcode = at.opcode();
         String targetId = at.identifier();
         int targetOrdinal = at.ordinal();
         boolean debug = at.debug();
 
-        if (debug) {
-            System.out.println("[JNIIL-DEBUG] Scanning method: " + mn.name + mn.desc);
-            System.out.println("[JNIIL-DEBUG] Target: Opcode=" + targetOpcodeName + ", ID=" + targetId + ", Ordinal=" + targetOrdinal);
+        if (targetOpcode == 114514 || targetOpcode <= 0) {
+            throw new IllegalArgumentException(String.format(
+                    "Illegal @At configuration in method %s: Opcode %d is invalid! " +
+                            "You must specify a valid opcode to locate an anchor.",
+                    mn.name, targetOpcode
+            ));
         }
 
-        if (targetOpcodeName == null || targetOpcodeName.isEmpty()) {
-            return mn.instructions.getFirst();
+        String targetOpcodeName = targetOpcode < Printer.OPCODES.length
+                ? Printer.OPCODES[targetOpcode]
+                : "UNKNOWN_OP_" + targetOpcode;
+
+        if (debug) {
+            System.out.println("[JNIIL-DEBUG] Scanning method: " + mn.name + mn.desc);
+            System.out.println("[JNIIL-DEBUG] Target: Opcode=" + targetOpcodeName + "(" + targetOpcode + "), ID=" + targetId + ", Ordinal=" + targetOrdinal);
         }
 
         List<AbstractInsnNode> candidates = new ArrayList<>();
         AbstractInsnNode[] allInsns = mn.instructions.toArray();
+
         for (int i = 0; i < allInsns.length; i++) {
             AbstractInsnNode insn = allInsns[i];
-            int opcode = insn.getOpcode();
-            if (opcode < 0) continue;
 
-            String opName = Printer.OPCODES[opcode];
-            if (opName.equalsIgnoreCase(targetOpcodeName)) {
+            if (insn.getOpcode() == targetOpcode) {
                 boolean idMatch = (targetId == null || targetId.isEmpty() || checkIdentifierSafe(insn, targetId));
+
                 if (debug)
-                    System.out.println("[JNIIL-DEBUG] Found match at index " + i + ": " + opName + " (ID Match: " + idMatch + ")");
+                    System.out.println("[JNIIL-DEBUG] Found potential match at index " + i + " (ID Match: " + idMatch + ")");
 
                 if (idMatch) {
                     candidates.add(insn);
@@ -805,21 +819,26 @@ public abstract class AbstractMethodInjector {
             }
         }
 
+        if (candidates.isEmpty()) {
+            throw new RuntimeException(String.format(
+                    "Injection error: No occurrences of opcode %s(%d) found in method %s.",
+                    targetOpcodeName, targetOpcode, mn.name
+            ));
+        }
+
         try {
-            AbstractInsnNode result = candidates.get(targetOrdinal - 1);
-            if (debug) System.out.println("[JNIIL-DEBUG] Successfully located anchor at ordinal " + targetOrdinal);
-            return result;
+            return candidates.get(targetOrdinal - 1);
         } catch (IndexOutOfBoundsException e) {
             throw new IndexOutOfBoundsException(String.format(
-                    "Injection error in method %s: @At(opcode=%s, ordinal=%d) failed. Only %d occurrence(s) found.",
-                    mn.name, targetOpcodeName, targetOrdinal, candidates.size()
+                    "Injection error: @At(opcode=%s, ordinal=%d) failed in method %s. Only %d occurrence(s) found.",
+                    targetOpcodeName, targetOrdinal, mn.name, candidates.size()
             ));
         }
     }
 
     private boolean checkIdentifierSafe(AbstractInsnNode insn, String id) {
         if (id == null || id.isEmpty()) return true;
-        
+
         if (insn instanceof MethodInsnNode) {
             return id.equals(((MethodInsnNode) insn).name);
         }

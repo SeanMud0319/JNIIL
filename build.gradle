@@ -36,6 +36,8 @@ test {
 tasks.shadowJar {
     archiveClassifier.set(null)
     relocate 'javassist', 'top.nontage.relocated.javassist'
+    mergeServiceFiles()
+    configurations = [project.configurations.runtimeClasspath]
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -54,11 +56,9 @@ java {
 publishing {
     publications {
         mavenJava(MavenPublication) {
-            from components.java
-
-            artifact(tasks.shadowJar) {
-                classifier = 'all'
-            }
+            artifact shadowJar
+            artifact sourcesJar
+            artifact javadocJar
 
             groupId = group
             artifactId = project.name

@@ -39,7 +39,7 @@ public class ClassInjector {
                 targetLoader = InjectionUtil.findClassLoaderByThread(anchorThreadName);
             }
 
-            byte[] originalBytecode = InjectionUtil.getOriginalClassBytes(clazz);
+            byte[] originalBytecode = InjectionUtil.getOriginalClassBytes(injectClassName);
 
             InjectionUtil.unsafeInjectClass(
                     targetLoader,

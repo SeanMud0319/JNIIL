@@ -839,25 +839,37 @@ public abstract class AbstractMethodInjector {
     private boolean checkIdentifierSafe(AbstractInsnNode insn, String id) {
         if (id == null || id.isEmpty()) return true;
 
-        if (insn instanceof MethodInsnNode) {
-            return id.equals(((MethodInsnNode) insn).name);
-        }
+        String normalizedId = id.replace('/', '.');
 
         if (insn instanceof FieldInsnNode) {
-            return id.equals(((FieldInsnNode) insn).name);
+            FieldInsnNode f = (FieldInsnNode) insn;
+            String ownerDotted = f.owner.replace('/', '.');
+            String fullName = ownerDotted + "." + f.name;
+            return normalizedId.equals(f.name) || normalizedId.equals(fullName) || normalizedId.equals(ownerDotted);
         }
 
-        if (insn instanceof VarInsnNode) {
-            return id.equals(String.valueOf(((VarInsnNode) insn).var));
+        if (insn instanceof MethodInsnNode) {
+            MethodInsnNode m = (MethodInsnNode) insn;
+            String ownerDotted = m.owner.replace('/', '.');
+            String fullName = ownerDotted + "." + m.name;
+            return normalizedId.equals(m.name) || normalizedId.equals(fullName) || normalizedId.equals(ownerDotted);
+        }
+
+        if (insn instanceof TypeInsnNode) {
+            String typeDotted = ((TypeInsnNode) insn).desc.replace('/', '.');
+            return typeDotted.equals(normalizedId) || typeDotted.endsWith("." + normalizedId);
         }
 
         if (insn instanceof LdcInsnNode) {
             Object cst = ((LdcInsnNode) insn).cst;
-            return cst != null && cst.toString().contains(id);
+            if (cst instanceof String) {
+                return ((String) cst).replace('/', '.').contains(normalizedId);
+            }
+            return cst != null && cst.toString().equals(id);
         }
 
-        if (insn instanceof TypeInsnNode) {
-            return ((TypeInsnNode) insn).desc.contains(id.replace('.', '/'));
+        if (insn instanceof VarInsnNode) {
+            return id.equals(String.valueOf(((VarInsnNode) insn).var));
         }
 
         return false;

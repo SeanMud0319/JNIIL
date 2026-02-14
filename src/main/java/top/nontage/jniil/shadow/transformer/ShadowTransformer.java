@@ -45,7 +45,12 @@ public class ShadowTransformer {
         ShadowMethodRewriter methodRewriter = new ShadowMethodRewriter(context);
 
         for (Class<?> clazz : classesToTransform) {
-            byte[] bytes = InjectionUtil.getOriginalClassBytes(clazz);
+            byte[] bytes;
+            if (InjectionCacheProxy.contains(clazz)) {
+                bytes = InjectionCacheProxy.get(clazz);
+            } else {
+                bytes = InjectionUtil.getOriginalClassBytes(clazz);
+            }
             ClassReader cr = new ClassReader(bytes);
             ClassNode classNode = new ClassNode();
             cr.accept(classNode, 0);

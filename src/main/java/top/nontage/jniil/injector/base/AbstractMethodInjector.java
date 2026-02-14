@@ -439,12 +439,10 @@ public abstract class AbstractMethodInjector {
 
     private void injectByGenericOpcode(CtMethod ctMethod, At at, String src) throws Exception {
         boolean debug = at.debug();
-
         int targetOpcode = at.opcode();
         if (targetOpcode == 114514 || targetOpcode <= 0) {
             throw new IllegalArgumentException(String.format(
-                    "Illegal @At configuration in method %s: Opcode %d is invalid! " +
-                            "You must specify a target opcode for injection.",
+                    "Illegal @At configuration in method %s: Opcode %d is invalid!",
                     ctMethod.getName(), targetOpcode
             ));
         }
@@ -454,7 +452,7 @@ public abstract class AbstractMethodInjector {
 
         String targetMethodName = ctMethod.getName();
         String targetMethodDesc = ctMethod.getSignature();
-        String targetIdentifier = at.identifier();
+        String targetIdentifier = at.identifier() != null ? at.identifier().replace('/', '.') : "";
         int targetOrdinal = at.ordinal();
         boolean shiftAfter = at.shiftAfter();
 
@@ -475,10 +473,6 @@ public abstract class AbstractMethodInjector {
                     return null;
                 }
 
-                if (debug) {
-                    System.out.println("[JNIIL-Debug] Found target method: " + name + descriptor);
-                }
-
                 return new MethodVisitor(Opcodes.ASM9) {
                     private int currentLine = -1;
                     private int currentOrdinal = 0;
@@ -486,13 +480,7 @@ public abstract class AbstractMethodInjector {
 
                     @Override
                     public void visitLineNumber(int line, org.objectweb.asm.Label start) {
-                        if (debug) {
-                            System.out.println("[JNIIL-Debug] Visiting LINENUMBER " + line);
-                        }
                         if (lastOpcodeLine != -1) {
-                            if (debug) {
-                                System.out.println("[JNIIL-Debug] ShiftAfter is active. Setting injection line to " + line + " from previous opcode at line " + lastOpcodeLine);
-                            }
                             foundLineNumber[0] = line;
                             lastOpcodeLine = -1;
                             return;
@@ -509,10 +497,12 @@ public abstract class AbstractMethodInjector {
                         }
 
                         if (opcodeMatch) {
-                            boolean identifierMatch = (targetIdentifier == null || targetIdentifier.isEmpty());
+                            boolean identifierMatch = targetIdentifier.isEmpty();
                             if (!identifierMatch) {
                                 for (String id : identifiers) {
-                                    if (id != null && id.contains(targetIdentifier)) {
+                                    if (id == null) continue;
+                                    String normalizedId = id.replace('/', '.');
+                                    if (normalizedId.equals(targetIdentifier) || normalizedId.endsWith("." + targetIdentifier)) {
                                         identifierMatch = true;
                                         break;
                                     }
@@ -526,30 +516,14 @@ public abstract class AbstractMethodInjector {
                     }
 
                     private void checkAndSetLineNumber() {
-                        if (currentLine == -1) {
-                            if (debug)
-                                System.out.println("[JNIIL-Debug]     -> Match found but no line number information available yet. Skipping.");
-                            return;
-                        }
+                        if (currentLine == -1) return;
 
                         currentOrdinal++;
-                        if (debug) {
-                            System.out.println("[JNIIL-Debug]     -> Current ordinal is now: " + currentOrdinal);
-                        }
                         if (currentOrdinal == targetOrdinal) {
-                            if (debug) {
-                                System.out.println("[JNIIL-Debug]       -> Ordinal match. (" + currentOrdinal + " == " + targetOrdinal + ")");
-                            }
                             if (shiftAfter) {
                                 lastOpcodeLine = currentLine;
-                                if (debug) {
-                                    System.out.println("[JNIIL-Debug]       -> ShiftAfter is true. Storing line " + currentLine + " and waiting for next LINENUMBER.");
-                                }
                             } else {
                                 foundLineNumber[0] = currentLine;
-                                if (debug) {
-                                    System.out.println("[JNIIL-Debug]       -> ShiftAfter is false. Setting injection line to " + currentLine + ".");
-                                }
                             }
                         }
                     }
@@ -571,22 +545,24 @@ public abstract class AbstractMethodInjector {
 
                     @Override
                     public void visitTypeInsn(int opcode, String type) {
-                        processOpcode(opcode, type.replace('/', '.'));
+                        processOpcode(opcode, type, type.replace('/', '.'));
                     }
 
                     @Override
                     public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
-                        processOpcode(opcode, owner.replace('/', '.'), name);
+                        String ownerDotted = owner.replace('/', '.');
+                        processOpcode(opcode, name, ownerDotted + "." + name, ownerDotted);
                     }
 
                     @Override
                     public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
-                        processOpcode(opcode, owner.replace('/', '.'), name);
+                        String ownerDotted = owner.replace('/', '.');
+                        processOpcode(opcode, name, ownerDotted + "." + name, ownerDotted);
                     }
 
                     @Override
                     public void visitInvokeDynamicInsn(String name, String descriptor, org.objectweb.asm.Handle bootstrapMethodHandle, Object... bootstrapMethodArguments) {
-                        processOpcode(Opcodes.INVOKEDYNAMIC, name, bootstrapMethodHandle.getOwner().replace('/', '.'), bootstrapMethodHandle.getName());
+                        processOpcode(Opcodes.INVOKEDYNAMIC, name);
                     }
 
                     @Override
@@ -607,13 +583,7 @@ public abstract class AbstractMethodInjector {
                     @Override
                     public void visitEnd() {
                         if (lastOpcodeLine != -1 && foundLineNumber[0] == -1) {
-                            if (debug) {
-                                System.out.println("[JNIIL-Debug] Reached end of method. ShiftAfter was active but no new line number was found. Using last opcode line: " + lastOpcodeLine);
-                            }
                             foundLineNumber[0] = lastOpcodeLine;
-                        }
-                        if (debug) {
-                            System.out.println("[JNIIL-Debug] Finished visiting method.");
                         }
                     }
                 };
@@ -622,20 +592,13 @@ public abstract class AbstractMethodInjector {
 
         if (foundLineNumber[0] < 0) {
             throw new IllegalStateException(String.format(
-                    "Cannot find anchor: @At(opcode=%s(%d), identifier='%s', ordinal=%d) in method %s. " +
-                            "Check if target exists or if LineNumberTable was stripped.",
+                    "Cannot find anchor: @At(opcode=%s(%d), identifier='%s', ordinal=%d) in method %s.",
                     targetOpcodeName, targetOpcode, targetIdentifier, targetOrdinal, ctMethod.getName()
             ));
         }
 
-        if (debug) {
-            System.out.println("[JNIIL-Debug] Injection point found at line: " + foundLineNumber[0] + ". Injecting code...");
-        }
         ctMethod.getDeclaringClass().defrost();
         ctMethod.insertAt(foundLineNumber[0], src);
-        if (debug) {
-            System.out.println("[JNIIL-Debug] Injection complete.");
-        }
     }
 
     /**

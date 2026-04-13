@@ -17,7 +17,8 @@ public class JNIIL {
     }
 
     public static Instrumentation getInstrumentation() {
-        return instrumentation;
+        if (instrumentation != null) return instrumentation;
+        throw new IllegalStateException("Instrumentation has not been initialized. Did you call JNIILBootstrap.install()?");
     }
 
     public static boolean isBytecodeVerifying() {

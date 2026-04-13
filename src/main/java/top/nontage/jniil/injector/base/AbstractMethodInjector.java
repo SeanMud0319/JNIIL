@@ -628,18 +628,9 @@ public abstract class AbstractMethodInjector {
      **/
     protected TargetInfo extractTargetInfo(Injectable injectable, Method method) {
         TargetInfo info = new TargetInfo();
-        boolean isNull = !method.isAnnotationPresent(InjectMethodInfo.class);
-        if (isNull) {
-            info.typeName = injectable.targetType() != null && injectable.targetType() != Object.class ? injectable.targetType().getName() : injectable.targetTypeInternalName();
-            info.methodName = injectable.targetMethodName();
-            info.methodParams = classArrayToName(injectable.targetMethodParamTypes(), injectable.targetMethodParams());
-            info.appendClasses = injectable.appendClassLoader();
-            info.targetTypeThreadName = injectable.targetTypeThreadName();
-            info.appendFileLoader = injectable.appendFileLoader();
-            info.appendJarLoader = injectable.appendJarLoader();
-            info.appendByteLoader = injectable.appendByteLoader();
-            info.defaultLoader = injectable.defaultLoader();
-        } else {
+        boolean hasMethodInfo = method.isAnnotationPresent(InjectMethodInfo.class);
+        boolean isInsnInjectable = injectable instanceof InsnInjectable;
+        if (hasMethodInfo) {
             InjectMethodInfo annotation = method.getAnnotation(InjectMethodInfo.class);
             info.typeName = annotation.targetType() != null ? annotation.targetType().getTypeName() : annotation.targetTypeInternalName();
             info.methodName = annotation.targetMethodName();
@@ -649,8 +640,25 @@ public abstract class AbstractMethodInjector {
             info.appendFileLoader = annotation.appendFileLoader();
             info.appendJarLoader = annotation.appendJarLoader();
             info.defaultLoader = annotation.defaultLoader();
+            return info;
         }
-        return info;
+        if (!isInsnInjectable) {
+            info.typeName = injectable.targetType() != null && injectable.targetType() != Object.class ? injectable.targetType().getName() : injectable.targetTypeInternalName();
+            info.methodName = injectable.targetMethodName();
+            info.methodParams = classArrayToName(injectable.targetMethodParamTypes(), injectable.targetMethodParams());
+            info.appendClasses = injectable.appendClassLoader();
+            info.targetTypeThreadName = injectable.targetTypeThreadName();
+            info.appendFileLoader = injectable.appendFileLoader();
+            info.appendJarLoader = injectable.appendJarLoader();
+            info.appendByteLoader = injectable.appendByteLoader();
+            info.defaultLoader = injectable.defaultLoader();
+            return info;
+        } else {
+            info.typeName = injectable.targetType() != null && injectable.targetType() != Object.class ? injectable.targetType().getName() : injectable.targetTypeInternalName();
+            info.methodName = injectable.targetMethodName();
+            info.methodParams = classArrayToName(injectable.targetMethodParamTypes(), injectable.targetMethodParams());
+            return info;
+        }
     }
 
     // not open
@@ -668,7 +676,7 @@ public abstract class AbstractMethodInjector {
 
         byte[] currentBytecode = InjectionCacheProxy.contains(info.typeName)
                 ? InjectionCacheProxy.get(targetClass)
-                : InjectionUtil.getOriginalClassBytes(targetClass);
+                : InjectionUtil.getOriginalClassBytes(info.typeName);
 
         ClassReader cr = new ClassReader(currentBytecode);
         ClassNode cn = new ClassNode();

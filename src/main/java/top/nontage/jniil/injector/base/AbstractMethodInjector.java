@@ -8,11 +8,7 @@ import javassist.LoaderClassPath;
 import javassist.NotFoundException;
 import javassist.expr.ExprEditor;
 import javassist.expr.MethodCall;
-import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.*;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldInsnNode;
@@ -101,7 +97,6 @@ public abstract class AbstractMethodInjector {
      *   <li>Load the target {@link CtClass} and, if annotated with {@link FillLocalVariableTable},
      *       reconstruct its LocalVariableTable.</li>
      *   <li>Obtain the corresponding {@link CtMethod} and insert the injection source code
-     *       (retrieved from {@link Injectable#getInjectSourceCode()} or
      *       {@link Injectable#getInjectSourceCode(CtMethod)}).</li>
      *   <li>If {@link JNIIL#isMethodOutputEnabled()} is enabled, dump the modified class file to
      *       the configured output directory.</li>
@@ -152,117 +147,116 @@ public abstract class AbstractMethodInjector {
             return;
         }
         Class<?> clazz = injectable.getClass();
+        Method method = clazz.getDeclaredMethod("getInjectSourceCode", CtMethod.class);
+        boolean hasInjectAnnotation =
+                method.isAnnotationPresent(InjectMethodInfo.class) ||
+                        method.isAnnotationPresent(After.class) ||
+                        method.isAnnotationPresent(Before.class) ||
+                        method.isAnnotationPresent(At.class) ||
+                        method.isAnnotationPresent(ReplaceAll.class) ||
+                        method.isAnnotationPresent(ReplaceCall.class);
 
-        for (Method method : clazz.getDeclaredMethods()) {
-            boolean hasInjectAnnotation =
-                    method.isAnnotationPresent(InjectMethodInfo.class) ||
-                            method.isAnnotationPresent(After.class) ||
-                            method.isAnnotationPresent(Before.class) ||
-                            method.isAnnotationPresent(At.class) ||
-                            method.isAnnotationPresent(ReplaceAll.class) ||
-                            method.isAnnotationPresent(ReplaceCall.class);
-
-            if (!hasInjectAnnotation) {
-                continue;
-            }
-
-            TargetInfo info = extractTargetInfo(injectable, method);
-            ClassPool pool = prepareClassPool();
-            ClassLoader loader = getTargetLoader(info);
-
-            if (info.defaultLoader) {
-                pool.insertClassPath(new LoaderClassPath(loader));
-                pool.appendSystemPath();
-                pool.appendClassPath(new LoaderClassPath(injectable.getClass().getClassLoader()));
-            }
-
-            if (info.appendClasses != null) {
-                for (Class<?> append : info.appendClasses) {
-                    pool.appendClassPath(new LoaderClassPath(append.getClassLoader()));
-                }
-            }
-
-            if (info.appendFileLoader != null) {
-                for (String f : info.appendFileLoader) {
-                    if (!f.isEmpty()) pool.appendClassPath(new FileClassPath(new File(f)));
-                }
-            }
-
-            if (info.appendJarLoader != null) {
-                for (String f : info.appendJarLoader) {
-                    if (!f.isEmpty()) pool.insertClassPath(new JarFileClassPath(new File(f)));
-                }
-            }
-
-            if (info.appendByteLoader != null) {
-                info.appendByteLoader.forEach((className, bytes) -> {
-                    pool.insertClassPath(new ByteArrayClassPath(className, bytes));
-                });
-            }
-            // 如果Class還沒載入就先載入
-            Class<?> targetClass = Class.forName(info.typeName, true, loader);
-
-            // Load CtClass from cache if available, because you can't get redefined class bytecode just from ClassPool or ClassLoader, even from retransformed class.
-            CtClass ctClass;
-            if (InjectionCacheProxy.contains(info.typeName)) {
-                ctClass = pool.makeClass(new ByteArrayInputStream(InjectionCacheProxy.get(targetClass)));
-            } else {
-                ctClass = pool.get(info.typeName);
-            }
-
-            if (ctClass.isFrozen()) ctClass.defrost();
-
-            if (method.isAnnotationPresent(FillLocalVariableTable.class)) {
-                byte[] modified = new LocalVariableTableFiller().fillLocalVariableNames(Class.forName(info.typeName), false);
-                if (modified != null && modified.length > 0) {
-                    ctClass.defrost();
-                    ctClass = pool.makeClass(new ByteArrayInputStream(modified));
-                }
-            }
-
-            ctClass = modifyCtClassBeforeInsertCode(ctClass, injectable);
-
-            byte[] originalBytecode = InjectionUtil.getOriginalClassBytes(Class.forName(info.typeName));
-
-            CtMethod ctMethod = getCtMethod(ctClass, info);
-
-            String src = injectable.getInjectSourceCode(ctMethod);
-
-            if (ctClass.isFrozen()) ctClass.defrost();
-
-            insertCode(ctMethod, method, src);
-
-            ctClass = modifyCtClassBeforeRedefinition(ctClass, injectable);
-
-            if (JNIIL.isMethodOutputEnabled()) {
-                File outputDir = JNIIL.getMethodOutputDir();
-                if (!outputDir.exists()) {
-                    outputDir.mkdirs();
-                }
-                ctClass.writeFile(outputDir.getAbsolutePath());
-                System.out.println("Dumped injected method to: " + outputDir.getAbsolutePath());
-            }
-
-            byte[] bytecode = ctClass.toBytecode();
-
-            if (JNIIL.isBytecodeVerifying()) {
-                BytecodeVerifier.Result result = BytecodeVerifier.verifyAll(info.typeName, originalBytecode, bytecode);
-                if (!result.isAsmValid() || !result.isJvmValid()) {
-                    String msg = "[BytecodeVerifier] Class " + ctClass.getName() +
-                            " failed verification:\n" + result.getDetails();
-                    throw new BytecodeVerifyException(msg);
-                }
-            }
-
-            redefineClass(targetClass, bytecode);
-            injectedClasses.add(info.typeName);
-
-            onInjected(ctClass, injectable);
-
-            getModifiedCtClass(ctClass);
-
-            InjectionCacheProxy.put(targetClass, bytecode);
+        if (!hasInjectAnnotation) {
+            throw new IllegalArgumentException("Method in " + clazz.getName() + " lacks injection annotations.");
         }
+
+        TargetInfo info = extractTargetInfo(injectable, method);
+        ClassPool pool = prepareClassPool();
+        ClassLoader loader = getTargetLoader(info);
+
+        if (info.defaultLoader) {
+            pool.insertClassPath(new LoaderClassPath(loader));
+            pool.appendSystemPath();
+            pool.appendClassPath(new LoaderClassPath(injectable.getClass().getClassLoader()));
+        }
+
+        if (info.appendClasses != null) {
+            for (Class<?> append : info.appendClasses) {
+                pool.appendClassPath(new LoaderClassPath(append.getClassLoader()));
+            }
+        }
+
+        if (info.appendFileLoader != null) {
+            for (String f : info.appendFileLoader) {
+                if (!f.isEmpty()) pool.appendClassPath(new FileClassPath(new File(f)));
+            }
+        }
+
+        if (info.appendJarLoader != null) {
+            for (String f : info.appendJarLoader) {
+                if (!f.isEmpty()) pool.insertClassPath(new JarFileClassPath(new File(f)));
+            }
+        }
+
+        if (info.appendByteLoader != null) {
+            info.appendByteLoader.forEach((className, bytes) -> {
+                pool.insertClassPath(new ByteArrayClassPath(className, bytes));
+            });
+        }
+        // 如果Class還沒載入就先載入
+        Class<?> targetClass = Class.forName(info.typeName, true, loader);
+
+        // Load CtClass from cache if available, because you can't get redefined class bytecode just from ClassPool or ClassLoader, even from retransformed class.
+        CtClass ctClass;
+        if (InjectionCacheProxy.contains(info.typeName)) {
+            ctClass = pool.makeClass(new ByteArrayInputStream(InjectionCacheProxy.get(targetClass)));
+        } else {
+            ctClass = pool.get(info.typeName);
+        }
+
+        if (ctClass.isFrozen()) ctClass.defrost();
+
+        if (method.isAnnotationPresent(FillLocalVariableTable.class)) {
+            byte[] modified = new LocalVariableTableFiller().fillLocalVariableNames(Class.forName(info.typeName), false);
+            if (modified != null && modified.length > 0) {
+                ctClass.defrost();
+                ctClass = pool.makeClass(new ByteArrayInputStream(modified));
+            }
+        }
+
+        ctClass = modifyCtClassBeforeInsertCode(ctClass, injectable);
+
+        byte[] originalBytecode = InjectionUtil.getOriginalClassBytes(info.typeName);
+
+        CtMethod ctMethod = getCtMethod(ctClass, info);
+
+        String src = injectable.getInjectSourceCode(ctMethod);
+
+        if (ctClass.isFrozen()) ctClass.defrost();
+
+        insertCode(ctMethod, method, src);
+
+        ctClass = modifyCtClassBeforeRedefinition(ctClass, injectable);
+
+        if (JNIIL.isMethodOutputEnabled()) {
+            File outputDir = JNIIL.getMethodOutputDir();
+            if (!outputDir.exists()) {
+                // noinspection ResultOfMethodCallIgnored
+                outputDir.mkdirs();
+            }
+            ctClass.writeFile(outputDir.getAbsolutePath());
+            System.out.println("Dumped injected method to: " + outputDir.getAbsolutePath());
+        }
+
+        byte[] bytecode = ctClass.toBytecode();
+
+        if (JNIIL.isBytecodeVerifying()) {
+            BytecodeVerifier.Result result = BytecodeVerifier.verifyAll(info.typeName, originalBytecode, bytecode);
+            if (!result.isAsmValid() || !result.isJvmValid()) {
+                String msg = "[BytecodeVerifier] Class " + ctClass.getName() +
+                        " failed verification:\n" + result.getDetails();
+                throw new BytecodeVerifyException(msg);
+            }
+        }
+
+        apply(targetClass, bytecode);
+        injectedClasses.add(info.typeName);
+
+        onInjected(ctClass, injectable);
+
+        getModifiedCtClass(ctClass);
+
+        InjectionCacheProxy.put(targetClass, bytecode);
     }
 
     /**
@@ -479,7 +473,7 @@ public abstract class AbstractMethodInjector {
                     private int lastOpcodeLine = -1;
 
                     @Override
-                    public void visitLineNumber(int line, org.objectweb.asm.Label start) {
+                    public void visitLineNumber(int line, Label start) {
                         if (lastOpcodeLine != -1) {
                             foundLineNumber[0] = line;
                             lastOpcodeLine = -1;
@@ -561,12 +555,12 @@ public abstract class AbstractMethodInjector {
                     }
 
                     @Override
-                    public void visitInvokeDynamicInsn(String name, String descriptor, org.objectweb.asm.Handle bootstrapMethodHandle, Object... bootstrapMethodArguments) {
+                    public void visitInvokeDynamicInsn(String name, String descriptor, Handle bootstrapMethodHandle, Object... bootstrapMethodArguments) {
                         processOpcode(Opcodes.INVOKEDYNAMIC, name);
                     }
 
                     @Override
-                    public void visitJumpInsn(int opcode, org.objectweb.asm.Label label) {
+                    public void visitJumpInsn(int opcode, Label label) {
                         processOpcode(opcode);
                     }
 
@@ -610,7 +604,7 @@ public abstract class AbstractMethodInjector {
      * @param newBytecode the new bytecode
      * @throws UnmodifiableClassException when can't modify
      **/
-    protected void redefineClass(Class<?> clazz, byte[] newBytecode) throws UnmodifiableClassException {
+    protected void apply(Class<?> clazz, byte[] newBytecode) throws UnmodifiableClassException {
         ClassFileTransformer transformer = (loader, className, classBeingRedefined, protectionDomain, classfileBuffer) -> {
             if (classBeingRedefined == clazz) {
                 if (JNIIL.isStoreOriginalByteCode() && !originalBytecodes.containsKey(clazz)) {
@@ -729,7 +723,7 @@ public abstract class AbstractMethodInjector {
             }
         }
 
-        redefineClass(targetClass, finalBytecode);
+        apply(targetClass, finalBytecode);
         InjectionCacheProxy.put(targetClass, finalBytecode);
         injectedClasses.add(info.typeName);
 

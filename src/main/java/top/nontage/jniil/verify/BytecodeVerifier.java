@@ -2,7 +2,6 @@ package top.nontage.jniil.verify;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.util.CheckClassAdapter;
-import top.nontage.auth.library.annotation.Protect;
 import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.utils.InjectionUtil;
 
@@ -14,7 +13,6 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.WeakHashMap;
 
-@Protect
 public class BytecodeVerifier {
     private static final Instrumentation inst = JNIIL.getInstrumentation();
 

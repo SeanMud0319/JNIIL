@@ -2,14 +2,12 @@ package top.nontage.jniil.javassist;
 
 import javassist.ClassPath;
 import javassist.NotFoundException;
-import top.nontage.auth.library.annotation.Protect;
 
 import java.io.File;
 import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.Files;
 
-@Protect
 public class FileClassPath implements ClassPath {
     private final File baseDir;
 

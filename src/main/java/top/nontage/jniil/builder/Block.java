@@ -3,7 +3,6 @@ package top.nontage.jniil.builder;
 import javassist.CtClass;
 import javassist.CtMethod;
 import javassist.NotFoundException;
-import top.nontage.auth.library.annotation.Protect;
 import top.nontage.jniil.exception.NoSuchLocalVariableException;
 
 import java.lang.reflect.Method;
@@ -11,7 +10,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-@Protect
 public class Block {
 
     private final Map<String, LocalValue<?>> builderLocals;

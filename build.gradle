@@ -26,7 +26,6 @@ dependencies {
     implementation("org.ow2.asm:asm-tree:9.8")
     implementation("org.ow2.asm:asm-util:9.8")
     implementation("org.ow2.asm:asm-commons:9.8")
-    compileOnly("top.nontage.auth:NontageAuthServer-Library:1.0-SNAPSHOT")
 }
 
 test {

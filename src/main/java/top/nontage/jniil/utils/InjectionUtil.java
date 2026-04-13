@@ -1,7 +1,6 @@
 package top.nontage.jniil.utils;
 
 import sun.misc.Unsafe;
-import top.nontage.auth.library.annotation.Protect;
 import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.verify.BytecodeVerifier;
 
@@ -22,7 +21,6 @@ import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.Set;
 
-@Protect
 public class InjectionUtil {
     private static final Instrumentation inst = JNIIL.getInstrumentation();
 

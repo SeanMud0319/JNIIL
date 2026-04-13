@@ -1,8 +1,5 @@
 package top.nontage.jniil.builder;
 
-import top.nontage.auth.library.annotation.Protect;
-
-@Protect
 public class BinaryExpr implements Expr {
     private final Expr left;
     private final String op;

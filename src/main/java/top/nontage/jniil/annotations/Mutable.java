@@ -1,7 +1,5 @@
 package top.nontage.jniil.annotations;
 
-import top.nontage.auth.library.annotation.Protect;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -18,7 +16,6 @@ import java.lang.annotation.Target;
  * This functionality is not guaranteed to work across all JVM implementations or versions.
  * Use with extreme caution.
  */
-@Protect
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.FIELD)
 public @interface Mutable {

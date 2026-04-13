@@ -1,7 +1,5 @@
 package top.nontage.jniil.annotations;
 
-import top.nontage.auth.library.annotation.Protect;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -21,7 +19,6 @@ import java.lang.annotation.Target;
  * and {@link #ordinal()} to find a specific bytecode instruction and derive its line number.</li>
  * </ul>
  */
-@Protect
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface At {

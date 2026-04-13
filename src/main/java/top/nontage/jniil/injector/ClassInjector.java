@@ -1,15 +1,12 @@
 package top.nontage.jniil.injector;
 
-import top.nontage.auth.library.annotation.Protect;
 import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.annotations.InjectClassInfo;
-import top.nontage.jniil.interfaces.Injectable;
 import top.nontage.jniil.utils.InjectionUtil;
 
 import java.io.File;
 import java.io.FileOutputStream;
 
-@Protect
 public class ClassInjector {
 
     public static void injectClasses(Class<?>... classes) {

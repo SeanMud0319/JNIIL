@@ -1,8 +1,5 @@
 package top.nontage.jniil.builder;
 
-import top.nontage.auth.library.annotation.Protect;
-
-@Protect
 public class LocalValue<T> implements Expr {
 
     private final String name;

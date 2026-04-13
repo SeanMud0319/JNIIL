@@ -2,7 +2,6 @@ package top.nontage.jniil.interfaces;
 
 import javassist.CtMethod;
 import org.objectweb.asm.Opcodes;
-import top.nontage.auth.library.annotation.Protect;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -54,13 +53,8 @@ import java.util.Map;
  * @see javassist.CtMethod
  * @see top.nontage.jniil.annotations.InjectMethodInfo
  */
-@Protect
 public interface Injectable extends Opcodes {
     String getInjectSourceCode(CtMethod ctMethod);
-
-    default String getInjectSourceCode() {
-        throw new UnsupportedOperationException("You must override getInjectSourceCode(CtMethod)");
-    }
 
     default String targetTypeInternalName() {
         return "";

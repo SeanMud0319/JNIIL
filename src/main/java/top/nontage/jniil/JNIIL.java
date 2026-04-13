@@ -1,17 +1,15 @@
 package top.nontage.jniil;
 
-import top.nontage.auth.library.annotation.Protect;
-
 import java.io.File;
 import java.lang.instrument.Instrumentation;
 
-@Protect
 public class JNIIL {
 
     private static final InjectionOutputConfig classOutput = new InjectionOutputConfig();
     private static final InjectionOutputConfig methodOutput = new InjectionOutputConfig();
     private static boolean storeOriginalByteCode = false;
     private static boolean bytecodeVerifying = true;
+    private static boolean bytecodeVerifyWarning = true;
     private static Instrumentation instrumentation;
 
     public static void setInstrumentation(Instrumentation instrumentation) {
@@ -27,10 +25,18 @@ public class JNIIL {
     }
 
     public static void setBytecodeVerifying(boolean bytecodeVerifying) {
-        if (!bytecodeVerifying) {
+        if (!bytecodeVerifying && bytecodeVerifyWarning) {
             System.out.println("[JNIIL] Bytecode verifying is disabled. This may lead to runtime errors if the injected bytecode is invalid.");
         }
         JNIIL.bytecodeVerifying = bytecodeVerifying;
+    }
+
+    public static boolean isBytecodeVerifyWarning() {
+        return bytecodeVerifyWarning;
+    }
+
+    public static void setBytecodeVerifyWarning(boolean bytecodeVerifyWarning) {
+        JNIIL.bytecodeVerifyWarning = bytecodeVerifyWarning;
     }
 
     public static void enableClassOutput(File dir) {

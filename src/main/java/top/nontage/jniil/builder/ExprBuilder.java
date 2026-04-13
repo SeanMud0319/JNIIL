@@ -7,7 +7,6 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
-import top.nontage.auth.library.annotation.Protect;
 
 import java.lang.reflect.Method;
 import java.util.HashSet;
@@ -15,7 +14,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
-@Protect
 public class ExprBuilder {
 
     private Method method;

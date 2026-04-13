@@ -4,14 +4,7 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.tree.AbstractInsnNode;
-import org.objectweb.asm.tree.ClassNode;
-import org.objectweb.asm.tree.InsnList;
-import org.objectweb.asm.tree.LabelNode;
-import org.objectweb.asm.tree.LocalVariableNode;
-import org.objectweb.asm.tree.MethodNode;
-import org.objectweb.asm.tree.VarInsnNode;
-import top.nontage.auth.library.annotation.Protect;
+import org.objectweb.asm.tree.*;
 import top.nontage.jniil.JNIIL;
 
 import java.lang.instrument.ClassFileTransformer;
@@ -21,7 +14,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 
-@Protect
 public class LocalVariableTableFiller {
     private final Instrumentation inst = JNIIL.getInstrumentation();
 

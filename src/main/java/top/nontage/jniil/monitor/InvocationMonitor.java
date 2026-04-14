@@ -9,6 +9,8 @@ import top.nontage.jniil.utils.InjectionUtil;
 import java.lang.instrument.ClassDefinition;
 import java.lang.instrument.Instrumentation;
 import java.lang.instrument.UnmodifiableClassException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.Arrays;
@@ -58,7 +60,8 @@ import java.util.stream.Collectors;
 public final class InvocationMonitor {
 
     private static final Instrumentation inst = JNIIL.getInstrumentation();
-    private static final Map<Method, List<InvocationListener>> LISTENERS = new ConcurrentHashMap<>();
+    private static final Map<Executable, List<InvocationListener>> LISTENERS = new ConcurrentHashMap<>();
+    private static final Map<String, Executable> KEY_TO_EXECUTABLE = new ConcurrentHashMap<>();
     private static final ThreadLocal<CallerSnapshot> SNAPSHOT = ThreadLocal.withInitial(CallerSnapshot::new);
     private static final ThreadLocal<Class<?>> SKIP_TARGET_HOLDER = new ThreadLocal<>();
     private static final ThreadLocal<Boolean> IN_HOOK = ThreadLocal.withInitial(() -> false);
@@ -67,6 +70,7 @@ public final class InvocationMonitor {
     private static Method walkMethod;
     private static Method iteratorMethod;
     private static Method getDeclaringClassMethod;
+    private static Method getMethodNameMethod;
     private static Object cachedFunctionProxy;
     private static boolean isJava8 = false;
 
@@ -81,29 +85,56 @@ public final class InvocationMonitor {
     private InvocationMonitor() {
     }
 
-    public static void register(Method targetMethod, InvocationListener listener) {
-        List<InvocationListener> listeners = LISTENERS.computeIfAbsent(targetMethod, k -> {
+    public static InvocationListener register(Method target, InvocationListener listener) {
+        return register((Executable) target, listener);
+    }
+
+    public static InvocationListener register(Constructor<?> target, InvocationListener listener) {
+        return register((Executable) target, listener);
+    }
+
+    private static InvocationListener register(Executable target, InvocationListener listener) {
+        String key = getExecutableKey(target);
+        KEY_TO_EXECUTABLE.putIfAbsent(key, target);
+
+        List<InvocationListener> listeners = LISTENERS.computeIfAbsent(target, k -> {
             try {
-                hookMethod(k);
+                hookExecutable(k);
             } catch (Exception e) {
-                throw new RuntimeException("Failed to hook method: " + targetMethod, e);
+                throw new RuntimeException("Failed to hook executable: " + target, e);
             }
             return new CopyOnWriteArrayList<>();
         });
         listeners.add(listener);
+        return listener;
     }
 
-    public static InvocationControl dispatch(String methodKey, Object target, Object[] args) {
+    public static void unregister(Method target, InvocationListener listener) {
+        unregister((Executable) target, listener);
+    }
+
+    public static void unregister(Constructor<?> target, InvocationListener listener) {
+        unregister((Executable) target, listener);
+    }
+
+    private static void unregister(Executable target, InvocationListener listener) {
+        List<InvocationListener> listeners = LISTENERS.get(target);
+        if (listeners != null) {
+            listeners.remove(listener);
+        }
+    }
+
+    public static InvocationControl dispatch(String key, Object target, Object[] args) {
         if (IN_HOOK.get()) {
             return new InvocationControl();
         }
         try {
             IN_HOOK.set(true);
 
-            Method targetMethod = findMethodByKey(methodKey);
-            if (targetMethod == null) return new InvocationControl();
+            Executable exec = findExecutableByKey(key);
+            if (exec == null) return new InvocationControl();
 
-            List<InvocationListener> listeners = LISTENERS.get(targetMethod);
+            List<InvocationListener> listeners = LISTENERS.get(exec);
 
             boolean anyNeedsCaller = false;
             for (InvocationListener l : listeners) {
@@ -113,17 +144,19 @@ public final class InvocationMonitor {
                 }
             }
 
-            Class<?> callerClass = anyNeedsCaller ? getCaller(targetMethod.getDeclaringClass()) : null;
+            CallerDetail callerDetail = anyNeedsCaller ? getCaller(exec.getDeclaringClass()) : null;
 
             InvocationControl control = new InvocationControl();
             for (InvocationListener listener : listeners) {
                 if (control.isCancelled()) {
                     break;
                 }
-                listener.onInvoke(callerClass, target, args, control);
+                listener.onInvoke(callerDetail, target, args, control);
             }
             return control;
-        } catch (Exception e) {
+        } catch (Throwable e) {
+            if (e instanceof RuntimeException) throw (RuntimeException) e;
+            if (e instanceof Error) throw (Error) e;
             e.printStackTrace();
             return new InvocationControl();
         } finally {
@@ -131,8 +164,8 @@ public final class InvocationMonitor {
         }
     }
 
-    private static void hookMethod(Method method) throws Exception {
-        Class<?> targetClass = method.getDeclaringClass();
+    private static void hookExecutable(Executable executable) throws Exception {
+        Class<?> targetClass = executable.getDeclaringClass();
         String className = targetClass.getName();
 
         byte[] classBytes;
@@ -145,8 +178,8 @@ public final class InvocationMonitor {
         ClassReader cr = new ClassReader(classBytes);
         ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
 
-        String methodKey = getMethodKey(method);
-        InvocationClassVisitor cv = new InvocationClassVisitor(cw, method, methodKey);
+        String key = getExecutableKey(executable);
+        InvocationClassVisitor cv = new InvocationClassVisitor(cw, executable, key);
         cr.accept(cv, ClassReader.EXPAND_FRAMES);
 
         byte[] newBytes = cw.toByteArray();
@@ -171,6 +204,7 @@ public final class InvocationMonitor {
             walkMethod = walkerClass.getMethod("walk", functionClass);
             iteratorMethod = streamClass.getMethod("iterator");
             getDeclaringClassMethod = frameClass.getMethod("getDeclaringClass");
+            getMethodNameMethod = frameClass.getMethod("getMethodName");
 
             cachedFunctionProxy = Proxy.newProxyInstance(
                     InvocationMonitor.class.getClassLoader(),
@@ -182,15 +216,16 @@ public final class InvocationMonitor {
                         while (it.hasNext()) {
                             Object frame = it.next();
                             Class<?> currentClass = (Class<?>) getDeclaringClassMethod.invoke(frame);
+                            String methodName = (String) getMethodNameMethod.invoke(frame);
                             String cn = currentClass.getName();
 
                             if (isFramework(cn)) continue;
 
                             if (currentClass.equals(skipTarget)) continue;
 
-                            return currentClass;
+                            return new CallerDetail(currentClass, methodName);
                         }
-                        return null;
+                        return new CallerDetail();
                     }
             );
         } catch (ClassNotFoundException e) {
@@ -201,38 +236,48 @@ public final class InvocationMonitor {
         }
     }
 
-    private static Class<?> getCaller(Class<?> skipClass) throws Exception {
+    private static CallerDetail getCaller(Class<?> skipClass) throws Exception {
         CallerSnapshot snap = SNAPSHOT.get();
         StackTraceElement[] stack = Thread.currentThread().getStackTrace();
         int currentDepth = stack.length;
-
         String fingerprint = (currentDepth > 4) ? stack[4].getClassName() : "";
 
-        if (snap.lastCaller != null && currentDepth == snap.lastStackDepth && snap.lastTargetClass == skipClass && fingerprint.equals(snap.lastFingerprint)) {
+        if (snap.lastCaller != null && currentDepth == snap.lastStackDepth
+                && snap.lastTargetClass == skipClass && fingerprint.equals(snap.lastFingerprint)) {
             return snap.lastCaller;
         }
 
-        Class<?> result;
+        CallerDetail result = null;
+
         if (isJava8) {
-            result = null;
-            for (int i = 3; i < 10; i++) {
-                Class<?> c = (Class<?>) getCallerMethod8.invoke(null, i);
-                if (c == null) break;
-                String cn = c.getName();
-                if (isFramework(cn) || c.equals(skipClass)) continue;
-                result = c;
-                break;
+            for (int i = 3; i < stack.length; i++) {
+                StackTraceElement frame = stack[i];
+                String cn = frame.getClassName();
+
+                if (isFramework(cn) || cn.equals(skipClass.getName())) continue;
+                try {
+                    Class<?> clazz = (Class<?>) getCallerMethod8.invoke(null, i);
+                    if (clazz != null && clazz.getName().equals(cn)) {
+                        result = new CallerDetail(clazz, frame.getMethodName());
+                        break;
+                    }
+                } catch (Exception ignored) {
+                    result = new CallerDetail(Class.forName(cn), frame.getMethodName());
+                    break;
+                }
             }
         } else {
             SKIP_TARGET_HOLDER.set(skipClass);
             try {
-                result = (Class<?>) walkMethod.invoke(walkerInstance, cachedFunctionProxy);
+                result = (CallerDetail) walkMethod.invoke(walkerInstance, cachedFunctionProxy);
             } finally {
                 SKIP_TARGET_HOLDER.remove();
             }
         }
 
-        if (result == null) result = skipClass;
+        if (result == null) {
+            result = new CallerDetail(skipClass, "unknown");
+        }
 
         snap.lastCaller = result;
         snap.lastStackDepth = currentDepth;
@@ -256,22 +301,18 @@ public final class InvocationMonitor {
         inst.redefineClasses(new ClassDefinition(clazz, bytecode));
     }
 
-    private static String getMethodKey(Method method) {
-        return method.getDeclaringClass().getName() + "#" + method.getName() + "(" +
-                Arrays.stream(method.getParameterTypes()).map(Class::getName).collect(Collectors.joining(",")) + ")";
+    private static String getExecutableKey(Executable executable) {
+        String name = (executable instanceof Method) ? executable.getName() : "<init>";
+        return executable.getDeclaringClass().getName() + "#" + name + "(" +
+                Arrays.stream(executable.getParameterTypes()).map(Class::getName).collect(Collectors.joining(",")) + ")";
     }
 
-    private static Method findMethodByKey(String key) {
-        for (Method method : LISTENERS.keySet()) {
-            if (getMethodKey(method).equals(key)) {
-                return method;
-            }
-        }
-        return null;
+    private static Executable findExecutableByKey(String key) {
+        return KEY_TO_EXECUTABLE.get(key);
     }
 
     private static class CallerSnapshot {
-        Class<?> lastCaller;
+        CallerDetail lastCaller;
         Class<?> lastTargetClass;
         int lastStackDepth;
         String lastFingerprint;

@@ -15,6 +15,14 @@ public class ClassInjector {
         }
     }
 
+    public static void injectClass(Class<?> clazz, Class<?> target) throws Throwable {
+        String injectClassName = clazz.getName();
+        String anchorClassName = target.getName();
+        ClassLoader targetLoader = InjectionUtil.findClassAcrossClassLoaders(anchorClassName).getClassLoader();
+        byte[] bytes = InjectionUtil.getOriginalClassBytes(injectClassName);
+        InjectionUtil.unsafeInjectClass(targetLoader, injectClassName, bytes);
+    }
+
     public static void injectClass(Class<?> clazz) {
         try {
             InjectClassInfo info = clazz.getAnnotation(InjectClassInfo.class);
@@ -42,12 +50,6 @@ public class ClassInjector {
                     targetLoader,
                     injectClassName,
                     originalBytecode
-            );
-
-            System.out.println(
-                    "Injected " + injectClassName +
-                            " into " + anchorClassName +
-                            (anchorThreadName == null ? "" : ("@" + anchorThreadName))
             );
 
             if (JNIIL.isClassOutputEnabled()) {

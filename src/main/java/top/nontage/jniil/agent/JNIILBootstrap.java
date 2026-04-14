@@ -101,11 +101,12 @@ public class JNIILBootstrap implements Opcodes {
         JNIIL.setInstrumentation(instrumentation);
     }
 
+    // This is for agent
     public static void setInstrumentation(Instrumentation instrumentation) {
         JNIILBootstrap.instrumentation = instrumentation;
     }
 
-    //Its work on my machine java 8 and 17, 21 :)
+    // Its work on my machine java 8 and 17, 21 :)
     private static Class<?> getVirtualMachineClass() throws Exception {
 
         // First try: already available

@@ -155,7 +155,7 @@ public final class InvocationMonitor {
             }
             return control;
         } catch (Throwable e) {
-            if (e instanceof RuntimeException) throw (RuntimeException) e;
+            if (e instanceof SecurityException) throw (SecurityException) e;
             if (e instanceof Error) throw (Error) e;
             e.printStackTrace();
             return new InvocationControl();
@@ -309,6 +309,19 @@ public final class InvocationMonitor {
 
     private static Executable findExecutableByKey(String key) {
         return KEY_TO_EXECUTABLE.get(key);
+    }
+
+    static void checkPermission(Class<?> clazz) {
+        try {
+            CallerDetail caller = getCaller(clazz);
+            if (caller.getCallerClass() == null
+                    || !caller.getCallerClass().getPackage().getName().equals(InvocationMonitor.class.getPackage().getName())) {
+                throw new SecurityException("Illegal access from " + caller.getCallerClass().getName() + ". InvocationMonitor internals are restricted to the monitor package.");
+            }
+
+        } catch (Exception e) {
+            throw new SecurityException("Permission check failed during invocation.", e);
+        }
     }
 
     private static class CallerSnapshot {

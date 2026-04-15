@@ -5,11 +5,13 @@ public class CallerDetail {
     private final String callerMethodName;
 
     public CallerDetail() {
+        InvocationMonitor.checkPermission(this.getClass());
         this.callerClass = null;
         this.callerMethodName = null;
     }
 
     public CallerDetail(Class<?> callerClass, String callerMethodName) {
+        InvocationMonitor.checkPermission(this.getClass());
         this.callerClass = callerClass;
         this.callerMethodName = callerMethodName;
     }

@@ -156,6 +156,7 @@ public final class InvocationMonitor {
             return control;
         } catch (Throwable e) {
             if (e instanceof SecurityException) throw (SecurityException) e;
+            if (e instanceof RuntimeException) throw (RuntimeException) e;
             if (e instanceof Error) throw (Error) e;
             e.printStackTrace();
             return new InvocationControl();

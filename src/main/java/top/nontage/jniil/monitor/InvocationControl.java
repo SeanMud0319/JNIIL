@@ -16,6 +16,7 @@ public final class InvocationControl {
     public void setReturnValue(Object value) {
         this.overrideReturnValue = value;
         this.returnValueSet = true;
+        cancel();
     }
 
     public Object getOverrideReturnValue() {

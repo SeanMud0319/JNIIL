@@ -51,7 +51,7 @@ public class ShadowMetadataCollector {
 
                 context.shadowFields.put(
                         new FieldKey(owner, field.name, field.desc),
-                        new ShadowFieldInfo(targetOwner, targetName, field.desc, isMutable, isViewOnly) // 傳入 isViewOnly
+                        new ShadowFieldInfo(targetOwner, targetName, field.desc, isMutable, isViewOnly)
                 );
             }
         }

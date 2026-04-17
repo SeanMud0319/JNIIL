@@ -37,6 +37,7 @@ import top.nontage.jniil.javassist.JarFileClassPath;
 import top.nontage.jniil.utils.InjectionUtil;
 import top.nontage.jniil.utils.LocalVariableTableFiller;
 import top.nontage.jniil.verify.BytecodeVerifier;
+import top.nontage.jniil.wrapper.ClassLoaderWrapper;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -162,7 +163,7 @@ public abstract class AbstractMethodInjector {
 
         TargetInfo info = extractTargetInfo(injectable, method);
         ClassPool pool = prepareClassPool();
-        ClassLoader loader = getTargetLoader(info);
+        ClassLoader loader = getTargetLoader(info).unwarp();
 
         if (info.defaultLoader) {
             pool.insertClassPath(new LoaderClassPath(loader));
@@ -277,11 +278,11 @@ public abstract class AbstractMethodInjector {
      * @return the {@link ClassLoader} used to load the target class
      * @throws ClassNotFoundException if the target class cannot be found
      **/
-    protected ClassLoader getTargetLoader(TargetInfo info) throws ClassNotFoundException {
+    protected ClassLoaderWrapper getTargetLoader(TargetInfo info) throws ClassNotFoundException {
         if (info.targetTypeThreadName == null || info.targetTypeThreadName.isEmpty()) {
-            return InjectionUtil.findClassAcrossClassLoaders(info.typeName).getClassLoader();
+            return ClassLoaderWrapper.of(InjectionUtil.findClassAcrossClassLoaders(info.typeName).getClassLoader());
         }
-        return InjectionUtil.findClassLoaderByThread(info.targetTypeThreadName);
+        return ClassLoaderWrapper.of(InjectionUtil.findClassLoaderByThread(info.targetTypeThreadName));
     }
 
     /**
@@ -671,7 +672,7 @@ public abstract class AbstractMethodInjector {
         }
 
         TargetInfo info = extractTargetInfo(insnInjectable, applyMethod);
-        ClassLoader loader = getTargetLoader(info);
+        ClassLoader loader = getTargetLoader(info).unwarp();
         Class<?> targetClass = Class.forName(info.typeName, true, loader);
 
         byte[] currentBytecode = InjectionCacheProxy.contains(info.typeName)

@@ -11,7 +11,7 @@ public final class StandardMethodInjector extends AbstractMethodInjector {
     }
     public void inject(Injectable... injectable) throws Exception {
         for (Injectable IInjectable : injectable) {
-            inject(IInjectable);
+            super.inject(IInjectable);
         }
     }
 }

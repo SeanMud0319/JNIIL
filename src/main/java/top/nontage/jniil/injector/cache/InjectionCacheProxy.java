@@ -121,7 +121,7 @@ public class InjectionCacheProxy implements Opcodes {
         CACHE.clear();
     }
 
-    public static byte[] generateInjectionCacheBytes() {
+    private static byte[] generateInjectionCacheBytes() {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
 
         String className = "top/nontage/jniil/injector/cache/InjectionCache";

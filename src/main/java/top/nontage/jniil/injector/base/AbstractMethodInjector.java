@@ -25,7 +25,7 @@ import top.nontage.jniil.annotations.At;
 import top.nontage.jniil.annotations.Before;
 import top.nontage.jniil.annotations.FillLocalVariableTable;
 import top.nontage.jniil.annotations.InjectMethodInfo;
-import top.nontage.jniil.annotations.ReplaceAll;
+import top.nontage.jniil.annotations.Overwrite;
 import top.nontage.jniil.annotations.ReplaceCall;
 import top.nontage.jniil.exception.BytecodeVerifyException;
 import top.nontage.jniil.injector.cache.InjectionCacheProxy;
@@ -65,6 +65,8 @@ public abstract class AbstractMethodInjector {
     protected static final Instrumentation inst = JNIIL.getInstrumentation();
     protected static final Set<String> injectedClasses = new HashSet<>();
     protected static final Map<Class<?>, byte[]> originalBytecodes = new HashMap<>();
+
+    public abstract void inject(Injectable... injectable) throws Exception;
 
     /**
      * Encapsulates target class and method information to simplify passing data between methods.
@@ -141,7 +143,7 @@ public abstract class AbstractMethodInjector {
      * @see CtMethod
      * @see JNIIL
      */
-    public final void inject(Injectable injectable) throws Exception {
+    public void inject(Injectable injectable) throws Exception {
         if (injectable instanceof InsnInjectable) {
             InsnInjectable insnInjectable = (InsnInjectable) injectable;
             instructionInject(insnInjectable);
@@ -155,7 +157,7 @@ public abstract class AbstractMethodInjector {
                         method.isAnnotationPresent(After.class) ||
                         method.isAnnotationPresent(Before.class) ||
                         method.isAnnotationPresent(At.class) ||
-                        method.isAnnotationPresent(ReplaceAll.class) ||
+                        method.isAnnotationPresent(Overwrite.class) ||
                         method.isAnnotationPresent(ReplaceCall.class);
 
         if (!hasInjectAnnotation) {
@@ -195,7 +197,7 @@ public abstract class AbstractMethodInjector {
                 pool.insertClassPath(new ByteArrayClassPath(className, bytes));
             });
         }
-        // 如果Class還沒載入就先載入
+
         Class<?> targetClass = Class.forName(info.typeName, true, loader);
 
         // Load CtClass from cache if available, because you can't get redefined class bytecode just from ClassPool or ClassLoader, even from retransformed class.
@@ -370,7 +372,7 @@ public abstract class AbstractMethodInjector {
         After afterAnn = method.getAnnotation(After.class);
         Before beforeAnn = method.getAnnotation(Before.class);
         At atAnn = method.getAnnotation(At.class);
-        ReplaceAll replaceAllAnn = method.getAnnotation(ReplaceAll.class);
+        Overwrite overwriteAnn = method.getAnnotation(Overwrite.class);
         ReplaceCall replaceCallAnn = method.getAnnotation(ReplaceCall.class);
         if (afterAnn != null) {
             ctMethod.insertAfter(src);
@@ -393,7 +395,7 @@ public abstract class AbstractMethodInjector {
             }
         }
 
-        if (replaceAllAnn != null) {
+        if (overwriteAnn != null) {
             if (!src.startsWith("{") && !src.endsWith("}")) {
                 src = "{" + src + "}";
             }
@@ -842,7 +844,7 @@ public abstract class AbstractMethodInjector {
         return false;
     }
 
-    private String[] classArrayToName(Class<?>[] classes, String[] fallback) {
+    protected String[] classArrayToName(Class<?>[] classes, String[] fallback) {
         if (classes != null && classes.length != 0) {
             return Arrays.stream(classes)
                     .map(Class::getName)
@@ -850,6 +852,7 @@ public abstract class AbstractMethodInjector {
         }
         return fallback != null ? fallback : new String[0];
     }
+
     private Method getInjectionMethod(Class<?> clazz) {
         try {
             return clazz.getDeclaredMethod("getInjectSourceCode", CtMethod.class);

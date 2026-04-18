@@ -148,7 +148,8 @@ public abstract class AbstractMethodInjector {
             return;
         }
         Class<?> clazz = injectable.getClass();
-        Method method = clazz.getDeclaredMethod("getInjectSourceCode", CtMethod.class);
+        Method method = getInjectionMethod(clazz);
+        if (method == null) return;
         boolean hasInjectAnnotation =
                 method.isAnnotationPresent(InjectMethodInfo.class) ||
                         method.isAnnotationPresent(After.class) ||
@@ -848,6 +849,13 @@ public abstract class AbstractMethodInjector {
                     .toArray(String[]::new);
         }
         return fallback != null ? fallback : new String[0];
+    }
+    private Method getInjectionMethod(Class<?> clazz) {
+        try {
+            return clazz.getDeclaredMethod("getInjectSourceCode", CtMethod.class);
+        } catch (NoSuchMethodException ignored) {
+            return null;
+        }
     }
 
     /**

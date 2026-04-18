@@ -35,6 +35,7 @@ test {
 tasks.shadowJar {
     archiveClassifier.set(null)
     relocate 'javassist', 'top.nontage.relocated.javassist'
+    relocate 'org.objectweb.asm', 'top.nontage.relocated.asm'
     mergeServiceFiles()
     configurations = [project.configurations.runtimeClasspath]
 }

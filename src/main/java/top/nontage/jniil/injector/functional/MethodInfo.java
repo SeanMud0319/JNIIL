@@ -47,6 +47,25 @@ public class MethodInfo {
         capturedLocals.put(name, value);
     }
 
+    public void setArgument(int index, Object value) {
+        if (index < 0 || index >= arguments.length) {
+            throw new IllegalArgumentException("Invalid argument index: " + index);
+        }
+        arguments[index] = value;
+    }
+
+    public <T> void setLocal(String name, T value) {
+        capturedLocals.put(name, value);
+    }
+
+    public void setArguments(Object... newArgs) {
+        if (newArgs.length != arguments.length) {
+            throw new IllegalArgumentException("Argument count mismatch: expected " +
+                    arguments.length + ", got " + newArgs.length);
+        }
+        System.arraycopy(newArgs, 0, arguments, 0, arguments.length);
+    }
+
     public void cancel() {
         this.cancelled = true;
     }

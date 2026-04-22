@@ -5,6 +5,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 
 import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.Map;
 
 public class MethodInfoCodeGenerator {
@@ -28,6 +29,8 @@ public class MethodInfoCodeGenerator {
         int infoVar = storeMethodInfo(list);
         captureLocals(list, infoVar);
         callInjectionMethod(list, infoVar);
+        writeBackArguments(list, infoVar);
+        writeBackLocals(list, infoVar);
         handleCancellation(list, infoVar);
         return list;
     }
@@ -98,6 +101,54 @@ public class MethodInfoCodeGenerator {
         ));
     }
 
+    private void writeBackArguments(InsnList list, int infoVar) {
+        Type[] argTypes = Type.getArgumentTypes(targetMethod.desc);
+        boolean[] isFinalFlags = getParameterFinalFlags();
+        int localIndex = isTargetStatic ? 0 : 1;
+
+        for (int i = 0; i < argTypes.length; i++) {
+            if (isFinalFlags[i]) {
+                localIndex += argTypes[i].getSize();
+                continue;
+            }
+            list.add(new VarInsnNode(Opcodes.ALOAD, infoVar));
+            list.add(new IntInsnNode(Opcodes.BIPUSH, i));
+            list.add(new MethodInsnNode(
+                    Opcodes.INVOKEVIRTUAL,
+                    MethodInfo.class.getName().replace('.', '/'),
+                    "getArgument",
+                    "(I)Ljava/lang/Object;",
+                    false
+            ));
+            unboxAndStoreToLocal(list, argTypes[i], localIndex);
+            localIndex += argTypes[i].getSize();
+        }
+    }
+
+    private void writeBackLocals(InsnList list, int infoVar) {
+        if (localsToCapture.length == 0) return;
+
+        Map<String, Integer> localVarSlots = getLocalVarSlots();
+        Map<String, Type> localVarTypes = getLocalVarTypes();
+
+        for (String localName : localsToCapture) {
+            Integer slot = localVarSlots.get(localName);
+            Type varType = localVarTypes.get(localName);
+            if (slot == null) continue;
+            if (varType == null) continue;
+            list.add(new VarInsnNode(Opcodes.ALOAD, infoVar));
+            list.add(new LdcInsnNode(localName));
+            list.add(new MethodInsnNode(
+                    Opcodes.INVOKEVIRTUAL,
+                    MethodInfo.class.getName().replace('.', '/'),
+                    "getLocal",
+                    "(Ljava/lang/String;)Ljava/lang/Object;",
+                    false
+            ));
+            unboxAndStoreToLocal(list, varType, slot);
+        }
+    }
+
     private void handleCancellation(InsnList list, int infoVar) {
         list.add(new VarInsnNode(Opcodes.ALOAD, infoVar));
         list.add(new MethodInsnNode(
@@ -127,6 +178,83 @@ public class MethodInfoCodeGenerator {
         }
 
         list.add(notCancelled);
+    }
+
+    private void unboxAndStoreToLocal(InsnList list, Type type, int slot) {
+        switch (type.getSort()) {
+            case Type.BOOLEAN:
+                list.add(new TypeInsnNode(Opcodes.CHECKCAST, "java/lang/Boolean"));
+                list.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/Boolean", "booleanValue", "()Z", false));
+                list.add(new VarInsnNode(Opcodes.ISTORE, slot));
+                break;
+            case Type.BYTE:
+                list.add(new TypeInsnNode(Opcodes.CHECKCAST, "java/lang/Byte"));
+                list.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/Byte", "byteValue", "()B", false));
+                list.add(new VarInsnNode(Opcodes.ISTORE, slot));
+                break;
+            case Type.CHAR:
+                list.add(new TypeInsnNode(Opcodes.CHECKCAST, "java/lang/Character"));
+                list.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/Character", "charValue", "()C", false));
+                list.add(new VarInsnNode(Opcodes.ISTORE, slot));
+                break;
+            case Type.SHORT:
+                list.add(new TypeInsnNode(Opcodes.CHECKCAST, "java/lang/Short"));
+                list.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/Short", "shortValue", "()S", false));
+                list.add(new VarInsnNode(Opcodes.ISTORE, slot));
+                break;
+            case Type.INT:
+                list.add(new TypeInsnNode(Opcodes.CHECKCAST, "java/lang/Number"));
+                list.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/Number", "intValue", "()I", false));
+                list.add(new VarInsnNode(Opcodes.ISTORE, slot));
+                break;
+            case Type.LONG:
+                list.add(new TypeInsnNode(Opcodes.CHECKCAST, "java/lang/Number"));
+                list.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/Number", "longValue", "()J", false));
+                list.add(new VarInsnNode(Opcodes.LSTORE, slot));
+                break;
+            case Type.FLOAT:
+                list.add(new TypeInsnNode(Opcodes.CHECKCAST, "java/lang/Number"));
+                list.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/Number", "floatValue", "()F", false));
+                list.add(new VarInsnNode(Opcodes.FSTORE, slot));
+                break;
+            case Type.DOUBLE:
+                list.add(new TypeInsnNode(Opcodes.CHECKCAST, "java/lang/Number"));
+                list.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/Number", "doubleValue", "()D", false));
+                list.add(new VarInsnNode(Opcodes.DSTORE, slot));
+                break;
+            case Type.ARRAY:
+            case Type.OBJECT:
+            default:
+                list.add(new TypeInsnNode(Opcodes.CHECKCAST, type.getInternalName()));
+                list.add(new VarInsnNode(Opcodes.ASTORE, slot));
+                break;
+        }
+    }
+
+    private Map<String, Type> getLocalVarTypes() {
+        Map<String, Type> types = new HashMap<>();
+        if (targetMethod.localVariables != null) {
+            for (LocalVariableNode lv : targetMethod.localVariables) {
+                if (!lv.name.equals("this")) {
+                    types.put(lv.name, Type.getType(lv.desc));
+                }
+            }
+        }
+        return types;
+    }
+
+    private boolean[] getParameterFinalFlags() {
+        Type[] argTypes = Type.getArgumentTypes(targetMethod.desc);
+        boolean[] isFinal = new boolean[argTypes.length];
+
+        if (targetMethod.parameters != null) {
+            for (int i = 0; i < targetMethod.parameters.size() && i < argTypes.length; i++) {
+                ParameterNode param = targetMethod.parameters.get(i);
+                isFinal[i] = (param.access & Opcodes.ACC_FINAL) != 0;
+            }
+        }
+
+        return isFinal;
     }
 
     private Map<String, Integer> getLocalVarSlots() {

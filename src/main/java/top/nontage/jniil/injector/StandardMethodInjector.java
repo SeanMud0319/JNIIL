@@ -9,6 +9,7 @@ public final class StandardMethodInjector extends AbstractMethodInjector {
     protected ClassPool prepareClassPool() {
         return new ClassPool(null);
     }
+
     public void inject(Injectable... injectable) throws Exception {
         for (Injectable IInjectable : injectable) {
             super.inject(IInjectable);

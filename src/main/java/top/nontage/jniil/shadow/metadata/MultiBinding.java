@@ -14,6 +14,8 @@ import java.util.function.Supplier;
  * used when a shadow class's methods or fields are accessed. An instance of
  * {@code MultiBinding} holds one shadow class and a map of target class names
  * to suppliers that provide the actual instances.
+ * <p>
+ * <b>Supports multiple bindings for the same shadow class to different target types.</b>
  *
  * @see ShadowTransformer#apply(MultiBinding...)
  */
@@ -28,6 +30,21 @@ public class MultiBinding {
      */
     public MultiBinding(Class<?> shadowClass) {
         this.shadowClass = shadowClass;
+    }
+
+    /**
+     * Constructs a new MultiBinding with one or more initial target instances.
+     *
+     * @param shadowClass The shadow class.
+     * @param firstTarget The first target instance.
+     * @param moreTargets Additional target instances (optional).
+     */
+    public MultiBinding(Class<?> shadowClass, Object firstTarget, Object... moreTargets) {
+        this(shadowClass);
+        bind(firstTarget);
+        for (Object target : moreTargets) {
+            bind(target);
+        }
     }
 
     /**
@@ -47,10 +64,6 @@ public class MultiBinding {
 
     /**
      * Private helper to bind an instance by capturing its generic type.
-     *
-     * @param <T>      The type of the instance.
-     * @param instance The instance to bind.
-     * @return This {@code MultiBinding} instance.
      */
     @SuppressWarnings("unchecked")
     private <T> MultiBinding bindInstance(T instance) {
@@ -60,13 +73,10 @@ public class MultiBinding {
     /**
      * Binds a supplier that provides a target object instance.
      * The target class is inferred from the object returned by the supplier's {@code get()} method.
-     * The supplier is called once to determine the target type, and the same supplier is stored
-     * for runtime instance retrieval.
      *
      * @param <T>      The type of object provided by the supplier.
      * @param supplier The non-null supplier that provides the target instance.
      * @return This {@code MultiBinding} instance for method chaining.
-     * @throws IllegalArgumentException if the supplier is null or if it supplies a null instance.
      */
     @SuppressWarnings("unchecked")
     public <T> MultiBinding bind(Supplier<T> supplier) {
@@ -124,9 +134,34 @@ public class MultiBinding {
     }
 
     /**
-     * Gets the shadow class associated with this binding.
+     * Binds multiple instances at once.
      *
-     * @return The shadow class.
+     * @param instances The instances to bind
+     * @return This {@code MultiBinding} instance for method chaining.
+     */
+    public MultiBinding bindAll(Object... instances) {
+        for (Object instance : instances) {
+            bind(instance);
+        }
+        return this;
+    }
+
+    /**
+     * Binds multiple suppliers at once.
+     *
+     * @param suppliers The suppliers to bind
+     * @return This {@code MultiBinding} instance for method chaining.
+     */
+    @SafeVarargs
+    public final MultiBinding bindAll(Supplier<Object>... suppliers) {
+        for (Supplier<Object> supplier : suppliers) {
+            bind(supplier);
+        }
+        return this;
+    }
+
+    /**
+     * Gets the shadow class associated with this binding.
      */
     public Class<?> getShadowClass() {
         return shadowClass;
@@ -134,12 +169,30 @@ public class MultiBinding {
 
     /**
      * Gets the map of target class internal names to their instance suppliers.
-     * This map is used by the {@code ShadowTransformer} to inject the correct instances.
-     *
-     * @return A map where keys are internal class names (e.g., "java/lang/String")
-     * and values are suppliers for the target instances.
      */
     public Map<String, Supplier<Object>> getSuppliers() {
         return suppliers;
+    }
+
+    /**
+     * Returns the number of bindings in this MultiBinding.
+     */
+    public int size() {
+        return suppliers.size();
+    }
+
+    /**
+     * Checks if this MultiBinding has any bindings.
+     */
+    public boolean isEmpty() {
+        return suppliers.isEmpty();
+    }
+
+    @Override
+    public String toString() {
+        return "MultiBinding{" +
+                "shadowClass=" + shadowClass.getName() +
+                ", bindings=" + suppliers.size() +
+                '}';
     }
 }

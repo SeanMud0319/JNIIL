@@ -32,7 +32,12 @@ public class MethodInfo {
 
     @SuppressWarnings("unchecked")
     public <T> T getLocal(String name) {
-        return (T) capturedLocals.get(name);
+        T var = (T) capturedLocals.get(name);
+        if (var == null) {
+            throw new IllegalStateException("Local variable '" + name + "' was not captured. " +
+                    "Make sure to include it in @Capture annotation and that it's in scope at injection point.");
+        }
+        return var;
     }
 
     public Object getReturnValue() {

@@ -5,9 +5,6 @@ import org.objectweb.asm.tree.*;
 
 import java.util.*;
 
-/**
- * 验证局部变量是否可在注入点捕获
- */
 public class LocalVariableValidator {
 
     private final MethodNode method;
@@ -16,12 +13,6 @@ public class LocalVariableValidator {
         this.method = method;
     }
 
-    /**
-     * 验证要捕获的局部变量
-     * @param localsToCapture 要捕获的变量名
-     * @param injectionLine 注入点行号 (-1=开头, MAX=末尾)
-     * @param shiftAfter 是否在行号后插入
-     */
     public void validate(String[] localsToCapture, int injectionLine, boolean shiftAfter) {
         if (localsToCapture.length == 0) return;
 

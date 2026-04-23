@@ -50,7 +50,7 @@ tasks.withType(Javadoc).configureEach {
 
 java {
     withSourcesJar()
-    withJavadocJar()
+    //withJavadocJar()
 }
 
 publishing {
@@ -58,7 +58,7 @@ publishing {
         mavenJava(MavenPublication) {
             artifact shadowJar
             artifact sourcesJar
-            artifact javadocJar
+            //artifact javadocJar
 
             groupId = group
             artifactId = project.name

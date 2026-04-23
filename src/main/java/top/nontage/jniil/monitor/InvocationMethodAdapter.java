@@ -13,7 +13,6 @@ public class InvocationMethodAdapter extends AdviceAdapter {
 
     protected InvocationMethodAdapter(int api, MethodVisitor mv, int access, String name, String desc, String methodKey) {
         super(api, mv, access, name, desc);
-        InvocationMonitor.checkPermission(this.getClass());
         this.methodKey = methodKey;
         this.returnType = Type.getReturnType(desc);
         this.isConstructor = "<init>".equals(name);

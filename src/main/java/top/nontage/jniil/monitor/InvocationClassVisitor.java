@@ -15,7 +15,6 @@ public class InvocationClassVisitor extends ClassVisitor {
 
     public InvocationClassVisitor(ClassVisitor cv, Executable executable, String methodKey) {
         super(Opcodes.ASM9, cv);
-        InvocationMonitor.checkPermission(InvocationClassVisitor.class);
         this.targetName = (executable instanceof Constructor) ? "<init>" : executable.getName();
         this.targetDesc = (executable instanceof Constructor)
                 ? Type.getConstructorDescriptor((Constructor<?>) executable)

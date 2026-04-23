@@ -13,55 +13,20 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 /**
- * <h2>JNIIL Invocation Monitor</h2>
- * * <p>A high-performance, bytecode-instrumentation-based monitoring utility that allows
- * real-time tracking, interception, and modification of method invocations.</p>
- *
- * <h3>Core Features:</h3>
- * <ul>
- * <li><b>Dynamic Hooking:</b> Uses ASM 9 to inject interception logic into compiled classes at runtime.</li>
- * <li><b>Context Awareness:</b> Accurately identifies the caller class across different versions of Java (8-17+).</li>
- * <li><b>Invocation Control:</b> Supports cancelling method execution or overriding return values on the fly.</li>
- * <li><b>Cross-Version Support:</b> Automatically switches between {@code sun.reflect.Reflection} and {@code StackWalker}.</li>
- * </ul>
- *
- * <h3>Usage Example:</h3>
- * <pre>{@code
- * Method target = MyService.class.getDeclaredMethod("doSomething", String.class);
- * InvocationMonitor.register(target, (caller, targetObj, args, control) -> {
- * System.out.println("Method called by: " + caller.getName());
- * if (args[0].equals("block-me")) {
- * control.setCancelled(true);
- * }
- * });
- * }</pre>
- *
- * <h3>Performance Warning:</h3>
- * <p><b>ATTENTION:</b> This utility introduces non-negligible overhead per invocation due to
- * stack depth calculation and thread-local lookups. While a fingerprint-based caching mechanism
- * is implemented, the cost remains significant in hot paths.</p>
- * <ul>
- * <li><b>DO NOT</b> use this in high-frequency loops or performance-critical paths (e.g., render loops, packet processing).</li>
- * <li>The overhead is approximately ~500ns to 3μs per call depending on stack depth and cache hits.</li>
- * <li>Reflection-based caller identification is expensive; consider filtering logic inside the dispatcher to minimize impact.</li>
- * </ul>
+ * JNIIL Invocation Monitor with AOP support
  */
 public final class InvocationMonitor {
 
     private static final Instrumentation inst = JNIIL.getInstrumentation();
     private static final Map<Executable, List<InvocationListener>> LISTENERS = new ConcurrentHashMap<>();
     private static final Map<String, Executable> KEY_TO_EXECUTABLE = new ConcurrentHashMap<>();
+    private static final List<ClassMatcher> CLASS_MATCHERS = new CopyOnWriteArrayList<>();
     private static final ThreadLocal<CallerSnapshot> SNAPSHOT = ThreadLocal.withInitial(CallerSnapshot::new);
     private static final ThreadLocal<Class<?>> SKIP_TARGET_HOLDER = new ThreadLocal<>();
     private static final ThreadLocal<Boolean> IN_HOOK = ThreadLocal.withInitial(() -> false);
@@ -109,6 +74,90 @@ public final class InvocationMonitor {
         return listener;
     }
 
+    public static ClassMatcher matchClass(Class<?> clazz) {
+        return matchClass(clazz.getName());
+    }
+
+    public static ClassMatcher matchClass(String className) {
+        ClassMatcher matcher = new ClassMatcher(className);
+        CLASS_MATCHERS.add(matcher);
+        if (!className.contains("*") && !className.contains("/**") && !className.contains("/*")) {
+            try {
+                Class<?> clazz = Class.forName(className);
+                applyMatchersToClass(clazz);
+            } catch (ClassNotFoundException ignored) {
+            }
+        }
+        return matcher;
+    }
+
+    public static void applyMatchersToClass(Class<?> targetClass) {
+        if (CLASS_MATCHERS.isEmpty()) return;
+
+        String className = targetClass.getName();
+
+        for (ClassMatcher matcher : CLASS_MATCHERS) {
+            if (matcher.matches(className)) {
+                List<InvocationListener> matcherListeners = matcher.getListeners();
+                if (matcherListeners.isEmpty()) continue;
+
+                for (Method method : targetClass.getDeclaredMethods()) {
+                    if (matcher.matchesMethod(method)) {
+                        String key = getExecutableKey(method);
+                        KEY_TO_EXECUTABLE.putIfAbsent(key, method);
+                        if (!LISTENERS.containsKey(method)) {
+                            try {
+                                hookExecutable(method);
+                                LISTENERS.put(method, new CopyOnWriteArrayList<>());
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                continue;
+                            }
+                        }
+                        LISTENERS.get(method).addAll(matcherListeners);
+                    }
+                }
+
+                for (Constructor<?> constructor : targetClass.getDeclaredConstructors()) {
+                    if (matcher.matchesConstructor(constructor)) {
+                        String key = getExecutableKey(constructor);
+                        KEY_TO_EXECUTABLE.putIfAbsent(key, constructor);
+                        if (!LISTENERS.containsKey(constructor)) {
+                            try {
+                                hookExecutable(constructor);
+                                LISTENERS.put(constructor, new CopyOnWriteArrayList<>());
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                continue;
+                            }
+                        }
+                        LISTENERS.get(constructor).addAll(matcherListeners);
+                    }
+                }
+            }
+        }
+    }
+
+    public static void applyMatchersToAllLoadedClasses() {
+        for (Class<?> clazz : inst.getAllLoadedClasses()) {
+            applyMatchersToClass(clazz);
+        }
+    }
+
+    public static void interceptAllMethods(Class<?> targetClass, InvocationListener listener) {
+        for (Method method : targetClass.getDeclaredMethods()) {
+            register(method, (callerDetail, target, exec, args, control) ->
+                    listener.onInvoke(callerDetail, target, method, args, control));
+        }
+    }
+
+    public static void interceptAllConstructors(Class<?> targetClass, InvocationListener listener) {
+        for (Constructor<?> constructor : targetClass.getDeclaredConstructors()) {
+            register(constructor, (callerDetail, target, exec, args, control) ->
+                    listener.onInvoke(callerDetail, target, constructor, args, control));
+        }
+    }
+
     public static void unregister(Method target, InvocationListener listener) {
         unregister((Executable) target, listener);
     }
@@ -135,6 +184,7 @@ public final class InvocationMonitor {
             if (exec == null) return new InvocationControl();
 
             List<InvocationListener> listeners = LISTENERS.get(exec);
+            if (listeners == null || listeners.isEmpty()) return new InvocationControl();
 
             boolean anyNeedsCaller = false;
             for (InvocationListener l : listeners) {
@@ -151,7 +201,7 @@ public final class InvocationMonitor {
                 if (control.isCancelled()) {
                     break;
                 }
-                listener.onInvoke(callerDetail, target, args, control);
+                listener.onInvoke(callerDetail, target, exec, args, control);
             }
             return control;
         } catch (Throwable e) {
@@ -221,7 +271,6 @@ public final class InvocationMonitor {
                             String cn = currentClass.getName();
 
                             if (isFramework(cn)) continue;
-
                             if (currentClass.equals(skipTarget)) continue;
 
                             return new CallerDetail(currentClass, methodName);
@@ -310,19 +359,6 @@ public final class InvocationMonitor {
 
     private static Executable findExecutableByKey(String key) {
         return KEY_TO_EXECUTABLE.get(key);
-    }
-
-    static void checkPermission(Class<?> clazz) {
-        try {
-            CallerDetail caller = getCaller(clazz);
-            if (caller.getCallerClass() == null
-                    || !caller.getCallerClass().getPackage().getName().equals(InvocationMonitor.class.getPackage().getName())) {
-                throw new SecurityException("Illegal access from " + caller.getCallerClass().getName() + ". InvocationMonitor internals are restricted to the monitor package.");
-            }
-
-        } catch (Exception e) {
-            throw new SecurityException("Permission check failed during invocation.", e);
-        }
     }
 
     private static class CallerSnapshot {

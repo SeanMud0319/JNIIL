@@ -2,7 +2,9 @@ package top.nontage.jniil.injector.functional;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.tree.*;
+import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.InsnList;
+import org.objectweb.asm.tree.MethodNode;
 import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.annotations.*;
 import top.nontage.jniil.exception.BytecodeVerifyException;
@@ -11,12 +13,14 @@ import top.nontage.jniil.injector.cache.InjectionCacheProxy;
 import top.nontage.jniil.interfaces.FunctionalInjectable;
 import top.nontage.jniil.interfaces.Injectable;
 import top.nontage.jniil.utils.InjectionUtil;
+import top.nontage.jniil.utils.LocalVariableTableFiller;
 import top.nontage.jniil.verify.BytecodeVerifier;
 
 import java.io.File;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 
+// just use @Before or @After
 public class FunctionalInjector extends AbstractMethodInjector {
 
     private static class ParsedClass {
@@ -49,6 +53,13 @@ public class FunctionalInjector extends AbstractMethodInjector {
             TargetInfo info = extractTargetInfo(injectable, method);
             ClassLoader loader = getTargetLoader(info).unwarp();
             Class<?> targetClass = Class.forName(info.typeName, true, loader);
+
+            if (method.isAnnotationPresent(FillLocalVariableTable.class)) {
+                byte[] modified = new LocalVariableTableFiller().fillLocalVariableNames(Class.forName(info.typeName), false);
+                if (modified != null && modified.length > 0) {
+                    InjectionCacheProxy.put(targetClass.getName(), modified);
+                }
+            }
 
             byte[] currentBytecode = getCurrentBytecode(info.typeName, targetClass);
             ParsedClass parsed = parseClass(currentBytecode);

@@ -6,6 +6,7 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 import top.nontage.jniil.JNIIL;
+import top.nontage.jniil.injector.cache.InjectionCacheProxy;
 
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
@@ -25,7 +26,10 @@ public class LocalVariableTableFiller {
             if (!classBeingRedefined.equals(targetClass)) return null;
 
             try {
-                ClassReader cr = new ClassReader(classfileBuffer);
+                byte[] bytes = InjectionCacheProxy.contains(className) ?
+                        InjectionCacheProxy.get(className) :
+                        InjectionUtil.getOriginalClassBytes(className);
+                ClassReader cr = new ClassReader(bytes);
                 ClassNode classNode = new ClassNode();
                 cr.accept(classNode, ClassReader.EXPAND_FRAMES);
 

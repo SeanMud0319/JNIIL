@@ -32,12 +32,37 @@ public class MethodInfo {
 
     @SuppressWarnings("unchecked")
     public <T> T getLocal(String name) {
-        T var = (T) capturedLocals.get(name);
+        String key = normalizeKey(name);
+        T var = (T) capturedLocals.get(key);
         if (var == null) {
             throw new IllegalStateException("Local variable '" + name + "' was not captured. " +
                     "Make sure to include it in @Capture annotation and that it's in scope at injection point.");
         }
         return var;
+    }
+
+    public <T> T getLocal(int slot) {
+        return getLocal("=" + slot);
+    }
+
+    public <T> void setLocal(String name, T value) {
+        capturedLocals.put(normalizeKey(name), value);
+    }
+
+    public <T> void setLocal(int slot, T value) {
+        setLocal("=" + slot, value);
+    }
+
+    public void captureLocal(String name, Object value) {
+        capturedLocals.put(normalizeKey(name), value);
+    }
+
+    private String normalizeKey(String key) {
+        if (key == null) return null;
+        if (key.startsWith("=") && key.contains(":")) {
+            return key.substring(0, key.indexOf(':'));
+        }
+        return key;
     }
 
     public Object getReturnValue() {
@@ -48,19 +73,11 @@ public class MethodInfo {
         this.returnValue = obj;
     }
 
-    public void captureLocal(String name, Object value) {
-        capturedLocals.put(name, value);
-    }
-
     public void setArgument(int index, Object value) {
         if (index < 0 || index >= arguments.length) {
             throw new IllegalArgumentException("Invalid argument index: " + index);
         }
         arguments[index] = value;
-    }
-
-    public <T> void setLocal(String name, T value) {
-        capturedLocals.put(name, value);
     }
 
     public void setArguments(Object... newArgs) {
@@ -78,5 +95,4 @@ public class MethodInfo {
     public boolean isCancelled() {
         return cancelled;
     }
-
 }

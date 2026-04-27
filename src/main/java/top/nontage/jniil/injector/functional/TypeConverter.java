@@ -123,33 +123,9 @@ public class TypeConverter {
         for (int i = 0; i < argTypes.length; i++) {
             list.add(new InsnNode(Opcodes.DUP));
             list.add(new IntInsnNode(Opcodes.BIPUSH, i));
-
-            switch (argTypes[i].getSort()) {
-                case Type.OBJECT:
-                    list.add(new VarInsnNode(Opcodes.ALOAD, localIndex));
-                    break;
-                case Type.INT:
-                    list.add(new VarInsnNode(Opcodes.ILOAD, localIndex));
-                    list.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;", false));
-                    break;
-                case Type.LONG:
-                    list.add(new VarInsnNode(Opcodes.LLOAD, localIndex));
-                    list.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Long", "valueOf", "(J)Ljava/lang/Long;", false));
-                    localIndex++;
-                    break;
-                case Type.FLOAT:
-                    list.add(new VarInsnNode(Opcodes.FLOAD, localIndex));
-                    list.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Float", "valueOf", "(F)Ljava/lang/Float;", false));
-                    break;
-                case Type.DOUBLE:
-                    list.add(new VarInsnNode(Opcodes.DLOAD, localIndex));
-                    list.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Double", "valueOf", "(D)Ljava/lang/Double;", false));
-                    localIndex++;
-                    break;
-            }
-
+            loadLocalVar(list, method, localIndex);
             list.add(new InsnNode(Opcodes.AASTORE));
-            localIndex++;
+            localIndex += argTypes[i].getSize();
         }
 
         return list;

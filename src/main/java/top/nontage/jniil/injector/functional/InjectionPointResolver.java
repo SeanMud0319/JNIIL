@@ -92,7 +92,11 @@ public class InjectionPointResolver {
             throw new RuntimeException("Line " + line + " not found in method " + targetMethod.name);
         }
 
-        targetMethod.instructions.insertBefore(target, toInsert);
+        if (at.shiftAfter()) {
+            targetMethod.instructions.insert(target, toInsert);
+        } else {
+            targetMethod.instructions.insertBefore(target, toInsert);
+        }
     }
 
     private void insertAtOpcode(InsnList toInsert) {

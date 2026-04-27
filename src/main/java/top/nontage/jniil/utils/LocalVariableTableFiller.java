@@ -4,6 +4,7 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.injector.cache.InjectionCacheProxy;
@@ -11,9 +12,7 @@ import top.nontage.jniil.injector.cache.InjectionCacheProxy;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.lang.instrument.UnmodifiableClassException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 public class LocalVariableTableFiller {
     private final Instrumentation inst = JNIIL.getInstrumentation();
@@ -33,6 +32,11 @@ public class LocalVariableTableFiller {
                 ClassNode classNode = new ClassNode();
                 cr.accept(classNode, ClassReader.EXPAND_FRAMES);
 
+                Map<MethodNode, Type[]> methodParamTypes = new HashMap<>();
+                for (MethodNode mn : classNode.methods) {
+                    methodParamTypes.put(mn, Type.getArgumentTypes(mn.desc));
+                }
+
                 for (MethodNode mn : classNode.methods) {
                     if (mn.localVariables == null) mn.localVariables = new ArrayList<>();
                     Set<Integer> existingSlots = new HashSet<>();
@@ -40,11 +44,24 @@ public class LocalVariableTableFiller {
                         existingSlots.add(lvn.index);
                     }
 
+                    Type[] paramTypes = methodParamTypes.get(mn);
+                    boolean isStatic = (mn.access & Opcodes.ACC_STATIC) != 0;
+                    int paramSlotStart = isStatic ? 0 : 1;
+                    Map<Integer, Type> paramSlotToType = new HashMap<>();
+
+                    int currentSlot = paramSlotStart;
+                    for (Type paramType : paramTypes) {
+                        paramSlotToType.put(currentSlot, paramType);
+                        currentSlot += paramType.getSize();
+                    }
+
                     InsnList instructions = mn.instructions;
                     AbstractInsnNode[] insns = instructions.toArray();
 
                     for (int slot = 0; slot < mn.maxLocals; slot++) {
                         if (existingSlots.contains(slot)) continue;
+
+                        if (!isStatic && slot == 0) continue;
 
                         AbstractInsnNode firstUse = null;
                         AbstractInsnNode lastUse = null;
@@ -67,7 +84,12 @@ public class LocalVariableTableFiller {
                         instructions.insertBefore(firstUse, startLabel);
                         instructions.insert(lastUse, endLabel);
 
-                        String typeDesc = inferVarTypeDesc(mn, slot);
+                        String typeDesc;
+                        if (paramSlotToType.containsKey(slot)) {
+                            typeDesc = paramSlotToType.get(slot).getDescriptor();
+                        } else {
+                            typeDesc = inferVarTypeDesc(mn, slot);
+                        }
 
                         LocalVariableNode newVar = new LocalVariableNode(
                                 "jniilVar" + slot,

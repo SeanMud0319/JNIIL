@@ -8,7 +8,10 @@ public class TypeConverter {
 
     public static void loadLocalVar(InsnList list, MethodNode method, int slot) {
         Type varType = getLocalVarType(method, slot);
+        loadLocalVar(list, slot, varType);
+    }
 
+    public static void loadLocalVar(InsnList list, int slot, Type varType) {
         if (varType == null) {
             list.add(new VarInsnNode(Opcodes.ALOAD, slot));
             return;
@@ -134,16 +137,22 @@ public class TypeConverter {
     public static int getReturnOpcode(String methodDesc) {
         Type returnType = Type.getReturnType(methodDesc);
         switch (returnType.getSort()) {
-            case Type.VOID: return Opcodes.RETURN;
+            case Type.VOID:
+                return Opcodes.RETURN;
             case Type.BOOLEAN:
             case Type.BYTE:
             case Type.CHAR:
             case Type.SHORT:
-            case Type.INT: return Opcodes.IRETURN;
-            case Type.LONG: return Opcodes.LRETURN;
-            case Type.FLOAT: return Opcodes.FRETURN;
-            case Type.DOUBLE: return Opcodes.DRETURN;
-            default: return Opcodes.ARETURN;
+            case Type.INT:
+                return Opcodes.IRETURN;
+            case Type.LONG:
+                return Opcodes.LRETURN;
+            case Type.FLOAT:
+                return Opcodes.FRETURN;
+            case Type.DOUBLE:
+                return Opcodes.DRETURN;
+            default:
+                return Opcodes.ARETURN;
         }
     }
 }

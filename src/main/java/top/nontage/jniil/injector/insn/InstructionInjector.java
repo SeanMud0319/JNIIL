@@ -114,6 +114,14 @@ public class InstructionInjector extends AbstractMethodInjector {
     }
 
     public static AbstractInsnNode findAnchorByAt(MethodNode mn, At at) {
+        int targetLine = at.line();
+        if (targetLine >= 0) {
+            if (at.debug()) {
+                System.out.println("[JNIIL-DEBUG] Looking for line number: " + targetLine);
+            }
+            return getAbstractInsnNode(mn, targetLine);
+        }
+
         int targetOpcode = at.opcode();
         String targetId = at.identifier();
         int targetOrdinal = at.ordinal();
@@ -169,6 +177,27 @@ public class InstructionInjector extends AbstractMethodInjector {
                     targetOpcodeName, targetOrdinal, mn.name, candidates.size()
             ));
         }
+    }
+
+    private static AbstractInsnNode getAbstractInsnNode(MethodNode mn, int targetLine) {
+        AbstractInsnNode target = null;
+        for (AbstractInsnNode insn = mn.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+            if (insn instanceof LineNumberNode) {
+                LineNumberNode ln = (LineNumberNode) insn;
+                if (ln.line == targetLine) {
+                    target = insn;
+                    break;
+                }
+            }
+        }
+
+        if (target == null) {
+            throw new RuntimeException(String.format(
+                    "Injection error: Line %d not found in method %s.",
+                    targetLine, mn.name
+            ));
+        }
+        return target;
     }
 
     private static boolean checkIdentifierSafe(AbstractInsnNode insn, String id) {

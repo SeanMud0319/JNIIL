@@ -19,8 +19,9 @@ import top.nontage.jniil.verify.BytecodeVerifier;
 import java.io.File;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.List;
 
-// just use @Before or @After
 public class FunctionalInjector extends AbstractMethodInjector {
 
     private static class ParsedClass {
@@ -75,9 +76,19 @@ public class FunctionalInjector extends AbstractMethodInjector {
             String[] localsToCapture = capture != null ? capture.value() : new String[0];
 
             if (localsToCapture.length > 0 && resolver.getType() != InjectionPointResolver.InjectionType.AT_OPCODE) {
-                new LocalVariableValidator(targetMethod).validate(
-                        localsToCapture, resolver.getInjectionLine(), resolver.isShiftAfter()
-                );
+                List<String> nameCaptures = new ArrayList<>();
+                for (String s : localsToCapture) {
+                    if (!s.startsWith("=")) {
+                        nameCaptures.add(s);
+                    }
+                }
+                if (!nameCaptures.isEmpty()) {
+                    new LocalVariableValidator(targetMethod).validate(
+                            nameCaptures.toArray(new String[0]),
+                            resolver.getInjectionLine(),
+                            resolver.isShiftAfter()
+                    );
+                }
             }
 
             InsnList injectedCode = new MethodInfoCodeGenerator(

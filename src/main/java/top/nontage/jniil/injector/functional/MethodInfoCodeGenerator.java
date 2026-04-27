@@ -66,24 +66,116 @@ public class MethodInfoCodeGenerator {
     }
 
     private void captureLocals(InsnList list, int infoVar) {
-        if (localsToCapture.length == 0) return;
+        for (String capture : localsToCapture) {
+            if (capture.startsWith("=")) {
+                try {
+                    int slot = Integer.parseInt(capture.substring(1));
+                    Type varType = inferTypeFromSlot(slot);
+                    list.add(new VarInsnNode(Opcodes.ALOAD, infoVar));
+                    list.add(new LdcInsnNode(capture));
+                    if (varType == null) {
+                        list.add(new VarInsnNode(Opcodes.ALOAD, slot));
+                    } else {
+                        switch (varType.getSort()) {
+                            case Type.BOOLEAN:
+                            case Type.BYTE:
+                            case Type.CHAR:
+                            case Type.SHORT:
+                            case Type.INT:
+                                list.add(new VarInsnNode(Opcodes.ILOAD, slot));
+                                list.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;", false));
+                                break;
+                            case Type.LONG:
+                                list.add(new VarInsnNode(Opcodes.LLOAD, slot));
+                                list.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Long", "valueOf", "(J)Ljava/lang/Long;", false));
+                                break;
+                            case Type.FLOAT:
+                                list.add(new VarInsnNode(Opcodes.FLOAD, slot));
+                                list.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Float", "valueOf", "(F)Ljava/lang/Float;", false));
+                                break;
+                            case Type.DOUBLE:
+                                list.add(new VarInsnNode(Opcodes.DLOAD, slot));
+                                list.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Double", "valueOf", "(D)Ljava/lang/Double;", false));
+                                break;
+                            default:
+                                list.add(new VarInsnNode(Opcodes.ALOAD, slot));
+                                break;
+                        }
+                    }
 
-        Map<String, Integer> localVarSlots = getLocalVarSlots();
-        for (String localName : localsToCapture) {
-            Integer slot = localVarSlots.get(localName);
-            if (slot != null) {
-                list.add(new VarInsnNode(Opcodes.ALOAD, infoVar));
-                list.add(new LdcInsnNode(localName));
-                TypeConverter.loadLocalVar(list, targetMethod, slot);
-                list.add(new MethodInsnNode(
-                        Opcodes.INVOKEVIRTUAL,
-                        MethodInfo.class.getName().replace('.', '/'),
-                        "captureLocal",
-                        "(Ljava/lang/String;Ljava/lang/Object;)V",
-                        false
-                ));
+                    list.add(new MethodInsnNode(
+                            Opcodes.INVOKEVIRTUAL,
+                            MethodInfo.class.getName().replace('.', '/'),
+                            "captureLocal",
+                            "(Ljava/lang/String;Ljava/lang/Object;)V",
+                            false
+                    ));
+                } catch (NumberFormatException e) {
+                    System.err.println("[JNIIL] Invalid slot index: " + capture);
+                }
+            } else {
+                Map<String, Integer> localVarSlots = getLocalVarSlots();
+                Integer slot = localVarSlots.get(capture);
+                if (slot != null) {
+                    list.add(new VarInsnNode(Opcodes.ALOAD, infoVar));
+                    list.add(new LdcInsnNode(capture));
+                    TypeConverter.loadLocalVar(list, targetMethod, slot);
+                    list.add(new MethodInsnNode(
+                            Opcodes.INVOKEVIRTUAL,
+                            MethodInfo.class.getName().replace('.', '/'),
+                            "captureLocal",
+                            "(Ljava/lang/String;Ljava/lang/Object;)V",
+                            false
+                    ));
+                }
             }
         }
+    }
+
+    private Type inferTypeFromSlot(int slot) {
+        if (targetMethod.localVariables != null) {
+            for (LocalVariableNode lv : targetMethod.localVariables) {
+                if (lv.index == slot && !lv.name.equals("this")) {
+                    return Type.getType(lv.desc);
+                }
+            }
+        }
+
+        Type[] argTypes = Type.getArgumentTypes(targetMethod.desc);
+        int paramIndex = isTargetStatic ? 0 : 1;
+        for (Type argType : argTypes) {
+            if (paramIndex == slot) {
+                return argType;
+            }
+            paramIndex += argType.getSize();
+        }
+
+        for (AbstractInsnNode insn : targetMethod.instructions.toArray()) {
+            if (insn instanceof VarInsnNode) {
+                VarInsnNode vi = (VarInsnNode) insn;
+                if (vi.var == slot) {
+                    int opcode = vi.getOpcode();
+                    switch (opcode) {
+                        case Opcodes.ILOAD:
+                        case Opcodes.ISTORE:
+                            return Type.INT_TYPE;
+                        case Opcodes.LLOAD:
+                        case Opcodes.LSTORE:
+                            return Type.LONG_TYPE;
+                        case Opcodes.FLOAD:
+                        case Opcodes.FSTORE:
+                            return Type.FLOAT_TYPE;
+                        case Opcodes.DLOAD:
+                        case Opcodes.DSTORE:
+                            return Type.DOUBLE_TYPE;
+                        default:
+                            return Type.getType(Object.class);
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     private void callInjectionMethod(InsnList list, int infoVar) {
@@ -126,26 +218,47 @@ public class MethodInfoCodeGenerator {
     }
 
     private void writeBackLocals(InsnList list, int infoVar) {
-        if (localsToCapture.length == 0) return;
+        for (String capture : localsToCapture) {
+            if (capture.startsWith("=")) {
+                try {
+                    int slot = Integer.parseInt(capture.substring(1));
+                    Type varType = inferTypeFromSlot(slot);
 
-        Map<String, Integer> localVarSlots = getLocalVarSlots();
-        Map<String, Type> localVarTypes = getLocalVarTypes();
+                    list.add(new VarInsnNode(Opcodes.ALOAD, infoVar));
+                    list.add(new LdcInsnNode(capture));
+                    list.add(new MethodInsnNode(
+                            Opcodes.INVOKEVIRTUAL,
+                            MethodInfo.class.getName().replace('.', '/'),
+                            "getLocal",
+                            "(Ljava/lang/String;)Ljava/lang/Object;",
+                            false
+                    ));
 
-        for (String localName : localsToCapture) {
-            Integer slot = localVarSlots.get(localName);
-            Type varType = localVarTypes.get(localName);
-            if (slot == null) continue;
-            if (varType == null) continue;
-            list.add(new VarInsnNode(Opcodes.ALOAD, infoVar));
-            list.add(new LdcInsnNode(localName));
-            list.add(new MethodInsnNode(
-                    Opcodes.INVOKEVIRTUAL,
-                    MethodInfo.class.getName().replace('.', '/'),
-                    "getLocal",
-                    "(Ljava/lang/String;)Ljava/lang/Object;",
-                    false
-            ));
-            unboxAndStoreToLocal(list, varType, slot);
+                    if (varType == null) {
+                        throw new RuntimeException("Variable Type is null when write back locals.");
+                    }
+                    unboxAndStoreToLocal(list, varType, slot);
+                } catch (NumberFormatException e) {
+                    System.err.println("[JNIIL] Invalid slot index: " + capture);
+                }
+            } else {
+                Map<String, Integer> localVarSlots = getLocalVarSlots();
+                Map<String, Type> localVarTypes = getLocalVarTypes();
+                Integer slot = localVarSlots.get(capture);
+                Type varType = localVarTypes.get(capture);
+                if (slot == null || varType == null) continue;
+
+                list.add(new VarInsnNode(Opcodes.ALOAD, infoVar));
+                list.add(new LdcInsnNode(capture));
+                list.add(new MethodInsnNode(
+                        Opcodes.INVOKEVIRTUAL,
+                        MethodInfo.class.getName().replace('.', '/'),
+                        "getLocal",
+                        "(Ljava/lang/String;)Ljava/lang/Object;",
+                        false
+                ));
+                unboxAndStoreToLocal(list, varType, slot);
+            }
         }
     }
 

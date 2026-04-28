@@ -3,6 +3,7 @@ package top.nontage.jniil.verify;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.util.CheckClassAdapter;
 import top.nontage.jniil.JNIIL;
+import top.nontage.jniil.exception.BytecodeVerifyException;
 import top.nontage.jniil.utils.InjectionUtil;
 
 import java.io.PrintWriter;
@@ -65,18 +66,42 @@ public class BytecodeVerifier {
         }
     }
 
-    public static Result verifyAll(String className, byte[] oldClassBytes, byte[] classBytes) {
+    public static Result verify(String className, byte[] originalBytecode, byte[] finalBytecode) throws BytecodeVerifyException {
+        boolean asmValid = true;
+        boolean jvmValid = true;
         StringWriter sw = new StringWriter();
-        boolean asmValid = asmVerify(classBytes, sw);
-        boolean jvmValid = jvmVerify(className, oldClassBytes, classBytes);
-        String details = sw.toString();
-        if (asmValid) {
-            System.out.println("ASM structure check passed");
+        String jvmError = null;
+
+        if (JNIIL.isAsmVerifyToggle) {
+            asmValid = asmVerify(finalBytecode, sw);
+            if (!asmValid) {
+                System.err.println("[BytecodeVerifier] ASM verification failed for " + className);
+            }
         }
 
-        if (jvmValid) {
-            System.out.println("JVM verification passed");
+        if (JNIIL.isJVMVerifyToggle) {
+            jvmValid = jvmVerify(className, originalBytecode, finalBytecode);
+            if (!jvmValid) {
+                jvmError = "JVM verification failed (see stderr for details)";
+            }
         }
-        return new Result(asmValid, jvmValid, details);
+
+        String details = sw.toString();
+        if (!asmValid || !jvmValid) {
+            details = (asmValid ? "" : "ASM: " + details + "\n") +
+                    (jvmValid ? "" : "JVM: " + jvmError);
+        }
+
+        Result result = new Result(asmValid, jvmValid, details);
+
+        if (JNIIL.isBytecodeVerifying() && (!asmValid || !jvmValid)) {
+            throw new BytecodeVerifyException(result.getDetails());
+        }
+
+        return result;
+    }
+
+    public static Result verifyAll(String className, byte[] oldClassBytes, byte[] classBytes) {
+        return verify(className, oldClassBytes, classBytes);
     }
 }

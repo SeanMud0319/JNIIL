@@ -8,7 +8,8 @@ public class JNIIL {
     private static final InjectionOutputConfig classOutput = new InjectionOutputConfig();
     private static final InjectionOutputConfig methodOutput = new InjectionOutputConfig();
     private static boolean storeOriginalByteCode = false;
-    private static boolean bytecodeVerifying = true;
+    public static boolean isJVMVerifyToggle = true;
+    public static boolean isAsmVerifyToggle = true;
     private static boolean bytecodeVerifyWarning = true;
     private static Instrumentation instrumentation;
 
@@ -21,15 +22,12 @@ public class JNIIL {
         throw new IllegalStateException("Instrumentation has not been initialized. Did you call JNIILBootstrap.install()?");
     }
 
-    public static boolean isBytecodeVerifying() {
-        return bytecodeVerifying;
-    }
-
     public static void setBytecodeVerifying(boolean bytecodeVerifying) {
         if (!bytecodeVerifying && bytecodeVerifyWarning) {
             System.out.println("[JNIIL] Bytecode verifying is disabled. This may lead to runtime errors if the injected bytecode is invalid.");
         }
-        JNIIL.bytecodeVerifying = bytecodeVerifying;
+        isJVMVerifyToggle = false;
+        isAsmVerifyToggle = false;
     }
 
     public static boolean isBytecodeVerifyWarning() {
@@ -70,6 +68,10 @@ public class JNIIL {
 
     public static void setStoreOriginalByteCode(boolean storeOriginalByteCode) {
         JNIIL.storeOriginalByteCode = storeOriginalByteCode;
+    }
+
+    public static boolean isBytecodeVerifying() {
+        return isAsmVerifyToggle || isJVMVerifyToggle;
     }
 
     private static class InjectionOutputConfig {

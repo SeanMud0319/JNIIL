@@ -95,10 +95,7 @@ public class InstructionInjector extends AbstractMethodInjector {
         byte[] finalBytecode = cw.toByteArray();
 
         if (JNIIL.isBytecodeVerifying()) {
-            BytecodeVerifier.Result result = BytecodeVerifier.verifyAll(info.typeName, currentBytecode, finalBytecode);
-            if (!result.isAsmValid() || !result.isJvmValid()) {
-                throw new BytecodeVerifyException(result.getDetails());
-            }
+            BytecodeVerifier.verify(info.typeName, currentBytecode, finalBytecode);
         }
 
         apply(targetClass, finalBytecode);

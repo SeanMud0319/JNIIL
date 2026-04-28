@@ -17,6 +17,7 @@ import top.nontage.jniil.utils.LocalVariableTableFiller;
 import top.nontage.jniil.verify.BytecodeVerifier;
 
 import java.io.File;
+import java.io.StringWriter;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -128,10 +129,7 @@ public class FunctionalInjector extends AbstractMethodInjector {
         byte[] finalBytecode = cw.toByteArray();
 
         if (JNIIL.isBytecodeVerifying()) {
-            BytecodeVerifier.Result result = BytecodeVerifier.verifyAll(typeName, originalBytecode, finalBytecode);
-            if (!result.isAsmValid() || !result.isJvmValid()) {
-                throw new BytecodeVerifyException(result.getDetails());
-            }
+            BytecodeVerifier.verify(typeName, originalBytecode, finalBytecode);
         }
 
         return finalBytecode;

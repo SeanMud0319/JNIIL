@@ -191,10 +191,7 @@ public abstract class AbstractMethodInjector {
         byte[] bytecode = ctClass.toBytecode();
 
         if (JNIIL.isBytecodeVerifying()) {
-            BytecodeVerifier.Result result = BytecodeVerifier.verifyAll(info.typeName, originalBytecode, bytecode);
-            if (!result.isAsmValid() || !result.isJvmValid()) {
-                throw new BytecodeVerifyException(result.getDetails());
-            }
+            BytecodeVerifier.verify(info.typeName, originalBytecode, bytecode);
         }
 
         try {

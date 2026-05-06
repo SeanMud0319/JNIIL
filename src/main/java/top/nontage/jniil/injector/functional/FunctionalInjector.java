@@ -17,7 +17,6 @@ import top.nontage.jniil.utils.LocalVariableTableFiller;
 import top.nontage.jniil.verify.BytecodeVerifier;
 
 import java.io.File;
-import java.io.StringWriter;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;

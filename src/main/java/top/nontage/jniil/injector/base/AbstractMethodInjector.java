@@ -7,7 +7,6 @@ import org.objectweb.asm.*;
 import org.objectweb.asm.util.Printer;
 import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.annotations.*;
-import top.nontage.jniil.exception.BytecodeVerifyException;
 import top.nontage.jniil.exception.InjectionException;
 import top.nontage.jniil.injector.cache.InjectionCacheProxy;
 import top.nontage.jniil.interfaces.Injectable;

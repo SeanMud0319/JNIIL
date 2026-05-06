@@ -5,37 +5,22 @@ import java.lang.instrument.Instrumentation;
 
 public class JNIIL {
 
+    private static Instrumentation instrumentation;
     private static final InjectionOutputConfig classOutput = new InjectionOutputConfig();
     private static final InjectionOutputConfig methodOutput = new InjectionOutputConfig();
-    private static boolean storeOriginalByteCode = false;
-    public static boolean isJVMVerifyToggle = true;
-    public static boolean isAsmVerifyToggle = true;
-    private static boolean bytecodeVerifyWarning = true;
-    private static Instrumentation instrumentation;
 
-    public static void setInstrumentation(Instrumentation instrumentation) {
-        JNIIL.instrumentation = instrumentation;
+    private static boolean storeOriginalByteCode = false;
+    private static boolean bytecodeVerifyWarning = true;
+    private static boolean jvmVerifyToggle = true;
+    private static boolean asmVerifyToggle = true;
+
+    public static void setInstrumentation(Instrumentation inst) {
+        instrumentation = inst;
     }
 
     public static Instrumentation getInstrumentation() {
         if (instrumentation != null) return instrumentation;
-        throw new IllegalStateException("Instrumentation has not been initialized. Did you call JNIILBootstrap.install()?");
-    }
-
-    public static void setBytecodeVerifying(boolean bytecodeVerifying) {
-        if (!bytecodeVerifying && bytecodeVerifyWarning) {
-            System.out.println("[JNIIL] Bytecode verifying is disabled. This may lead to runtime errors if the injected bytecode is invalid.");
-        }
-        isJVMVerifyToggle = false;
-        isAsmVerifyToggle = false;
-    }
-
-    public static boolean isBytecodeVerifyWarning() {
-        return bytecodeVerifyWarning;
-    }
-
-    public static void setBytecodeVerifyWarning(boolean bytecodeVerifyWarning) {
-        JNIIL.bytecodeVerifyWarning = bytecodeVerifyWarning;
+        throw new IllegalStateException("Instrumentation not initialized. Call JNIILBootstrap.install() first.");
     }
 
     public static void enableClassOutput(File dir) {
@@ -62,16 +47,48 @@ public class JNIIL {
         return methodOutput.dir;
     }
 
-    public static boolean isStoreOriginalByteCode() {
-        return storeOriginalByteCode;
-    }
-
-    public static void setStoreOriginalByteCode(boolean storeOriginalByteCode) {
-        JNIIL.storeOriginalByteCode = storeOriginalByteCode;
+    public static void setBytecodeVerifying(boolean enabled) {
+        if (!enabled && bytecodeVerifyWarning) {
+            System.out.println("[JNIIL] Bytecode verifying disabled. Invalid bytecode may cause runtime errors.");
+        }
+        jvmVerifyToggle = false;
+        asmVerifyToggle = false;
     }
 
     public static boolean isBytecodeVerifying() {
-        return isAsmVerifyToggle || isJVMVerifyToggle;
+        return isAsmVerifyToggle() || isJvmVerifyToggle();
+    }
+
+    public static void setBytecodeVerifyWarning(boolean enabled) {
+        bytecodeVerifyWarning = enabled;
+    }
+
+    public static boolean isBytecodeVerifyWarning() {
+        return bytecodeVerifyWarning;
+    }
+
+    public static void setJvmVerifyToggle(boolean enabled) {
+        jvmVerifyToggle = enabled;
+    }
+
+    public static boolean isJvmVerifyToggle() {
+        return jvmVerifyToggle;
+    }
+
+    public static void setAsmVerifyToggle(boolean enabled) {
+        asmVerifyToggle = enabled;
+    }
+
+    public static boolean isAsmVerifyToggle() {
+        return asmVerifyToggle;
+    }
+
+    public static void setStoreOriginalByteCode(boolean enabled) {
+        storeOriginalByteCode = enabled;
+    }
+
+    public static boolean isStoreOriginalByteCode() {
+        return storeOriginalByteCode;
     }
 
     private static class InjectionOutputConfig {

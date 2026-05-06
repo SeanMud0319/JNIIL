@@ -72,14 +72,14 @@ public class BytecodeVerifier {
         StringWriter sw = new StringWriter();
         String jvmError = null;
 
-        if (JNIIL.isAsmVerifyToggle) {
+        if (JNIIL.isAsmVerifyToggle()) {
             asmValid = asmVerify(finalBytecode, sw);
             if (!asmValid) {
                 System.err.println("[BytecodeVerifier] ASM verification failed for " + className);
             }
         }
 
-        if (JNIIL.isJVMVerifyToggle) {
+        if (JNIIL.isJvmVerifyToggle()) {
             jvmValid = jvmVerify(className, originalBytecode, finalBytecode);
             if (!jvmValid) {
                 jvmError = "JVM verification failed (see stderr for details)";

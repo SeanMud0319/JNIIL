@@ -4,14 +4,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class MethodInfo {
-    private final Object target;
+    private final Object instance;
     private final Object[] arguments;
     private Object returnValue;
     private boolean cancelled;
     private final Map<String, Object> capturedLocals = new HashMap<>();
 
-    public MethodInfo(Object target, Object[] arguments) {
-        this.target = target;
+    public MethodInfo(Object instance, Object[] arguments) {
+        this.instance = instance;
         this.arguments = arguments;
         this.cancelled = false;
     }
@@ -26,8 +26,8 @@ public class MethodInfo {
     }
 
     @SuppressWarnings("unchecked")
-    public <T> T getTarget() {
-        return (T) target;
+    public <T> T getInstance() {
+        return (T) instance;
     }
 
     @SuppressWarnings("unchecked")
@@ -46,6 +46,7 @@ public class MethodInfo {
     }
 
     public <T> void setLocal(String name, T value) {
+        getLocal(name);
         capturedLocals.put(normalizeKey(name), value);
     }
 

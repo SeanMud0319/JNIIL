@@ -111,6 +111,15 @@ public class UnsafeUtil {
         }
     }
 
+    public static Object forceNewInstance(Class<?> clazz, Class<?>[] parameterTypes, Object... args) {
+        try {
+            MethodType type = MethodType.methodType(void.class, parameterTypes);
+            return lookup.findConstructor(clazz, type).invokeWithArguments(args);
+        } catch (Throwable t) {
+            throw new RuntimeException("Failed to force call constructor for " + clazz.getName(), t);
+        }
+    }
+
     public static Object forceAllocateInstance(Class<?> clazz) {
         try {
             return unsafe.allocateInstance(clazz);

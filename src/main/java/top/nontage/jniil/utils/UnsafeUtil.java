@@ -11,12 +11,19 @@ import java.lang.reflect.Modifier;
 public class UnsafeUtil {
 
     public static final Unsafe unsafe;
+    public static final MethodHandles.Lookup IMPL_LOOKUP;
 
     static {
         try {
             Field f = Unsafe.class.getDeclaredField("theUnsafe");
             f.setAccessible(true);
             unsafe = (Unsafe) f.get(null);
+            Field implLookupField = MethodHandles.Lookup.class.getDeclaredField("IMPL_LOOKUP");
+            IMPL_LOOKUP = (MethodHandles.Lookup)
+                    unsafe.getObject(
+                            unsafe.staticFieldBase(implLookupField),
+                            unsafe.staticFieldOffset(implLookupField)
+                    );
         } catch (Exception e) {
             throw new RuntimeException("Unable to access Unsafe", e);
         }
@@ -80,30 +87,15 @@ public class UnsafeUtil {
         }
     }
 
-    private static final MethodHandles.Lookup lookup;
-
-    static {
-        try {
-            Field implLookupField = MethodHandles.Lookup.class.getDeclaredField("IMPL_LOOKUP");
-            lookup = (MethodHandles.Lookup)
-                    unsafe.getObject(
-                            unsafe.staticFieldBase(implLookupField),
-                            unsafe.staticFieldOffset(implLookupField)
-                    );
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to get IMPL_LOOKUP", e);
-        }
-    }
-
     public static Object forceInvoke(Method method, Object obj, Object... args) {
         try {
             MethodType type = MethodType.methodType(method.getReturnType(), method.getParameterTypes());
             boolean isStatic = Modifier.isStatic(method.getModifiers());
             if (isStatic) {
-                return lookup.findStatic(method.getDeclaringClass(), method.getName(), type)
+                return IMPL_LOOKUP.findStatic(method.getDeclaringClass(), method.getName(), type)
                         .invokeWithArguments(args);
             } else {
-                return lookup.findVirtual(method.getDeclaringClass(), method.getName(), type)
+                return IMPL_LOOKUP.findVirtual(method.getDeclaringClass(), method.getName(), type)
                         .invokeWithArguments(prepend(obj, args));
             }
         } catch (Throwable t) {
@@ -114,9 +106,25 @@ public class UnsafeUtil {
     public static Object forceNewInstance(Class<?> clazz, Class<?>[] parameterTypes, Object... args) {
         try {
             MethodType type = MethodType.methodType(void.class, parameterTypes);
-            return lookup.findConstructor(clazz, type).invokeWithArguments(args);
+            return IMPL_LOOKUP.findConstructor(clazz, type).invokeWithArguments(args);
         } catch (Throwable t) {
-            throw new RuntimeException("Failed to force call constructor for " + clazz.getName(), t);
+            try {
+                Object instance = unsafe.allocateInstance(clazz);
+                if (args != null && args.length > 0) {
+                    Field[] fields = clazz.getDeclaredFields();
+                    for (int i = 0; i < args.length && i < fields.length; i++) {
+                        Field field = fields[i];
+                        Object arg = args[i];
+
+                        if (arg != null && field.getType().isAssignableFrom(arg.getClass())) {
+                            forceSet(field, instance, arg);
+                        }
+                    }
+                }
+                return instance;
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to force call constructor for " + clazz.getName(), t);
+            }
         }
     }
 

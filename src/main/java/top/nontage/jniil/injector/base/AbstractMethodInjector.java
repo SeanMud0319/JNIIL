@@ -512,7 +512,7 @@ public abstract class AbstractMethodInjector {
         boolean isInsnInjectable = injectable instanceof InsnInjectable;
         if (hasMethodInfo) {
             InjectMethodInfo annotation = method.getAnnotation(InjectMethodInfo.class);
-            info.typeName = annotation.targetType() != null ? annotation.targetType().getTypeName() : annotation.targetTypeInternalName();
+            info.typeName = annotation.targetType() != Object.class ? annotation.targetType().getTypeName() : annotation.targetTypeInternalName();
             info.methodName = annotation.targetMethodName();
             info.methodParams = classArrayToName(annotation.targetMethodParamTypes(), annotation.targetMethodParams());
             info.appendClasses = annotation.appendClassLoader();

@@ -10,13 +10,7 @@ import top.nontage.jniil.annotations.InjectMethodInfo;
 import top.nontage.jniil.injector.insn.InsnContext;
 import top.nontage.jniil.injector.insn.InstructionInjector;
 import top.nontage.jniil.interfaces.InsnInjectable;
-
-import java.io.File;
-import java.lang.instrument.Instrumentation;
-import java.nio.file.Files;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
-import java.util.jar.JarOutputStream;
+import top.nontage.jniil.utils.UnsafeUtil;
 
 /**
  * <h1>AccessorInitializer</h1>
@@ -35,7 +29,6 @@ import java.util.jar.JarOutputStream;
  */
 public class AccessorInitializer {
     private static boolean initialize = false;
-    private static final int CURRENT_VERSION = 1;
     private static Class<?> accessorRegistry;
 
     private static final boolean IS_JAVA_8;
@@ -53,9 +46,7 @@ public class AccessorInitializer {
         if (initialize) return;
         initialize = true;
         try {
-            Instrumentation inst = JNIIL.getInstrumentation();
-            inst.appendToBootstrapClassLoaderSearch(createRegistryJar());
-            accessorRegistry = Class.forName("top.nontage.jniil.bootstrap.AccessorRegistry", true, null);
+            accessorRegistry = UnsafeUtil.defineClass("top.nontage.jniil.bootstrap.AccessorRegistry", null, generateRegistryBytecode(), "");
             boolean verify = JNIIL.isJvmVerifyToggle();
             try {
                 if (verify) JNIIL.setJvmVerifyToggle(false);
@@ -75,31 +66,6 @@ public class AccessorInitializer {
 
     public static Class<?> getAccessorRegistry() {
         return accessorRegistry;
-    }
-
-    private static JarFile createRegistryJar() throws Exception {
-        String tempDir = System.getProperty("java.io.tmpdir");
-        String jarName = "JNIIL-AccessorRegistry-v" + CURRENT_VERSION + ".jar";
-        File jarFile = new File(tempDir, jarName);
-
-        if (!jarFile.exists()) {
-            byte[] registryBytes = generateRegistryBytecode();
-
-            try (JarOutputStream jos = new JarOutputStream(Files.newOutputStream(jarFile.toPath()))) {
-                JarEntry versionEntry = new JarEntry("version.txt");
-                jos.putNextEntry(versionEntry);
-                jos.write(String.valueOf(CURRENT_VERSION).getBytes());
-                jos.closeEntry();
-
-                JarEntry classEntry = new JarEntry("top/nontage/jniil/bootstrap/AccessorRegistry.class");
-                jos.putNextEntry(classEntry);
-                jos.write(registryBytes);
-                jos.closeEntry();
-            }
-            jarFile.deleteOnExit();
-        }
-
-        return new JarFile(jarFile);
     }
 
     private static byte[] generateRegistryBytecode() {

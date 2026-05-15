@@ -163,14 +163,7 @@ public class InjectionUtil {
     }
 
     public static Class<?> unsafeInjectClass(ClassLoader loader, String name, byte[] bytecode) throws Throwable {
-        Unsafe unsafe = UnsafeUtil.unsafe;
-
-        Field implLookupField = MethodHandles.Lookup.class.getDeclaredField("IMPL_LOOKUP");
-        MethodHandles.Lookup lookup = (MethodHandles.Lookup)
-                unsafe.getObject(
-                        unsafe.staticFieldBase(implLookupField),
-                        unsafe.staticFieldOffset(implLookupField)
-                );
+        MethodHandles.Lookup lookup = UnsafeUtil.IMPL_LOOKUP;
 
         Method defineClassMethod = ClassLoader.class.getDeclaredMethod(
                 "defineClass", String.class, byte[].class, int.class, int.class

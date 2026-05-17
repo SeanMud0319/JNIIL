@@ -46,7 +46,7 @@ public class AccessorInitializer {
         if (initialize) return;
         initialize = true;
         try {
-            accessorRegistry = UnsafeUtil.defineClass("top.nontage.jniil.bootstrap.AccessorRegistry", null, generateRegistryBytecode(), "");
+            accessorRegistry = UnsafeUtil.defineClass("top.nontage.jniil.bootstrap.AccessorRegistry", null, generateRegistryBytecode());
             boolean verify = JNIIL.isJvmVerifyToggle();
             try {
                 if (verify) JNIIL.setJvmVerifyToggle(false);

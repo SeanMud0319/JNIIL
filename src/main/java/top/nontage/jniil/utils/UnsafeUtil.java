@@ -137,15 +137,14 @@ public class UnsafeUtil {
         }
     }
 
-    // Define class into All ClassLoader include BootstrapClassLoader
-    public static Class<?> defineClass(String name, ClassLoader loader, byte[] bytes, String source) {
+    // Define class into Both ClassLoader include BootstrapClassLoader
+    public static Class<?> defineClass(String name, ClassLoader loader, byte[] bytes) {
         try {
-            Class<?> sharedSecretsClass = Class.forName("jdk.internal.access.SharedSecrets");
-            Field jlaField = sharedSecretsClass.getDeclaredField("javaLangAccess");
-            // Java super API, but it's not an important things in JNIIL, and it's dangerous, so I don't want make it be a field, but if you see this comment you can just copy the code and play
-            Object JLA = forceGet(jlaField, null);
-            Method defineClassMethod = JLA.getClass().getDeclaredMethod("defineClass", ClassLoader.class, String.class, byte[].class, ProtectionDomain.class, String.class);
-            return (Class<?>) forceInvoke(defineClassMethod, JLA, loader, name, bytes, null, source);
+            Class<?> internalUnsafeClass = Class.forName("jdk.internal.misc.Unsafe");
+            Field theUnsafe = internalUnsafeClass.getDeclaredField("theUnsafe");
+            Object internalUnsafe = forceGet(theUnsafe, null);
+            Method defineClassMethod = internalUnsafe.getClass().getDeclaredMethod("defineClass", String.class, byte[].class, int.class, int.class, ClassLoader.class, ProtectionDomain.class);
+            return (Class<?>) forceInvoke(defineClassMethod, internalUnsafe, name, bytes, 0, bytes.length, loader, null);
         } catch (Throwable ignored) {
             return unsafe.defineClass(name, bytes, 0, bytes.length, loader, null);
         }

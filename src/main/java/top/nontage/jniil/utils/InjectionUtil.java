@@ -100,7 +100,7 @@ public class InjectionUtil {
             return buffer.toByteArray();
         }
     }
-
+    // Return the class in memory
     public static byte[] getOriginalClassBytes(String targetClassName) throws Exception {
         final byte[][] result = new byte[1][];
         ClassFileTransformer transformer = (loader, className, classBeingRedefined, protectionDomain, classfileBuffer) -> {
@@ -150,6 +150,7 @@ public class InjectionUtil {
         }
     }
 
+    // Just define class into exists ClassLoader
     public static void injectClass(ClassLoader loader, String name, byte[] bytecode) throws Exception {
         Method defineClass = ClassLoader.class.getDeclaredMethod(
                 "defineClass", String.class, byte[].class, int.class, int.class);

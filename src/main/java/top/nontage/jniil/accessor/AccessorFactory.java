@@ -68,11 +68,12 @@ public class AccessorFactory {
             } catch (Throwable e) {
                 throw new RuntimeException(e);
             }
+
         });
     }
 
     @SuppressWarnings("unchecked")
-    public static <T> T registerAccessor(Object instance, Class<T> accessorInterface) throws Throwable {
+    private static <T> T registerAccessor(Object instance, Class<T> accessorInterface) throws Throwable {
         if (IS_LEGACY_STRATEGY) {
             if (AccessorInitializer.getAccessorRegistry() == null) {
                 AccessorInitializer.init();
@@ -153,7 +154,7 @@ public class AccessorFactory {
                 } else if (invoker != null) {
                     generateInvokerMethodV22(cw, targetClassPath, targetInternalName, method, invoker);
                 } else {
-                    generateInferredMethodV22(cw, targetClassPath, targetInternalName, targetClass, method);
+                    throw new RuntimeException("Method '" + method.getName() + "' in " + accessorInterface.getSimpleName() + " must be annotated with @Accessor or @Invoker");
                 }
             }
 
@@ -280,53 +281,6 @@ public class AccessorFactory {
         mv.visitEnd();
     }
 
-    private static void generateInferredMethodV22(ClassWriter cw, String targetClassPath,
-                                                  String targetInternalName, Class<?> targetClass, Method method) {
-        String methodName = method.getName();
-        boolean isSetter = methodName.startsWith("set") && methodName.length() > 3 &&
-                method.getParameterCount() == 1 && method.getReturnType() == void.class;
-        boolean isGetter = (methodName.startsWith("get") || methodName.startsWith("is")) &&
-                method.getParameterCount() == 0 && method.getReturnType() != void.class;
-
-        if (isSetter) {
-            String fieldName = decapitalize(methodName.substring(3));
-            Accessor dummyAccessor = new Accessor() {
-                public String value() {
-                    return fieldName;
-                }
-
-                public Class<? extends java.lang.annotation.Annotation> annotationType() {
-                    return Accessor.class;
-                }
-            };
-            generateAccessorMethodV22(cw, targetClassPath, targetInternalName, targetClass, method, dummyAccessor);
-        } else if (isGetter) {
-            String prefix = methodName.startsWith("is") ? "is" : "get";
-            String fieldName = decapitalize(methodName.substring(prefix.length()));
-            Accessor dummyAccessor = new Accessor() {
-                public String value() {
-                    return fieldName;
-                }
-
-                public Class<? extends java.lang.annotation.Annotation> annotationType() {
-                    return Accessor.class;
-                }
-            };
-            generateAccessorMethodV22(cw, targetClassPath, targetInternalName, targetClass, method, dummyAccessor);
-        } else {
-            Invoker dummyInvoker = new Invoker() {
-                public String value() {
-                    return methodName;
-                }
-
-                public Class<? extends java.lang.annotation.Annotation> annotationType() {
-                    return Invoker.class;
-                }
-            };
-            generateInvokerMethodV22(cw, targetClassPath, targetInternalName, method, dummyInvoker);
-        }
-    }
-
     private static GenerateClassData generateBytecodeV8(Class<?> targetClass, Class<?> accessorInterface) {
         try {
             String targetClassName = accessorInterface.getName() + "$$ImplByJNIIL$$" + Math.abs(accessorInterface.hashCode());
@@ -356,7 +310,7 @@ public class AccessorFactory {
                 } else if (invoker != null) {
                     generateInvokerMethodV8(cw, targetClassPath, targetInternalName, method, invoker);
                 } else {
-                    generateInferredMethodV8(cw, targetClassPath, targetInternalName, targetClass, method);
+                    throw new RuntimeException("Method '" + method.getName() + "' in " + accessorInterface.getSimpleName() + " must be annotated with @Accessor or @Invoker");
                 }
             }
 
@@ -482,53 +436,6 @@ public class AccessorFactory {
 
         mv.visitMaxs(0, 0);
         mv.visitEnd();
-    }
-
-    private static void generateInferredMethodV8(ClassWriter cw, String targetClassPath,
-                                                 String targetInternalName, Class<?> targetClass, Method method) {
-        String methodName = method.getName();
-        boolean isSetter = methodName.startsWith("set") && methodName.length() > 3 &&
-                method.getParameterCount() == 1 && method.getReturnType() == void.class;
-        boolean isGetter = (methodName.startsWith("get") || methodName.startsWith("is")) &&
-                method.getParameterCount() == 0 && method.getReturnType() != void.class;
-
-        if (isSetter) {
-            String fieldName = decapitalize(methodName.substring(3));
-            Accessor dummyAccessor = new Accessor() {
-                public String value() {
-                    return fieldName;
-                }
-
-                public Class<? extends Annotation> annotationType() {
-                    return Accessor.class;
-                }
-            };
-            generateAccessorMethodV8(cw, targetClassPath, targetInternalName, targetClass, method, dummyAccessor);
-        } else if (isGetter) {
-            String prefix = methodName.startsWith("is") ? "is" : "get";
-            String fieldName = decapitalize(methodName.substring(prefix.length()));
-            Accessor dummyAccessor = new Accessor() {
-                public String value() {
-                    return fieldName;
-                }
-
-                public Class<? extends Annotation> annotationType() {
-                    return Accessor.class;
-                }
-            };
-            generateAccessorMethodV8(cw, targetClassPath, targetInternalName, targetClass, method, dummyAccessor);
-        } else {
-            Invoker dummyInvoker = new Invoker() {
-                public String value() {
-                    return methodName;
-                }
-
-                public Class<? extends Annotation> annotationType() {
-                    return Invoker.class;
-                }
-            };
-            generateInvokerMethodV8(cw, targetClassPath, targetInternalName, method, dummyInvoker);
-        }
     }
 
     private static String inferFieldName(Method method) {

@@ -137,6 +137,7 @@ public class UnsafeUtil {
         }
     }
 
+    // Define class into All ClassLoader include BootstrapClassLoader
     public static Class<?> defineClass(String name, ClassLoader loader, byte[] bytes, String source) {
         try {
             Class<?> sharedSecretsClass = Class.forName("jdk.internal.access.SharedSecrets");
@@ -145,7 +146,6 @@ public class UnsafeUtil {
             Object JLA = forceGet(jlaField, null);
             Method defineClassMethod = JLA.getClass().getDeclaredMethod("defineClass", ClassLoader.class, String.class, byte[].class, ProtectionDomain.class, String.class);
             return (Class<?>) forceInvoke(defineClassMethod, JLA, loader, name, bytes, null, source);
-
         } catch (Throwable ignored) {
             return unsafe.defineClass(name, bytes, 0, bytes.length, loader, null);
         }

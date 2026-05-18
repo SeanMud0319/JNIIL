@@ -9,7 +9,6 @@ import top.nontage.jniil.annotations.Invoker;
 import top.nontage.jniil.utils.InjectionUtil;
 import top.nontage.jniil.utils.UnsafeUtil;
 
-import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
@@ -84,12 +83,12 @@ public class AccessorFactory {
             Class<?> accessorImpl = InjectionUtil.unsafeInjectClass(delegatingClassLoader, data.name, data.bytes);
             Class<?> registry = AccessorInitializer.getAccessorRegistry();
             registry.getDeclaredMethod("register", String.class, Class.class).invoke(null, data.name, accessorImpl);
-            return (T) UnsafeUtil.forceNewInstance(accessorImpl, new Class[]{Object.class}, instance);
+            return (T) UnsafeUtil.forceNewInstance(accessorImpl, new Class[]{targetClass}, instance);
         } else {
             Class<?> targetClass = instance.getClass();
             GenerateClassData data = generateBytecodeV22(targetClass, accessorInterface);
             Class<?> accessorImpl = defineHiddenClassIfAvailable(targetClass, data.bytes, true);
-            Object accessorInstance = UnsafeUtil.forceNewInstance(accessorImpl, new Class[]{Object.class}, instance);
+            Object accessorInstance = UnsafeUtil.forceNewInstance(accessorImpl, new Class[]{targetClass}, instance);
             return (T) accessorInstance;
         }
     }
@@ -139,9 +138,9 @@ public class AccessorFactory {
                     "java/lang/Object",
                     new String[]{accessorInterface.getName().replace('.', '/')});
 
-            cw.visitField(Opcodes.ACC_PRIVATE, "target", "Ljava/lang/Object;", null, null);
+            cw.visitField(Opcodes.ACC_PRIVATE, "target", "L" + targetInternalName + ";", null, null);
 
-            generateConstructorV22(cw, targetClassPath);
+            generateConstructorV22(cw, targetClassPath, targetInternalName);
 
             for (Method method : accessorInterface.getDeclaredMethods()) {
                 if (method.isDefault()) continue;
@@ -170,22 +169,20 @@ public class AccessorFactory {
         }
     }
 
-    private static void generateConstructorV22(ClassWriter cw, String targetClassPath) {
-        MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "(Ljava/lang/Object;)V", null, null);
+    private static void generateConstructorV22(ClassWriter cw, String targetClassPath, String targetInternalName) {
+        MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "(L" + targetInternalName + ";)V", null, null);
         mv.visitCode();
         mv.visitVarInsn(Opcodes.ALOAD, 0);
         mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
         mv.visitVarInsn(Opcodes.ALOAD, 0);
         mv.visitVarInsn(Opcodes.ALOAD, 1);
-        mv.visitFieldInsn(Opcodes.PUTFIELD, targetClassPath, "target", "Ljava/lang/Object;");
+        mv.visitFieldInsn(Opcodes.PUTFIELD, targetClassPath, "target", "L" + targetInternalName + ";");
         mv.visitInsn(Opcodes.RETURN);
         mv.visitMaxs(2, 2);
         mv.visitEnd();
     }
 
-    private static void generateAccessorMethodV22(ClassWriter cw, String targetClassPath,
-                                                  String targetInternalName, Class<?> targetClass,
-                                                  Method method, Accessor accessor) {
+    private static void generateAccessorMethodV22(ClassWriter cw, String targetClassPath, String targetInternalName, Class<?> targetClass, Method method, Accessor accessor) {
         String fieldName = accessor.value().isEmpty() ? inferFieldName(method) : accessor.value();
         boolean isSetter = method.getParameterCount() == 1 && method.getReturnType() == void.class;
         boolean isGetter = method.getParameterCount() == 0 && method.getReturnType() != void.class;
@@ -219,8 +216,7 @@ public class AccessorFactory {
             }
         } else {
             mv.visitVarInsn(Opcodes.ALOAD, 0);
-            mv.visitFieldInsn(Opcodes.GETFIELD, targetClassPath, "target", "Ljava/lang/Object;");
-            mv.visitTypeInsn(Opcodes.CHECKCAST, targetInternalName);
+            mv.visitFieldInsn(Opcodes.GETFIELD, targetClassPath, "target", "L" + targetInternalName + ";");
 
             if (isSetter) {
                 mv.visitVarInsn(loadOpcode(method.getParameterTypes()[0]), 1);
@@ -236,8 +232,7 @@ public class AccessorFactory {
         mv.visitEnd();
     }
 
-    private static void generateInvokerMethodV22(ClassWriter cw, String targetClassPath,
-                                                 String targetInternalName, Method method, Invoker invoker) {
+    private static void generateInvokerMethodV22(ClassWriter cw, String targetClassPath, String targetInternalName, Method method, Invoker invoker) {
         String targetMethodName;
 
         if (invoker.value().isEmpty()) {
@@ -262,8 +257,7 @@ public class AccessorFactory {
             mv.visitMethodInsn(Opcodes.INVOKESTATIC, targetInternalName, actualMethodName, methodDesc, false);
         } else {
             mv.visitVarInsn(Opcodes.ALOAD, 0);
-            mv.visitFieldInsn(Opcodes.GETFIELD, targetClassPath, "target", "Ljava/lang/Object;");
-            mv.visitTypeInsn(Opcodes.CHECKCAST, targetInternalName);
+            mv.visitFieldInsn(Opcodes.GETFIELD, targetClassPath, "target", "L" + targetInternalName + ";");
             Class<?>[] paramTypes = method.getParameterTypes();
             for (int i = 0; i < paramTypes.length; i++) {
                 mv.visitVarInsn(loadOpcode(paramTypes[i]), i + 1);
@@ -295,9 +289,9 @@ public class AccessorFactory {
                     magicAccessorClass.getName().replace('.', '/'),
                     new String[]{accessorInterface.getName().replace('.', '/')});
 
-            cw.visitField(Opcodes.ACC_PRIVATE, "target", "Ljava/lang/Object;", null, null);
+            cw.visitField(Opcodes.ACC_PRIVATE, "target", "L" + targetInternalName + ";", null, null);
 
-            generateConstructorV8(cw, targetClassPath, magicAccessorClass);
+            generateConstructorV8(cw, targetClassPath, targetInternalName, magicAccessorClass);
 
             for (Method method : accessorInterface.getDeclaredMethods()) {
                 if (method.isDefault()) continue;
@@ -326,14 +320,14 @@ public class AccessorFactory {
         }
     }
 
-    private static void generateConstructorV8(ClassWriter cw, String targetClassPath, Class<?> magicAccessorClass) {
-        MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "(Ljava/lang/Object;)V", null, null);
+    private static void generateConstructorV8(ClassWriter cw, String targetClassPath, String targetInternalName, Class<?> magicAccessorClass) {
+        MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "(L" + targetInternalName + ";)V", null, null);
         mv.visitCode();
         mv.visitVarInsn(Opcodes.ALOAD, 0);
         mv.visitMethodInsn(Opcodes.INVOKESPECIAL, magicAccessorClass.getName().replace('.', '/'), "<init>", "()V", false);
         mv.visitVarInsn(Opcodes.ALOAD, 0);
         mv.visitVarInsn(Opcodes.ALOAD, 1);
-        mv.visitFieldInsn(Opcodes.PUTFIELD, targetClassPath, "target", "Ljava/lang/Object;");
+        mv.visitFieldInsn(Opcodes.PUTFIELD, targetClassPath, "target", "L" + targetInternalName + ";");
         mv.visitInsn(Opcodes.RETURN);
         mv.visitMaxs(2, 2);
         mv.visitEnd();
@@ -373,8 +367,7 @@ public class AccessorFactory {
             }
         } else {
             mv.visitVarInsn(Opcodes.ALOAD, 0);
-            mv.visitFieldInsn(Opcodes.GETFIELD, targetClassPath, "target", "Ljava/lang/Object;");
-            mv.visitTypeInsn(Opcodes.CHECKCAST, targetInternalName);
+            mv.visitFieldInsn(Opcodes.GETFIELD, targetClassPath, "target", "L" + targetInternalName + ";");
 
             if (isSetter) {
                 mv.visitVarInsn(loadOpcode(method.getParameterTypes()[0]), 1);
@@ -416,8 +409,7 @@ public class AccessorFactory {
             mv.visitMethodInsn(Opcodes.INVOKESTATIC, targetInternalName, actualMethodName, methodDesc, false);
         } else {
             mv.visitVarInsn(Opcodes.ALOAD, 0);
-            mv.visitFieldInsn(Opcodes.GETFIELD, targetClassPath, "target", "Ljava/lang/Object;");
-            mv.visitTypeInsn(Opcodes.CHECKCAST, targetInternalName);
+            mv.visitFieldInsn(Opcodes.GETFIELD, targetClassPath, "target", "L" + targetInternalName + ";");
 
             Class<?>[] paramTypes = method.getParameterTypes();
             for (int i = 0; i < paramTypes.length; i++) {

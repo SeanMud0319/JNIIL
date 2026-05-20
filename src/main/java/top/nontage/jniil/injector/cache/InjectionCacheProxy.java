@@ -4,6 +4,7 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import top.nontage.jniil.utils.InjectionUtil;
+import top.nontage.jniil.utils.UnsafeUtil;
 
 import java.lang.reflect.Field;
 import java.util.Map;
@@ -74,7 +75,7 @@ public class InjectionCacheProxy implements Opcodes {
                     }
                 };
                 byte[] classBytes = generateInjectionCacheBytes();
-                hiddenCacheClass = InjectionUtil.unsafeInjectClass(injectionCacheLoader, "top.nontage.jniil.injector.cache.InjectionCache", classBytes);
+                hiddenCacheClass = UnsafeUtil.defineClass("top.nontage.jniil.injector.cache.InjectionCache", injectionCacheLoader, classBytes);
             } catch (Throwable t) {
                 t.printStackTrace();
             }

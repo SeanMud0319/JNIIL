@@ -11,7 +11,7 @@ public class JNIIL {
 
     private static boolean storeOriginalByteCode = false;
     private static boolean bytecodeVerifyWarning = true;
-    private static boolean jvmVerifyToggle = true;
+    private static boolean jvmVerifyToggle = false;
     private static boolean asmVerifyToggle = true;
 
     public static void setInstrumentation(Instrumentation inst) {

@@ -144,14 +144,14 @@ public final class InvocationMonitor {
         }
     }
 
-    public static void interceptAllMethods(Class<?> targetClass, InvocationListener listener) {
+    public static void registerAllMethods(Class<?> targetClass, InvocationListener listener) {
         for (Method method : targetClass.getDeclaredMethods()) {
             register(method, (callerDetail, target, exec, args, control) ->
                     listener.onInvoke(callerDetail, target, method, args, control));
         }
     }
 
-    public static void interceptAllConstructors(Class<?> targetClass, InvocationListener listener) {
+    public static void registerAllConstructors(Class<?> targetClass, InvocationListener listener) {
         for (Constructor<?> constructor : targetClass.getDeclaredConstructors()) {
             register(constructor, (callerDetail, target, exec, args, control) ->
                     listener.onInvoke(callerDetail, target, constructor, args, control));

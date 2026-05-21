@@ -78,11 +78,39 @@ public class TypeConverter {
 
     public static void castAndReturn(InsnList list, String methodDesc) {
         Type returnType = Type.getReturnType(methodDesc);
+        if (returnType.getSort() == Type.VOID) {
+            list.add(new InsnNode(Opcodes.RETURN));
+            return;
+        }
+        LabelNode notNullLabel = new LabelNode();
+        if (returnType.getSort() != Type.OBJECT && returnType.getSort() != Type.ARRAY) {
+            list.add(new InsnNode(Opcodes.DUP));
+            list.add(new JumpInsnNode(Opcodes.IFNONNULL, notNullLabel));
 
+            String exceptionClass = "java/lang/IllegalStateException";
+            list.add(new TypeInsnNode(Opcodes.NEW, exceptionClass));
+            list.add(new InsnNode(Opcodes.DUP));
+
+            String friendlyTypeName = returnType.getClassName();
+
+            String errorMsg = "[JNIIL] Execution cancelled on method '" + methodDesc
+                    + "', but no return value was provided. Since this method returns a primitive type, "
+                    + "you MUST explicitly provide a value of type '" + friendlyTypeName
+                    + "' using MethodInfo.setReturnValue() in your hook method.";
+
+            list.add(new LdcInsnNode(errorMsg));
+
+            list.add(new MethodInsnNode(
+                    Opcodes.INVOKESPECIAL,
+                    exceptionClass,
+                    "<init>",
+                    "(Ljava/lang/String;)V",
+                    false
+            ));
+            list.add(new InsnNode(Opcodes.ATHROW));
+        }
+        list.add(notNullLabel);
         switch (returnType.getSort()) {
-            case Type.VOID:
-                list.add(new InsnNode(Opcodes.RETURN));
-                break;
             case Type.BOOLEAN:
             case Type.BYTE:
             case Type.CHAR:

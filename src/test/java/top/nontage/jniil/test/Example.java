@@ -2,7 +2,9 @@ package top.nontage.jniil.test;
 
 import top.nontage.jniil.agent.JNIILBootstrap;
 import top.nontage.jniil.injector.StandardMethodInjector;
+import top.nontage.jniil.injector.functional.FunctionalInjector;
 import top.nontage.jniil.injector.insn.InstructionInjector;
+import top.nontage.jniil.test.injector.Functional;
 import top.nontage.jniil.test.injector.Instruction;
 import top.nontage.jniil.test.injector.Standard;
 import top.nontage.jniil.test.target.InstructionTarget;
@@ -39,6 +41,7 @@ public class Example {
          */
         testStandard();
         testInsn();
+        testFunctional();
     }
 
     private static void testStandard() {
@@ -110,6 +113,69 @@ public class Example {
             System.out.println("=========================================\n");
         } catch (Exception e) {
             throw new RuntimeException("An error occurred during the runtime instrumentation execution sequence", e);
+        }
+    }
+
+    private static void testFunctional() {
+        try {
+            System.out.println("=== Starting FunctionalInjector Test ===");
+            // 1. Initialize the event-driven functional instrumentation runner
+            FunctionalInjector functionalInjector = new FunctionalInjector();
+
+            // 2. Register all 5 defined test hook configurations into the instrumentation runtime
+            functionalInjector.inject(new Functional());
+
+            // 3. Instantiate the target verification model (The bytecode has now been modified at runtime)
+            top.nontage.jniil.test.target.FunctionalTarget target = new top.nontage.jniil.test.target.FunctionalTarget("Nontage");
+
+            // [Test 1, 2, 3] Triggers multiple interception points within the login routine
+            // Expected sequence: @Before captures args -> @At Line 24 extracts live locals -> @After monitors exit frame
+            System.out.println("\n--- [Triggering Login Test Sequence] ---");
+            target.login("secret123");
+
+            // [Test 4] Triggers opcode-based instruction pipeline tracking
+            // Expected sequence: @At Opcode traps INVOKESTATIC of Integer.parseInt, pulling local variable via slot index 1 ("=1")
+            System.out.println("\n--- [Triggering Normal Transaction Test Sequence] ---");
+            target.processTransaction("100");
+
+            // [Test 5] Triggers input sanitization and argument hot-swapping
+            // Expected sequence: Hostile string is passed, but @Before modifies the argument mapping to "500" to abort crashes
+            System.out.println("\n--- [Triggering Argument Hijacking Test Sequence] ---");
+            target.processTransaction("INVALID_CRASH_TEST");
+
+            // [Test 6] Triggers execution flow cancellation and routing shortcut simulation
+            // Expected sequence: @Before intercepts the getter call and raises info.cancel() to verify early return injection
+            System.out.println("\n--- [Triggering Method Cancellation Test Sequence] ---");
+            int attempts = target.getLoginAttempts();
+            System.out.println("[Example] Method getLoginAttempts returned value: " + attempts);
+
+            System.out.println("=========================================\n");
+            /*
+             * Expected Console Output:
+             * ------------------------------------------------------------------------
+             * [JNIIL-Hook] @Before Login invoked. Password attempted: secret123
+             * [Target] Attempting login for user: Nontage
+             * [JNIIL-Hook] @At Line 24 + Capture Hit!
+             * [JNIIL-Hook] -> Captured 'currentAttempt': 1
+             * [JNIIL-Hook] -> Captured 'passwordMatches': true
+             * [Target] Login successful!
+             * [JNIIL-Hook] @After Login invoked. Cancelled status: false
+             *
+             * [Target] Processing transaction amount: 100
+             * [JNIIL-Hook] @At Opcode Triggered! Input string was: 100
+             * [Target] Transaction completed successfully for amount: $100
+             *
+             * [JNIIL-Hook] Sanitize Hook: Overwriting argument to '500'
+             * [Target] Processing transaction amount: 500
+             * [JNIIL-Hook] @At Opcode Triggered! Input string was: 500
+             * [Target] Transaction completed successfully for amount: $500
+             *
+             * [JNIIL-Hook] getLoginAttempts intercepted. Forcing cancellation flag.
+             * [Example] Method getLoginAttempts returned value: 0
+             * ------------------------------------------------------------------------
+             */
+        } catch (Exception e) {
+            throw new RuntimeException("An error occurred during the functional instrumentation execution sequence", e);
         }
     }
 }

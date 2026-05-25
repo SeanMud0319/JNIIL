@@ -16,21 +16,8 @@ import java.util.function.Supplier;
 
 public class ShadowBootstrap {
 
-    private static final MethodHandles.Lookup IMPL_LOOKUP;
+    private static final MethodHandles.Lookup IMPL_LOOKUP = UnsafeUtil.IMPL_LOOKUP;
     private static final Unsafe UNSAFE = UnsafeUtil.unsafe;
-
-    static {
-        try {
-            Field implLookupField = MethodHandles.Lookup.class.getDeclaredField("IMPL_LOOKUP");
-            IMPL_LOOKUP = (MethodHandles.Lookup)
-                    UNSAFE.getObject(
-                            UNSAFE.staticFieldBase(implLookupField),
-                            UNSAFE.staticFieldOffset(implLookupField)
-                    );
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to get IMPL_LOOKUP", e);
-        }
-    }
 
     public static CallSite bootstrap(
             MethodHandles.Lookup lookup,

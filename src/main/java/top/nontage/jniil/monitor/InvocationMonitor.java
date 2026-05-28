@@ -4,6 +4,7 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.injector.cache.InjectionCacheProxy;
+import top.nontage.jniil.monitor.internal.InvocationClassVisitor;
 import top.nontage.jniil.utils.InjectionUtil;
 
 import java.lang.instrument.ClassDefinition;

@@ -1,4 +1,4 @@
-package top.nontage.jniil.shadow.scan;
+package top.nontage.jniil.shadow.internal.scan;
 
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AnnotationNode;
@@ -9,11 +9,11 @@ import top.nontage.jniil.annotations.Mutable;
 import top.nontage.jniil.annotations.Shadow;
 import top.nontage.jniil.annotations.ShadowOf;
 import top.nontage.jniil.annotations.ViewOnly;
-import top.nontage.jniil.shadow.metadata.FieldKey;
-import top.nontage.jniil.shadow.metadata.MethodKey;
-import top.nontage.jniil.shadow.metadata.ShadowContext;
-import top.nontage.jniil.shadow.metadata.ShadowFieldInfo;
-import top.nontage.jniil.shadow.metadata.ShadowMethodInfo;
+import top.nontage.jniil.shadow.internal.metadata.FieldKey;
+import top.nontage.jniil.shadow.internal.metadata.MethodKey;
+import top.nontage.jniil.shadow.internal.metadata.ShadowContext;
+import top.nontage.jniil.shadow.internal.metadata.ShadowFieldInfo;
+import top.nontage.jniil.shadow.internal.metadata.ShadowMethodInfo;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;

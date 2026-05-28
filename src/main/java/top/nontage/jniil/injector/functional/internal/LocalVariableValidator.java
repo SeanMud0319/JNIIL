@@ -1,4 +1,4 @@
-package top.nontage.jniil.injector.functional;
+package top.nontage.jniil.injector.functional.internal;
 
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;

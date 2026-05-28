@@ -1,4 +1,4 @@
-package top.nontage.jniil.accessor;
+package top.nontage.jniil.accessor.internal;
 
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
@@ -46,7 +46,7 @@ public class AccessorInitializer {
         if (initialize) return;
         initialize = true;
         try {
-            accessorRegistry = UnsafeUtil.defineClass("top.nontage.jniil.bootstrap.AccessorRegistry", null, generateRegistryBytecode());
+            accessorRegistry = UnsafeUtil.defineClass("top.nontage.jniil.accessor.AccessorRegistry", null, generateRegistryBytecode());
             boolean verify = JNIIL.isJvmVerifyToggle();
             try {
                 if (verify) JNIIL.setJvmVerifyToggle(false);
@@ -71,7 +71,7 @@ public class AccessorInitializer {
     private static byte[] generateRegistryBytecode() {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
 
-        String className = "top/nontage/jniil/bootstrap/AccessorRegistry";
+        String className = "top/nontage/jniil/accessor/AccessorRegistry";
         String classPath = className.replace('.', '/');
 
         cw.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC, classPath, null, "java/lang/Object", null);
@@ -142,7 +142,7 @@ public class AccessorInitializer {
                     "(Ljava/lang/CharSequence;)Z", false));
             inst.add(new JumpInsnNode(IFEQ, notFound));
             inst.add(new MethodInsnNode(INVOKESTATIC,
-                    "top/nontage/jniil/bootstrap/AccessorRegistry",
+                    "top/nontage/jniil/accessor/AccessorRegistry",
                     "find", "(Ljava/lang/String;)Ljava/lang/Class;", false));
             inst.add(new InsnNode(DUP));
             inst.add(new JumpInsnNode(IFNULL, notFound));
@@ -173,7 +173,7 @@ public class AccessorInitializer {
                     "(Ljava/lang/CharSequence;)Z", false));
             inst.add(new JumpInsnNode(IFEQ, notFound));
             inst.add(new MethodInsnNode(INVOKESTATIC,
-                    "top/nontage/jniil/bootstrap/AccessorRegistry",
+                    "top/nontage/jniil/accessor/AccessorRegistry",
                     "find", "(Ljava/lang/String;)Ljava/lang/Class;", false));
             inst.add(new InsnNode(DUP));
             inst.add(new JumpInsnNode(IFNULL, notFound));

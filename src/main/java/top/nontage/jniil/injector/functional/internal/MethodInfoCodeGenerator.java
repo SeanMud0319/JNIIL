@@ -1,8 +1,9 @@
-package top.nontage.jniil.injector.functional;
+package top.nontage.jniil.injector.functional.internal;
 
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import top.nontage.jniil.injector.functional.MethodInfo;
 
 import java.lang.reflect.Method;
 import java.util.HashMap;

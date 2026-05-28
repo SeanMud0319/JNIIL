@@ -3,7 +3,7 @@ package top.nontage.jniil.shadow;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import sun.misc.Unsafe;
-import top.nontage.jniil.shadow.metadata.ShadowContextHolder;
+import top.nontage.jniil.shadow.internal.metadata.ShadowContextHolder;
 import top.nontage.jniil.utils.UnsafeUtil;
 
 import java.lang.invoke.CallSite;

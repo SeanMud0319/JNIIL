@@ -1,12 +1,12 @@
-package top.nontage.jniil.shadow.rewrite;
+package top.nontage.jniil.shadow.internal.rewrite;
 
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import top.nontage.jniil.shadow.metadata.MethodKey;
-import top.nontage.jniil.shadow.metadata.ShadowContext;
-import top.nontage.jniil.shadow.metadata.ShadowMethodInfo;
+import top.nontage.jniil.shadow.internal.metadata.MethodKey;
+import top.nontage.jniil.shadow.internal.metadata.ShadowContext;
+import top.nontage.jniil.shadow.internal.metadata.ShadowMethodInfo;
 
 public class ShadowMethodRewriter {
 

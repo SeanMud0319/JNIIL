@@ -1,4 +1,4 @@
-package top.nontage.jniil.shadow.metadata;
+package top.nontage.jniil.shadow.internal.metadata;
 
 import java.util.Map;
 import java.util.HashMap;

@@ -4,12 +4,12 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.tree.ClassNode;
 import top.nontage.jniil.JNIIL;
-import top.nontage.jniil.shadow.metadata.MultiBinding;
-import top.nontage.jniil.shadow.metadata.ShadowContext;
-import top.nontage.jniil.shadow.metadata.ShadowContextHolder;
-import top.nontage.jniil.shadow.rewrite.ShadowFieldRewriter;
-import top.nontage.jniil.shadow.rewrite.ShadowMethodRewriter;
-import top.nontage.jniil.shadow.scan.ShadowMetadataCollector;
+import top.nontage.jniil.shadow.internal.metadata.MultiBinding;
+import top.nontage.jniil.shadow.internal.metadata.ShadowContext;
+import top.nontage.jniil.shadow.internal.metadata.ShadowContextHolder;
+import top.nontage.jniil.shadow.internal.rewrite.ShadowFieldRewriter;
+import top.nontage.jniil.shadow.internal.rewrite.ShadowMethodRewriter;
+import top.nontage.jniil.shadow.internal.scan.ShadowMetadataCollector;
 import top.nontage.jniil.injector.cache.InjectionCacheProxy;
 import top.nontage.jniil.utils.InjectionUtil;
 

@@ -1,4 +1,4 @@
-package top.nontage.jniil.shadow.metadata;
+package top.nontage.jniil.shadow.internal.metadata;
 
 public class ShadowFieldInfo {
     public final String targetOwner;

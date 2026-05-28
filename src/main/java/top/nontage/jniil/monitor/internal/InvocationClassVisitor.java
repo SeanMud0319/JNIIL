@@ -1,4 +1,4 @@
-package top.nontage.jniil.monitor;
+package top.nontage.jniil.monitor.internal;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;

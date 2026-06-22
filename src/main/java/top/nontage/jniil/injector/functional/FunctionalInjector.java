@@ -27,12 +27,14 @@ import java.util.List;
 
 public class FunctionalInjector extends AbstractMethodInjector {
 
-    private static class ParsedClass {
+    private static class CachedClass {
         final ClassNode node;
+        final byte[] bytecode;
         final ClassReader reader;
 
-        ParsedClass(ClassNode node, ClassReader reader) {
+        CachedClass(ClassNode node, byte[] bytecode, ClassReader reader) {
             this.node = node;
+            this.bytecode = bytecode;
             this.reader = reader;
         }
     }
@@ -65,9 +67,11 @@ public class FunctionalInjector extends AbstractMethodInjector {
                 }
             }
 
-            byte[] currentBytecode = getCurrentBytecode(info.typeName, targetClass);
-            ParsedClass parsed = parseClass(currentBytecode);
-            ClassNode cn = parsed.node;
+            CachedClass cached = getCachedClass(info.typeName, targetClass);
+            ClassNode cn = cached.node;
+            ClassReader cr = cached.reader;
+            byte[] baseBytecode = cached.bytecode;
+
             MethodNode targetMethod = findTargetMethod(cn, info);
 
             if (targetMethod == null) {
@@ -100,10 +104,11 @@ public class FunctionalInjector extends AbstractMethodInjector {
 
             resolver.inject(injectedCode);
 
-            byte[] finalBytecode = generateBytecode(cn, parsed.reader, info.typeName, currentBytecode);
+            byte[] finalBytecode = generateBytecode(cn, cr, info.typeName, baseBytecode);
             apply(targetClass, finalBytecode);
             injectedClasses.add(info.typeName);
-            InjectionCacheProxy.put(targetClass, finalBytecode);
+            InjectionCacheProxy.put(info.typeName, finalBytecode);
+            InjectionCacheProxy.put(info.typeName, cn);
 
             if (JNIIL.isMethodOutputEnabled()) {
                 String relativePath = info.typeName.replace('.', File.separatorChar) + ".class";
@@ -112,17 +117,21 @@ public class FunctionalInjector extends AbstractMethodInjector {
         }
     }
 
-    private byte[] getCurrentBytecode(String typeName, Class<?> targetClass) throws Exception {
-        return InjectionCacheProxy.contains(typeName)
-                ? InjectionCacheProxy.get(targetClass)
-                : InjectionUtil.getOriginalClassBytes(typeName);
-    }
+    private CachedClass getCachedClass(String typeName, Class<?> targetClass) throws Exception {
+        ClassNode cachedNode = InjectionCacheProxy.getNode(typeName);
+        byte[] cachedBytecode = InjectionCacheProxy.contains(typeName) ? InjectionCacheProxy.get(targetClass) : null;
 
-    private ParsedClass parseClass(byte[] bytecode) {
-        ClassReader cr = new ClassReader(bytecode);
+        if (cachedNode != null && cachedBytecode != null) {
+            ClassReader reader = new ClassReader(cachedBytecode);
+            return new CachedClass(cachedNode, cachedBytecode, reader);
+        }
+
+        byte[] originalBytecode = InjectionUtil.getOriginalClassBytes(typeName);
+        ClassReader cr = new ClassReader(originalBytecode);
         ClassNode cn = new ClassNode();
         cr.accept(cn, ClassReader.EXPAND_FRAMES);
-        return new ParsedClass(cn, cr);
+
+        return new CachedClass(cn, originalBytecode, cr);
     }
 
     private byte[] generateBytecode(ClassNode cn, ClassReader cr, String typeName, byte[] originalBytecode) throws BytecodeVerifyException {

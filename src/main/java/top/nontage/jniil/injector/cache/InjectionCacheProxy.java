@@ -3,6 +3,7 @@ package top.nontage.jniil.injector.cache;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.tree.ClassNode;
 import top.nontage.jniil.utils.InjectionUtil;
 import top.nontage.jniil.utils.UnsafeUtil;
 
@@ -59,6 +60,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class InjectionCacheProxy implements Opcodes {
     private static Map<String, byte[]> CACHE;
+    private static Map<String, ClassNode> NODE_CACHE;
 
     static {
         Class<?> hiddenCacheClass = null;
@@ -82,61 +84,50 @@ public class InjectionCacheProxy implements Opcodes {
         } finally {
             if (hiddenCacheClass != null) {
                 try {
-                    Field cacheMapField = hiddenCacheClass.getDeclaredField("CACHE");
-                    cacheMapField.setAccessible(true);
-                    CACHE = (Map<String, byte[]>) cacheMapField.get(null);
+                    Field byteField = hiddenCacheClass.getDeclaredField("CACHE");
+                    byteField.setAccessible(true);
+                    CACHE = (Map<String, byte[]>) byteField.get(null);
+
+                    Field nodeField = hiddenCacheClass.getDeclaredField("NODE_CACHE");
+                    nodeField.setAccessible(true);
+                    NODE_CACHE = (Map<String, ClassNode>) nodeField.get(null);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
             } else {
                 CACHE = new ConcurrentHashMap<>();
+                NODE_CACHE = new ConcurrentHashMap<>();
             }
         }
     }
 
-    public static void put(Class<?> clazz, byte[] bytecode) {
-        CACHE.put(clazz.getName(), bytecode);
-    }
+    public static void put(Class<?> clazz, byte[] bytecode) { CACHE.put(clazz.getName(), bytecode); }
+    public static void put(String className, byte[] bytecode) { CACHE.put(className, bytecode); }
+    public static void put(String className, ClassNode node) { NODE_CACHE.put(className, node); }
 
-    public static void put(String className, byte[] bytecode) {
-        CACHE.put(className, bytecode);
-    }
+    public static byte[] get(Class<?> clazz) { return CACHE.get(clazz.getName()); }
+    public static byte[] get(String className) { return CACHE.get(className); }
+    public static ClassNode getNode(String className) { return NODE_CACHE.get(className); }
 
-    public static byte[] get(Class<?> clazz) {
-        return CACHE.get(clazz.getName());
-    }
-
-    public static byte[] get(String className) {
-        return CACHE.get(className);
-    }
-
-    public static boolean contains(Class<?> clazz) {
-        return CACHE.containsKey(clazz.getName());
-    }
-
-    public static boolean contains(String className) {
-        return CACHE.containsKey(className);
-    }
+    public static boolean contains(Class<?> clazz) { return CACHE.containsKey(clazz.getName()); }
+    public static boolean contains(String className) { return CACHE.containsKey(className); }
+    public static boolean containsNode(String className) { return NODE_CACHE.containsKey(className); }
 
     public static void clear() {
         CACHE.clear();
+        NODE_CACHE.clear();
     }
 
     private static byte[] generateInjectionCacheBytes() {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
-
         String className = "top/nontage/jniil/injector/cache/InjectionCache";
         String mapDesc = "Ljava/util/Map;";
         String concurrentMap = "java/util/concurrent/ConcurrentHashMap";
 
-        cw.visit(V1_8, ACC_PUBLIC | ACC_SUPER,
-                className, null, "java/lang/Object", null);
+        cw.visit(V1_8, ACC_PUBLIC | ACC_SUPER, className, null, "java/lang/Object", null);
 
-        cw.visitField(ACC_PRIVATE | ACC_STATIC | ACC_FINAL,
-                "CACHE",
-                "Ljava/util/Map;",
-                "Ljava/util/Map<Ljava/lang/String;[B>;",
-                null).visitEnd();
+        cw.visitField(ACC_PUBLIC | ACC_STATIC, "CACHE", mapDesc, "Ljava/util/Map<Ljava/lang/String;[B>;", null).visitEnd();
+        cw.visitField(ACC_PUBLIC | ACC_STATIC, "NODE_CACHE", mapDesc, "Ljava/util/Map<Ljava/lang/String;Lorg/objectweb/asm/tree/ClassNode;>;", null).visitEnd();
 
         {
             MethodVisitor mv = cw.visitMethod(ACC_STATIC, "<clinit>", "()V", null, null);
@@ -145,11 +136,15 @@ public class InjectionCacheProxy implements Opcodes {
             mv.visitTypeInsn(NEW, concurrentMap);
             mv.visitInsn(DUP);
             mv.visitMethodInsn(INVOKESPECIAL, concurrentMap, "<init>", "()V", false);
-
             mv.visitFieldInsn(PUTSTATIC, className, "CACHE", mapDesc);
 
+            mv.visitTypeInsn(NEW, concurrentMap);
+            mv.visitInsn(DUP);
+            mv.visitMethodInsn(INVOKESPECIAL, concurrentMap, "<init>", "()V", false);
+            mv.visitFieldInsn(PUTSTATIC, className, "NODE_CACHE", mapDesc);
+
             mv.visitInsn(RETURN);
-            mv.visitMaxs(0, 0);
+            mv.visitMaxs(2, 0);
             mv.visitEnd();
         }
 
@@ -159,7 +154,7 @@ public class InjectionCacheProxy implements Opcodes {
             mv.visitVarInsn(ALOAD, 0);
             mv.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
             mv.visitInsn(RETURN);
-            mv.visitMaxs(0, 0);
+            mv.visitMaxs(1, 1);
             mv.visitEnd();
         }
 

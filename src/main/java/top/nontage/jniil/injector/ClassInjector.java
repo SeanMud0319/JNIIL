@@ -3,6 +3,7 @@ package top.nontage.jniil.injector;
 import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.annotations.InjectClassInfo;
 import top.nontage.jniil.utils.InjectionUtil;
+import top.nontage.jniil.utils.UnsafeUtil;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -45,13 +46,7 @@ public class ClassInjector {
             }
 
             byte[] originalBytecode = InjectionUtil.getOriginalClassBytes(injectClassName);
-
-            InjectionUtil.unsafeInjectClass(
-                    targetLoader,
-                    injectClassName,
-                    originalBytecode
-            );
-
+            UnsafeUtil.defineClass(injectClassName, targetLoader, originalBytecode);
             if (JNIIL.isClassOutputEnabled()) {
                 dumpClass(injectClassName, originalBytecode);
             }

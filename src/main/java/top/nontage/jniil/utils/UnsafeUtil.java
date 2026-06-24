@@ -19,15 +19,26 @@ public class UnsafeUtil {
             Field f = Unsafe.class.getDeclaredField("theUnsafe");
             f.setAccessible(true);
             unsafe = (Unsafe) f.get(null);
-            Field implLookupField = MethodHandles.Lookup.class.getDeclaredField("IMPL_LOOKUP");
-            IMPL_LOOKUP = (MethodHandles.Lookup)
-                    unsafe.getObject(
-                            unsafe.staticFieldBase(implLookupField),
-                            unsafe.staticFieldOffset(implLookupField)
-                    );
         } catch (Exception e) {
             throw new RuntimeException("Unable to access Unsafe", e);
         }
+
+        MethodHandles.Lookup lookup;
+        try {
+            Field field = MethodHandles.Lookup.class.getDeclaredField("IMPL_LOOKUP");
+
+            try {
+                field.setAccessible(true);
+                lookup = (MethodHandles.Lookup) field.get(null);
+            } catch (Throwable t) {
+                long offset = unsafe.staticFieldOffset(field);
+                Object base = unsafe.staticFieldBase(field);
+                lookup = (MethodHandles.Lookup) unsafe.getObject(base, offset);
+            }
+        } catch (Throwable t) {
+            throw new RuntimeException("Failed to acquire IMPL_LOOKUP in this JVM environment", t);
+        }
+        IMPL_LOOKUP = lookup;
     }
 
     private UnsafeUtil() {

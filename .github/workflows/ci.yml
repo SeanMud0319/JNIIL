@@ -2,7 +2,7 @@ name: JNIIL CI
 
 on:
   push:
-    branches: [ "main" ]
+    #branches: [ "main" ]
     paths:
       - 'src/**'
       - 'build.gradle'

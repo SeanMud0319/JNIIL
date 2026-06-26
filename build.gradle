@@ -33,6 +33,8 @@ dependencies {
 
 test {
     useJUnitPlatform()
+    forkEvery = 1
+    maxParallelForks = 1
     testLogging {
         events "passed", "skipped", "failed"
         showExceptions true

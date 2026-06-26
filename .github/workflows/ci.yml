@@ -56,5 +56,33 @@ jobs:
         if: runner.os != 'Windows'
         run: chmod +x jniil/gradlew
 
+      - name: Debug environment
+        run: |
+          echo "=== OS: ${{ matrix.os }} ==="
+          echo "=== Java Version ==="
+          java -version
+          echo "=== JAVA_HOME ==="
+          echo $JAVA_HOME
+          echo "=== Java Library Path ==="
+          java -XshowSettings:properties -version 2>&1 | grep java.library.path
+          echo "=== JvmContext JAR Contents ==="
+          JAR_PATH=$(find ~/.m2/repository/top/nontage/jvm-context -name "*.jar" 2>/dev/null | head -1)
+          if [ -n "$JAR_PATH" ]; then
+            echo "JAR: $JAR_PATH"
+            jar tf $JAR_PATH | grep -E "(dll|so|dylib)" || echo "No native libraries found in JAR"
+          else
+            echo "JvmContext JAR not found"
+          fi
+          echo "=== JvmContext Native Libraries ==="
+          find JvmContext/src/main/resources -type f -name "*.dll" -o -name "*.so" -o -name "*.dylib" 2>/dev/null || echo "No native libraries in source"
+          if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
+            echo "=== Find libinstrument.so ==="
+            find $JAVA_HOME -name "libinstrument.so" 2>/dev/null || echo "Not found in JAVA_HOME"
+            find /usr -name "libinstrument.so" 2>/dev/null | head -5 || echo "Not found in /usr"
+          else
+            echo "=== Find instrument.dll ==="
+            where /r "%JAVA_HOME%" instrument.dll 2>nul || echo "Not found in JAVA_HOME"
+          fi
+
       - name: Run all tests
         run: cd jniil && ./gradlew testFunctional --stacktrace

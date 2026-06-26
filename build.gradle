@@ -119,6 +119,15 @@ tasks.register('testUnsafeUtil', Test) {
     description = 'Runs UnsafeUtilTest tests'
 }
 
+tasks.register('testJvmContext', Test) {
+    useJUnitPlatform()
+    include '**/JvmContextDiagnosticTest.class'
+    testLogging {
+        events "passed", "skipped", "failed"
+        exceptionFormat "full"
+    }
+}
+
 tasks.register('runAccessor', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'top.nontage.jniil.test.examples.AccessorExample'

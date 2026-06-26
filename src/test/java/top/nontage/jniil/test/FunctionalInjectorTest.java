@@ -27,7 +27,13 @@ class FunctionalInjectorTest {
         try {
             JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);
         } catch (Throwable e) {
+            Throwable cause = e.getCause();
+            while (cause != null) {
+                System.err.println("CAUSE: " + cause.toString());
+                cause = cause.getCause();
+            }
             e.printStackTrace();
+            throw e;
         }
 
         outputStream = new ByteArrayOutputStream();

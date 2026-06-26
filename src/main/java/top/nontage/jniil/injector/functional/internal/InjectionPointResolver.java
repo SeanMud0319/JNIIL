@@ -29,8 +29,8 @@ public class InjectionPointResolver {
         if (after != null) return InjectionType.AFTER;
         if (at != null && at.line() >= 0) return InjectionType.AT_LINE;
         if (at != null && at.opcode() != 114514) return InjectionType.AT_OPCODE;
-        return InjectionType.BEFORE;
-        //throw new IllegalArgumentException("Missing injection point annotation (@Before, @After, or @At)");
+        //return InjectionType.BEFORE;
+        throw new IllegalArgumentException("Missing injection point annotation (@Before, @After, or @At)");
     }
 
     public int getInjectionLine() {

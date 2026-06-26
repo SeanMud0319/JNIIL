@@ -1,4 +1,4 @@
-# JNIIL - Java Native Interface Instrumentation Library
+# JNIIL - Java Runtime Bytecode Instrumentation Library
 
 ## Overview
 

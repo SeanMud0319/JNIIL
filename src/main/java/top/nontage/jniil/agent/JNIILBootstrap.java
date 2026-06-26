@@ -81,7 +81,7 @@ public class JNIILBootstrap implements Opcodes {
     public enum MODE {
         ATTACH_API,
         /**
-         * May not support on your platform / JVM
+         * I recommend use native mode, see at "<a href="https://github.com/SeanMud0319/JvmContext"></a>"
          */
         NATIVE
     }
@@ -106,8 +106,8 @@ public class JNIILBootstrap implements Opcodes {
         JNIILBootstrap.instrumentation = instrumentation;
     }
 
-    // Its work on my machine java 8 and 17, 21 :)
-    private static Class<?> getVirtualMachineClass() throws Exception {
+    // Its work on my machine java 8 ~ 25 :)
+    private static Class<?> getVirtualMachineClass() {
 
         // First try: already available
         try {

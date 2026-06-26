@@ -8,6 +8,9 @@ import top.nontage.jniil.accessor.AccessorFactory;
 import top.nontage.jniil.test.accessor.api.UserAccessor;
 import top.nontage.jniil.test.accessor.target.AccessorTarget;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -39,7 +42,7 @@ class AccessorTest {
 
     @BeforeEach
     void setUp() {
-        JNIILBootstrap.install(JNIILBootstrap.MODE.ATTACH_API);
+        JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);
         target = new AccessorTarget("TestUser", 25, 50000.0);
     }
 
@@ -90,7 +93,7 @@ class AccessorTest {
         int calcResult = accessor.calculate(10, 20);
         assertEquals(30, calcResult);
 
-        assertDoesNotThrow(() -> accessor.printInfo());
+        assertDoesNotThrow(accessor::printInfo);
     }
 
     @Test
@@ -145,10 +148,10 @@ class AccessorTest {
     @Test
     @DisplayName("Test 8: Verify interface methods are NOT static")
     void testInterfaceMethodsNotStatic() {
-        for (java.lang.reflect.Method method : UserAccessor.class.getDeclaredMethods()) {
+        for (Method method : UserAccessor.class.getDeclaredMethods()) {
             if (method.isDefault()) continue;
             if (method.getName().contains("$")) continue;
-            assertFalse(java.lang.reflect.Modifier.isStatic(method.getModifiers()),
+            assertFalse(Modifier.isStatic(method.getModifiers()),
                     "Interface method '" + method.getName() + "' must NOT be static");
         }
     }

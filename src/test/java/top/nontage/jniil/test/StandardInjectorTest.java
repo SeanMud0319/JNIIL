@@ -59,7 +59,7 @@ class StandardInjectorTest {
     @BeforeEach
     void setUp() {
         // Mandatory initialization: You must include this line. You can choose between two modes (ATTACH_API / NATIVE).
-        JNIILBootstrap.install(JNIILBootstrap.MODE.ATTACH_API);
+        JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);
 
         // Redirect System.out to capture output
         outputStream = new ByteArrayOutputStream();

@@ -35,6 +35,12 @@ import top.nontage.jniil.test.examples.FunctionalExample;
  *       <li>JUnit tests: {@link MonitorTest}</li>
  *     </ul>
  *   </li>
+ *   <li><b>Accessor</b> (Zero-overhead reflection replacement):
+ *     <ul>
+ *       <li>Manual demo: {@link top.nontage.jniil.test.examples.AccessorExample}</li>
+ *       <li>JUnit tests: {@link AccessorTest}</li>
+ *     </ul>
+ *   </li>
  * </ul>
  *
  * <p><b>Quick Start:</b></p>
@@ -91,6 +97,16 @@ public class Example {
          *
          *     See: examples.MonitorExample and MonitorTest
          *
+         * [3] Accessor: Zero-overhead reflection replacement.
+         *     Generates ultra-high-performance accessors at runtime with direct-call speed.
+         *     - @Accessor: Direct field read/write (getter/setter)
+         *     - @Invoker: Method invocation
+         *     - Both annotations can be mixed in the same interface
+         *     - Supports instance and static fields/methods via isStatic flag
+         *     - Can invoke private methods
+         *
+         *     See: examples.AccessorExample and AccessorTest
+         *
          * For a quick demonstration, run FunctionalExample.main().
          */
 
@@ -103,6 +119,7 @@ public class Example {
         System.out.println("  - StandardExample    (Javassist-based)");
         System.out.println("  - InstructionExample (ASM-based)");
         System.out.println("  - MonitorExample     (AOP-style runtime interception)");
+        System.out.println("  - AccessorExample    (Zero-overhead reflection replacement)");
         System.out.println();
         System.out.println("Or run the JUnit tests:");
         System.out.println();
@@ -110,6 +127,7 @@ public class Example {
         System.out.println("  - StandardInjectorTest");
         System.out.println("  - InstructionInjectorTest");
         System.out.println("  - MonitorTest");
+        System.out.println("  - AccessorTest");
         System.out.println();
         System.out.println("=========================================");
     }

@@ -183,13 +183,20 @@ public class AccessorGenerator {
         }
 
         String fieldDesc = Type.getDescriptor(targetField.getType());
-        boolean isStatic = Modifier.isStatic(targetField.getModifiers());
+        boolean targetIsStatic = Modifier.isStatic(targetField.getModifiers());
+
+        if (accessor.isStatic() != targetIsStatic) {
+            String expected = accessor.isStatic() ? "static" : "instance";
+            String actual = targetIsStatic ? "static" : "instance";
+            throw new RuntimeException("Accessor mismatch: annotation declares " + expected +
+                    " but field '" + fieldName + "' is " + actual);
+        }
 
         MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, method.getName(),
                 Type.getMethodDescriptor(method), null, getExceptions(method));
         mv.visitCode();
 
-        if (isStatic) {
+        if (targetIsStatic) {
             if (isSetter) {
                 mv.visitVarInsn(loadOpcode(method.getParameterTypes()[0]), 1);
                 mv.visitFieldInsn(Opcodes.PUTSTATIC, targetInternalName, fieldName, fieldDesc);
@@ -225,14 +232,14 @@ public class AccessorGenerator {
             targetMethodName = invoker.value();
         }
 
-        boolean isStatic = targetMethodName.startsWith("static");
-        String actualMethodName = isStatic ? targetMethodName.substring(6) : targetMethodName;
+        boolean targetIsStatic = invoker.isStatic();
+        String actualMethodName = targetMethodName;
 
         MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, method.getName(),
                 Type.getMethodDescriptor(method), null, getExceptions(method));
         mv.visitCode();
 
-        if (isStatic) {
+        if (targetIsStatic) {
             Class<?>[] paramTypes = method.getParameterTypes();
             for (int i = 0; i < paramTypes.length; i++) {
                 mv.visitVarInsn(loadOpcode(paramTypes[i]), i + 1);
@@ -334,13 +341,20 @@ public class AccessorGenerator {
         }
 
         String fieldDesc = Type.getDescriptor(targetField.getType());
-        boolean isStatic = Modifier.isStatic(targetField.getModifiers());
+        boolean targetIsStatic = Modifier.isStatic(targetField.getModifiers());
+
+        if (accessor.isStatic() != targetIsStatic) {
+            String expected = accessor.isStatic() ? "static" : "instance";
+            String actual = targetIsStatic ? "static" : "instance";
+            throw new RuntimeException("Accessor mismatch: annotation declares " + expected +
+                    " but field '" + fieldName + "' is " + actual);
+        }
 
         MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, method.getName(),
                 Type.getMethodDescriptor(method), null, getExceptions(method));
         mv.visitCode();
 
-        if (isStatic) {
+        if (targetIsStatic) {
             if (isSetter) {
                 mv.visitVarInsn(loadOpcode(method.getParameterTypes()[0]), 1);
                 mv.visitFieldInsn(Opcodes.PUTSTATIC, targetInternalName, fieldName, fieldDesc);
@@ -376,14 +390,14 @@ public class AccessorGenerator {
             targetMethodName = invoker.value();
         }
 
-        boolean isStatic = targetMethodName.startsWith("static");
-        String actualMethodName = isStatic ? targetMethodName.substring(6) : targetMethodName;
+        boolean targetIsStatic = invoker.isStatic();
+        String actualMethodName = targetMethodName;
 
         MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, method.getName(),
                 Type.getMethodDescriptor(method), null, getExceptions(method));
         mv.visitCode();
 
-        if (isStatic) {
+        if (targetIsStatic) {
             Class<?>[] paramTypes = method.getParameterTypes();
             for (int i = 0; i < paramTypes.length; i++) {
                 mv.visitVarInsn(loadOpcode(paramTypes[i]), i + 1);

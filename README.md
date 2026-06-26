@@ -36,10 +36,15 @@ JNIIL is a runtime dynamic instrumentation library for Java. It provides powerfu
 ---
 
 ## Installation
+You need to compile [JvmContext](https://github.com/SeanMud0319/JvmContext) first, then use publishToMavenLocal.
 
 ### Gradle
 
 ```gradle
+repositories {
+    mavenLocal()
+}
+
 dependencies {
     implementation("top.nontage:jniil:1.0-SNAPSHOT")
 }
@@ -346,7 +351,7 @@ src/
 
 ## License
 
-NAN
+Apache License 2.0
 
 ---
 
@@ -700,4 +705,4 @@ src/
 
 ## 授權條款
 
-尚未決定
+Apache License 2.0

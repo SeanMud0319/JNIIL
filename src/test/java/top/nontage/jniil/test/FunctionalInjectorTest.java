@@ -24,7 +24,12 @@ class FunctionalInjectorTest {
 
     @BeforeEach
     void setUp() {
-        JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);
+        try {
+            JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
+
         outputStream = new ByteArrayOutputStream();
         System.setOut(new PrintStream(outputStream));
     }

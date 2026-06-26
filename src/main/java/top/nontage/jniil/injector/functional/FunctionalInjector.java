@@ -121,6 +121,14 @@ public class FunctionalInjector extends AbstractMethodInjector {
         ClassNode cachedNode = InjectionCacheProxy.getNode(typeName);
         byte[] cachedBytecode = InjectionCacheProxy.contains(typeName) ? InjectionCacheProxy.get(targetClass) : null;
 
+        if (cachedNode == null && cachedBytecode != null) {
+            ClassReader cr = new ClassReader(cachedBytecode);
+            ClassNode cn = new ClassNode();
+            cr.accept(cn, ClassReader.EXPAND_FRAMES);
+            InjectionCacheProxy.put(typeName, cn);
+            return new CachedClass(cn, cachedBytecode, cr);
+        }
+
         if (cachedNode != null && cachedBytecode != null) {
             ClassReader reader = new ClassReader(cachedBytecode);
             return new CachedClass(cachedNode, cachedBytecode, reader);

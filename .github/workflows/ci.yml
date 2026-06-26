@@ -57,6 +57,7 @@ jobs:
         run: chmod +x jniil/gradlew
 
       - name: Debug environment
+        shell: bash
         run: |
           echo "=== OS: ${{ matrix.os }} ==="
           echo "=== Java Version ==="
@@ -81,7 +82,7 @@ jobs:
             find /usr -name "libinstrument.so" 2>/dev/null | head -5 || echo "Not found in /usr"
           else
             echo "=== Find instrument.dll ==="
-            where /r "%JAVA_HOME%" instrument.dll 2>nul || echo "Not found in JAVA_HOME"
+            find "$JAVA_HOME" -name "instrument.dll" 2>/dev/null || echo "Not found in JAVA_HOME"
           fi
 
       - name: Run all tests

@@ -8,8 +8,9 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(8)
     }
+    withSourcesJar()
+    //withJavadocJar()
 }
-
 
 group = 'top.nontage'
 version = '1.0-SNAPSHOT'
@@ -26,18 +27,68 @@ dependencies {
     implementation("org.ow2.asm:asm-tree:9.8")
     implementation("org.ow2.asm:asm-util:9.8")
     implementation("org.ow2.asm:asm-commons:9.8")
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
 }
 
 test {
     useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+        showExceptions true
+        exceptionFormat "full"
+        showCauses true
+        showStackTraces true
+    }
 }
 
-tasks.shadowJar {
-    archiveClassifier.set(null)
-    relocate 'javassist', 'top.nontage.relocated.javassist'
-    relocate 'org.objectweb.asm', 'top.nontage.relocated.asm'
-    mergeServiceFiles()
-    configurations = [project.configurations.runtimeClasspath]
+tasks.register('testStandard', Test) {
+    useJUnitPlatform()
+    include '**/StandardInjectorTest.class'
+    group = 'verification'
+    description = 'Runs StandardMethodInjector tests'
+}
+
+tasks.register('testInstruction', Test) {
+    useJUnitPlatform()
+    include '**/InstructionInjectorTest.class'
+    group = 'verification'
+    description = 'Runs InstructionInjector tests'
+}
+
+tasks.register('testFunctional', Test) {
+    useJUnitPlatform()
+    include '**/FunctionalInjectorTest.class'
+    group = 'verification'
+    description = 'Runs FunctionalInjector tests'
+}
+
+tasks.register('runFunctional', JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'top.nontage.jniil.test.examples.FunctionalExample'
+    group = 'application'
+    description = 'Runs FunctionalInjector example'
+}
+
+tasks.register('runStandard', JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'top.nontage.jniil.test.examples.StandardExample'
+    group = 'application'
+    description = 'Runs StandardMethodInjector example'
+}
+
+tasks.register('runInstruction', JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'top.nontage.jniil.test.examples.InstructionExample'
+    group = 'application'
+    description = 'Runs InstructionInjector example'
+}
+
+tasks.register('runExample', JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'top.nontage.jniil.test.Example'
+    group = 'application'
+    description = 'Runs the main Example entry point'
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -48,23 +99,18 @@ tasks.withType(Javadoc).configureEach {
     options.encoding = 'UTF-8'
 }
 
-java {
-    withSourcesJar()
-    //withJavadocJar()
+tasks.shadowJar {
+    archiveClassifier.set(null)
+    relocate 'javassist', 'top.nontage.relocated.javassist'
+    relocate 'org.objectweb.asm', 'top.nontage.relocated.asm'
+    mergeServiceFiles()
+    configurations = [project.configurations.runtimeClasspath]
 }
 
 publishing {
     publications {
         mavenJava(MavenPublication) {
-            artifact shadowJar
-            artifact sourcesJar
-            //artifact javadocJar
-
-            groupId = group
-            artifactId = project.name
-            version = version
+            from components.java
         }
     }
 }
-
-

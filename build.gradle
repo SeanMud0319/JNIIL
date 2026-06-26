@@ -84,6 +84,20 @@ tasks.register('runInstruction', JavaExec) {
     description = 'Runs InstructionInjector example'
 }
 
+tasks.register('testMonitor', Test) {
+    useJUnitPlatform()
+    include '**/MonitorTest.class'
+    group = 'verification'
+    description = 'Runs InvocationMonitor tests'
+}
+
+tasks.register('runMonitor', JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'top.nontage.jniil.test.examples.MonitorExample'
+    group = 'application'
+    description = 'Runs InvocationMonitor example'
+}
+
 tasks.register('runExample', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'top.nontage.jniil.test.Example'

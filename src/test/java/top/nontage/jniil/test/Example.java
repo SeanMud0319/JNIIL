@@ -8,7 +8,7 @@ import top.nontage.jniil.test.examples.FunctionalExample;
  * Improper usage can lead to critical, hard-to-debug errors.
  *
  * <p>This is the main entry point for JNIIL demonstrations.
- * For detailed examples of each injector type, please refer to:</p>
+ * For detailed examples of each component, please refer to:</p>
  *
  * <ul>
  *   <li><b>StandardMethodInjector</b> (Javassist-based):
@@ -27,6 +27,12 @@ import top.nontage.jniil.test.examples.FunctionalExample;
  *     <ul>
  *       <li>Manual demo: {@link top.nontage.jniil.test.examples.FunctionalExample}</li>
  *       <li>JUnit tests: {@link FunctionalInjectorTest}</li>
+ *     </ul>
+ *   </li>
+ *   <li><b>InvocationMonitor</b> (AOP-style runtime interception):
+ *     <ul>
+ *       <li>Manual demo: {@link top.nontage.jniil.test.examples.MonitorExample}</li>
+ *       <li>JUnit tests: {@link MonitorTest}</li>
  *     </ul>
  *   </li>
  * </ul>
@@ -71,6 +77,20 @@ public class Example {
          *    instruction blocks.
          *    See: examples.FunctionalExample and FunctionalInjectorTest
          *
+         * [2] Monitor: AOP-style runtime method interception.
+         *     Unlike Injectors which modify bytecode once at startup, Monitor works by:
+         *     - Modifying target method bytecode to insert a dispatch call at the method entry
+         *     - The dispatch call routes to registered InvocationListeners at runtime
+         *     - Supports: caller inspection, argument inspection, execution cancellation, return value override
+         *
+         *     WARNING: It is NOT recommended to use both Injector and Monitor on the same method.
+         *     They both modify bytecode and may interfere with each other, causing unexpected behavior.
+         *     Choose one approach based on your needs:
+         *     - Injector: When you need to permanently modify method logic (add/remove/replace code)
+         *     - Monitor: When you need to observe or intercept invocations without permanent logic changes
+         *
+         *     See: examples.MonitorExample and MonitorTest
+         *
          * For a quick demonstration, run FunctionalExample.main().
          */
 
@@ -82,12 +102,14 @@ public class Example {
         System.out.println("  - FunctionalExample  (Recommended - Event-driven)");
         System.out.println("  - StandardExample    (Javassist-based)");
         System.out.println("  - InstructionExample (ASM-based)");
+        System.out.println("  - MonitorExample     (AOP-style runtime interception)");
         System.out.println();
         System.out.println("Or run the JUnit tests:");
         System.out.println();
         System.out.println("  - FunctionalInjectorTest");
         System.out.println("  - StandardInjectorTest");
         System.out.println("  - InstructionInjectorTest");
+        System.out.println("  - MonitorTest");
         System.out.println();
         System.out.println("=========================================");
     }

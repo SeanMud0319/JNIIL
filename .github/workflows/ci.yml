@@ -57,4 +57,4 @@ jobs:
         run: chmod +x jniil/gradlew
 
       - name: Run all tests
-        run: cd jniil && ./gradlew testFunctional --stacktrace \ -Dorg.gradle.jvmargs="--add-opens java.base/jdk.internal.misc=ALL-UNNAMED --add-opens java.base/sun.instrument=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED -Djdk.attach.allowAttachSelf=true"
+        run: cd jniil && ./gradlew testFunctional --stacktrace

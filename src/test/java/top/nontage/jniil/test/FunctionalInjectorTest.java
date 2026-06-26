@@ -27,11 +27,8 @@ class FunctionalInjectorTest {
         try {
             JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);
         } catch (Throwable e) {
-            Throwable cause = e.getCause();
-            while (cause != null) {
-                System.err.println("CAUSE: " + cause.toString());
-                cause = cause.getCause();
-            }
+            System.err.println("Error tpye: " + e.getClass().getName());
+            System.err.println("Error message: " + e.getMessage());
             e.printStackTrace();
             throw e;
         }

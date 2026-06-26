@@ -53,7 +53,7 @@ public class Example {
          * JNIIL is a runtime dynamic instrumentation library. Core features include:
          * - Inject: Modify method bodies dynamically.
          * - Monitor: Intercept method entries to retrieve caller and method metadata.
-         * - Shadow: Create shadow classes that synchronize with actual runtime classes.
+         * - [DEPRECATED] Shadow: Create shadow classes that synchronize with actual runtime classes.
          * - Accessor: Ultra-high-performance reflection with zero overhead (direct-call speed).
          * Combine these modular components to achieve high-quality runtime code modification.
          */

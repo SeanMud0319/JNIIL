@@ -98,6 +98,20 @@ tasks.register('runMonitor', JavaExec) {
     description = 'Runs InvocationMonitor example'
 }
 
+tasks.register('testAccessor', Test) {
+    useJUnitPlatform()
+    include '**/AccessorTest.class'
+    group = 'verification'
+    description = 'Runs Accessor tests'
+}
+
+tasks.register('runAccessor', JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'top.nontage.jniil.test.examples.AccessorExample'
+    group = 'application'
+    description = 'Runs Accessor example'
+}
+
 tasks.register('runExample', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'top.nontage.jniil.test.Example'

@@ -90,15 +90,18 @@ public class JNIILBootstrap implements Opcodes {
 
     public static void install(MODE mode) {
         if (instrumentation != null) return;
-        switch (mode) {
-            case ATTACH_API:
-                attachSelf();
-                break;
-            case NATIVE:
-                instrumentation = JvmContext.getInstrumentation();
-                break;
+        synchronized (JNIILBootstrap.class) {
+            if (instrumentation != null) return;
+            switch (mode) {
+                case ATTACH_API:
+                    attachSelf();
+                    break;
+                case NATIVE:
+                    instrumentation = JvmContext.getInstrumentation();
+                    break;
+            }
+            JNIIL.setInstrumentation(instrumentation);
         }
-        JNIIL.setInstrumentation(instrumentation);
     }
 
     // This is for agent

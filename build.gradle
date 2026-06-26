@@ -105,6 +105,20 @@ tasks.register('testAccessor', Test) {
     description = 'Runs Accessor tests'
 }
 
+tasks.register('testInjectionUtil', Test) {
+    useJUnitPlatform()
+    include '**/InjectionUtilTest.class'
+    group = 'verification'
+    description = 'Runs InjectionUtil tests'
+}
+
+tasks.register('testUnsafeUtil', Test) {
+    useJUnitPlatform()
+    include '**/UnsafeUtilTest.class'
+    group = 'verification'
+    description = 'Runs UnsafeUtilTest tests'
+}
+
 tasks.register('runAccessor', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'top.nontage.jniil.test.examples.AccessorExample'

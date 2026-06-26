@@ -20,6 +20,7 @@ public class DebugUtil {
                     System.out.printf("  name=%s, desc=%s, index=%d%n", lvn.name, lvn.desc, lvn.index);
                 }
             }
+
             System.out.println(" Instructions:");
             for (AbstractInsnNode insn : mn.instructions.toArray()) {
                 System.out.println("  " + insn.getClass().getSimpleName() + " opcode=" + insn.getOpcode());

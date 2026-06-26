@@ -122,10 +122,7 @@ tasks.register('testUnsafeUtil', Test) {
 tasks.register('testJvmContext', Test) {
     useJUnitPlatform()
     include '**/JvmContextDiagnosticTest.class'
-    testLogging {
-        events "passed", "skipped", "failed"
-        exceptionFormat "full"
-    }
+    group = 'verification'
 }
 
 tasks.register('runAccessor', JavaExec) {

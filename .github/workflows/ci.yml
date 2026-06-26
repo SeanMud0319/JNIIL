@@ -51,7 +51,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: wrapper
+          gradle-version: ${{ matrix.java == 25 && '9.1.0-rc-1' || 'wrapper' }}
 
       - name: Make gradlew executable (Linux/macOS)
         if: runner.os != 'Windows'

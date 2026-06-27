@@ -42,24 +42,6 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
 
-      - name: Cache Maven dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('JvmContext/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-
-      - name: Cache Gradle dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('jniil/**/*.gradle*', 'jniil/**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-
       - name: Install JvmContext to local maven
         run: cd JvmContext && mvn install -DskipTests
 
@@ -74,8 +56,8 @@ jobs:
 
       - name: Run all tests
         if: matrix.java != 25
-        run: cd jniil && ./gradlew test --parallel
+        run: cd jniil && ./gradlew test
 
       - name: Run all tests (Java 25)
         if: matrix.java == 25
-        run: cd jniil && gradle test --parallel
+        run: cd jniil && gradle test

@@ -1,3 +1,4 @@
+![CI](https://github.com/SeanMud0319/JNIIL/actions/workflows/ci.yml/badge.svg)
 # JNIIL - Java Runtime Bytecode Instrumentation Library
 
 ## Overview

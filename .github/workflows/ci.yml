@@ -59,7 +59,7 @@ jobs:
 
       - name: Run all tests
         if: matrix.java != 25
-        run: cd jniil && ./gradlew test
+        run: cd jniil && ./gradlew testJvmContext
 
       - name: Run all tests (Java 25)
         if: matrix.java == 25

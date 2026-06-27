@@ -141,6 +141,8 @@ tasks.register('runExample', JavaExec) {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+    options.compilerArgs << "-Xlint:-sunapi"
+    options.compilerArgs << "-XDignore.symbol.file"
 }
 
 tasks.withType(Javadoc).configureEach {

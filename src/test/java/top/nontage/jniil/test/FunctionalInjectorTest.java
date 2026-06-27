@@ -22,16 +22,12 @@ class FunctionalInjectorTest {
     private final PrintStream originalOut = System.out;
     private ByteArrayOutputStream outputStream;
 
+    static {
+        JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);
+    }
+
     @BeforeEach
     void setUp() {
-        try {
-            JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);
-        } catch (Throwable e) {
-            System.err.println("Error tpye: " + e.getClass().getName());
-            System.err.println("Error message: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
 
         outputStream = new ByteArrayOutputStream();
         System.setOut(new PrintStream(outputStream));

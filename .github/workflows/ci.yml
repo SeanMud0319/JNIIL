@@ -2,14 +2,12 @@ name: JNIIL CI
 
 on:
   push:
-    branches: [ "main" ]
     paths:
       - 'src/**'
       - 'build.gradle'
       - 'settings.gradle'
       - '.github/workflows/**'
   pull_request:
-    branches: [ "main" ]
     paths:
       - 'src/**'
       - 'build.gradle'
@@ -50,11 +48,16 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: wrapper
+          gradle-version: ${{ matrix.java == 25 && '9.1.0-rc-1' || 'wrapper' }}
 
       - name: Make gradlew executable (Linux/macOS)
         if: runner.os != 'Windows'
         run: chmod +x jniil/gradlew
 
       - name: Run all tests
-        run: cd jniil && ./gradlew testFunctional --stacktrace
+        if: matrix.java != 25
+        run: cd jniil && ./gradlew test
+
+      - name: Run all tests (Java 25)
+        if: matrix.java == 25
+        run: cd jniil && gradle test

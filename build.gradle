@@ -29,6 +29,7 @@ dependencies {
     implementation("org.ow2.asm:asm-commons:9.8")
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
 }
 
 test {
@@ -119,6 +120,12 @@ tasks.register('testUnsafeUtil', Test) {
     description = 'Runs UnsafeUtilTest tests'
 }
 
+tasks.register('testJvmContext', Test) {
+    useJUnitPlatform()
+    include '**/JvmContextDiagnosticTest.class'
+    group = 'verification'
+}
+
 tasks.register('runAccessor', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'top.nontage.jniil.test.examples.AccessorExample'
@@ -135,6 +142,8 @@ tasks.register('runExample', JavaExec) {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+    options.compilerArgs << "-Xlint:-sunapi"
+    options.compilerArgs << "-XDignore.symbol.file"
 }
 
 tasks.withType(Javadoc).configureEach {

@@ -93,14 +93,6 @@ import static org.objectweb.asm.Opcodes.*;
  * <p>Use at your own risk. Not guaranteed to work on all JVM implementations.</p>
  */
 public class JNIILBootstrap {
-    private static final Set<Class<?>> STRIP_CLASSES = new HashSet<>();
-
-    static {
-        Collections.addAll(STRIP_CLASSES,
-                MethodInfo.class,
-                InsnContext.class
-        );
-    }
 
     public enum MODE {
         ATTACH_API,
@@ -139,8 +131,12 @@ public class JNIILBootstrap {
                 try {
                     byte[] a = InjectionUtil.getClassBytes("top.nontage.jniil.JNIIL");
                     byte[] b = InjectionUtil.getClassBytes("top.nontage.jniil.JNIIL$InjectionOutputConfig");
+                    byte[] c = InjectionUtil.getClassBytes("top.nontage.jniil.injector.functional.MethodInfo");
+                    byte[] d = InjectionUtil.getClassBytes("top.nontage.jniil.injector.insn.InsnContext");
                     UnsafeUtil.defineClass("top.nontage.jniil.JNIIL", null, a);
                     UnsafeUtil.defineClass("top.nontage.jniil.JNIIL$InjectionOutputConfig", null, b);
+                    UnsafeUtil.defineClass("top.nontage.jniil.injector.functional.MethodInfo", null, c);
+                    UnsafeUtil.defineClass("top.nontage.jniil.injector.insn.InsnContext", null, d);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }

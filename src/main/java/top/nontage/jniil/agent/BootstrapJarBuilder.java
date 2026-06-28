@@ -13,12 +13,7 @@ import java.util.zip.ZipOutputStream;
 
 public class BootstrapJarBuilder {
 
-    private static final Set<Class<?>> KEEP_CLASSES = new HashSet<>();
     private static boolean hasRelocated = false;
-
-    static {
-        Collections.addAll(KEEP_CLASSES, MethodInfo.class, InsnContext.class);
-    }
 
     public static File createFilteredBootstrapJar(File originalJar) throws IOException {
         hasRelocated = false;
@@ -64,8 +59,8 @@ public class BootstrapJarBuilder {
     }
 
     private static boolean shouldKeepClass(String className) {
-        if (KEEP_CLASSES.stream().anyMatch(c -> className.equals(c.getName()) || className.startsWith(c.getName() + "$"))) return true;
-
+        if (className.equals("top.nontage.jniil.injector.insn.InsnContext")) return true;
+        if (className.equals("top.nontage.jniil.injector.functional.MethodInfo")) return true;
         if (className.startsWith("top.nontage.jniil.injector.functional.internal")) return true;
         if (className.startsWith("top.nontage.jniil.annotations")) return true;
         if (className.startsWith("top.nontage.jniil.interfaces")) return true;

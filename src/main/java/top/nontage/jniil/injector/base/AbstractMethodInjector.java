@@ -46,6 +46,21 @@ public abstract class AbstractMethodInjector {
         public boolean defaultLoader;
     }
 
+    /**
+     * Why Object instead of Injectable?
+     * <p>
+     * If the parameter was Injectable, the JVM would try to load the Injectable
+     * interface when resolving this method signature. In a Bootstrap ClassLoader
+     * environment (when JNIIL is installed with useBootLoader=true), the Bootstrap
+     * ClassLoader doesn't have Injectable in its search path. This would cause
+     * ClassNotFoundException or LinkageError.
+     * <p>
+     * By using Object, method resolution doesn't depend on any JNIIL-specific type.
+     * The actual type check only happens inside the method body, after the JNIIL
+     * core classes are already loaded in the correct classloader.
+     * <p>
+     * tl;dr: Object avoids ClassLoader conflicts in multi-loader environments.
+     */
     @SuppressWarnings("ResultOfMethodCallIgnored")
     public void inject(Object injectableInstance) throws Exception {
         if (injectableInstance == null) {

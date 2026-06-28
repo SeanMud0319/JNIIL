@@ -18,6 +18,36 @@ import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * Utility class for classloading, bytecode manipulation, and class injection.
+ *
+ * <p><b>Why not just use {@code JNIIL.getInstrumentation()} directly?</b></p>
+ *
+ * <p>In the Bootstrap ClassLoader deployment mode (when JNIIL is installed with
+ * {@code useBootLoader=true}), the {@code JNIIL} class must be loaded by the
+ * Bootstrap ClassLoader first. However, {@code InjectionUtil} is a utility class
+ * with static initialization. If any static field or static block in this class
+ * references {@code JNIIL}, the JVM will attempt to load {@code JNIIL} at the
+ * time {@code InjectionUtil} is initialized.</p>
+ *
+ * <p>If {@code InjectionUtil} happens to be loaded by a child ClassLoader
+ * (e.g., AppClassLoader) before {@code JNIIL} is installed into the Bootstrap
+ * ClassLoader, the child ClassLoader will load {@code JNIIL} first. This would
+ * cause two separate copies of {@code JNIIL} to exist in different classloaders,
+ * breaking the "single shared instance" assumption and causing classloader
+ * conflicts, {@code ClassCastException}, and {@code NoSuchMethodError} when
+ * cross-loader operations are attempted.</p>
+ *
+ * <p>Therefore, all methods in this class are static and rely on
+ * {@code JNIIL.getInstrumentation()} being called at method invocation time,
+ * not at class initialization time. This ensures that when {@code JNIIL} is
+ * finally loaded, it is in the correct classloader context — the Bootstrap
+ * ClassLoader.</p>
+ *
+ * <p><b>tl;dr:</b> Static fields cause early classloading. Methods avoid this
+ * problem by deferring the {@code JNIIL} reference until the actual method call,
+ * by which time the Bootstrap ClassLoader setup has completed.</p>
+ */
 public class InjectionUtil {
 
     private InjectionUtil() {

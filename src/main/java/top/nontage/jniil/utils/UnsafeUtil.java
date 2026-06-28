@@ -156,8 +156,11 @@ public class UnsafeUtil {
             Object internalUnsafe = forceGet(theUnsafe, null);
             Method defineClassMethod = internalUnsafe.getClass().getDeclaredMethod("defineClass", String.class, byte[].class, int.class, int.class, ClassLoader.class, ProtectionDomain.class);
             return (Class<?>) forceInvoke(defineClassMethod, internalUnsafe, name, bytes, 0, bytes.length, loader, null);
-        } catch (Throwable ignored) {
-            return unsafe.defineClass(name, bytes, 0, bytes.length, loader, null);
+        } catch (Throwable throwable) {
+            if (throwable.getClass() == ClassNotFoundException.class) {
+                return unsafe.defineClass(name, bytes, 0, bytes.length, loader, null);
+            }
+            throw new RuntimeException(throwable);
         }
     }
 

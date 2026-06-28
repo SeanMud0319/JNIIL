@@ -3,13 +3,23 @@ buildscript {
         gradlePluginPortal()
     }
     dependencies {
-        classpath "com.gradleup.shadow:shadow-gradle-plugin:9.0.0"
+        def javaVersion = JavaVersion.current()
+        if (javaVersion < JavaVersion.VERSION_11) {
+            classpath "com.github.johnrengelman:shadow:8.3.3"
+        } else {
+            classpath "com.gradleup.shadow:shadow-gradle-plugin:9.0.0"
+        }
     }
+}
+
+if (JavaVersion.current() < JavaVersion.VERSION_11) {
+    apply plugin: 'com.github.johnrengelman.shadow'
+} else {
+    apply plugin: 'com.gradleup.shadow'
 }
 
 apply plugin: 'java'
 apply plugin: 'maven-publish'
-apply plugin: 'com.gradleup.shadow'
 
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 

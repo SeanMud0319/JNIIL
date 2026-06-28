@@ -105,41 +105,35 @@ public class JNIILBootstrap {
     private static volatile Instrumentation instrumentation;
 
     public static void install(MODE mode) {
-        install(mode, false);
-    }
-
-    public static void install(MODE mode, boolean useBootLoader) {
         if (instrumentation != null) return;
 
-        if (useBootLoader) {
+        try {
+            Class<?> clazz = Class.forName("top.nontage.jniil.JNIIL", false, null);
+            if (clazz.getClassLoader() != null) {
+                throw new IllegalStateException(
+                        "\n[JNIIL] FATAL: JNIIL class was loaded by AppClassLoader, but it must be in Bootstrap ClassLoader.\n" +
+                                "Cause: A JNIIL class was referenced before JNIILBootstrap.install() was called.\n" +
+                                "Solution: Move JNIILBootstrap.install() to the very first line of your main() method.\n" +
+                                "Example:\n" +
+                                "  public static void main(String[] args) throws Exception {\n" +
+                                "      JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);  // ← FIRST!\n" +
+                                "      // ... your code ...\n" +
+                                "  }\n"
+                );
+            }
+            return;
+        } catch (ClassNotFoundException ignored) {
             try {
-                Class<?> clazz = Class.forName("top.nontage.jniil.JNIIL", false, null);
-                if (clazz.getClassLoader() != null) {
-                    throw new IllegalStateException(
-                            "\n[JNIIL] FATAL: JNIIL class was loaded by AppClassLoader, but it must be in Bootstrap ClassLoader.\n" +
-                                    "Cause: A JNIIL class was referenced before JNIILBootstrap.install() was called.\n" +
-                                    "Solution: Move JNIILBootstrap.install() to the very first line of your main() method.\n" +
-                                    "Example:\n" +
-                                    "  public static void main(String[] args) throws Exception {\n" +
-                                    "      JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);  // ← FIRST!\n" +
-                                    "      // ... your code ...\n" +
-                                    "  }\n"
-                    );
-                }
-                return;
-            } catch (ClassNotFoundException ignored) {
-                try {
-                    byte[] a = InjectionUtil.getClassBytes("top.nontage.jniil.JNIIL");
-                    byte[] b = InjectionUtil.getClassBytes("top.nontage.jniil.JNIIL$InjectionOutputConfig");
-                    byte[] c = InjectionUtil.getClassBytes("top.nontage.jniil.injector.functional.MethodInfo");
-                    byte[] d = InjectionUtil.getClassBytes("top.nontage.jniil.injector.insn.InsnContext");
-                    UnsafeUtil.defineClass("top.nontage.jniil.JNIIL", null, a);
-                    UnsafeUtil.defineClass("top.nontage.jniil.JNIIL$InjectionOutputConfig", null, b);
-                    UnsafeUtil.defineClass("top.nontage.jniil.injector.functional.MethodInfo", null, c);
-                    UnsafeUtil.defineClass("top.nontage.jniil.injector.insn.InsnContext", null, d);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+                byte[] a = InjectionUtil.getClassBytes("top.nontage.jniil.JNIIL");
+                byte[] b = InjectionUtil.getClassBytes("top.nontage.jniil.JNIIL$InjectionOutputConfig");
+                byte[] c = InjectionUtil.getClassBytes("top.nontage.jniil.injector.functional.MethodInfo");
+                byte[] d = InjectionUtil.getClassBytes("top.nontage.jniil.injector.insn.InsnContext");
+                UnsafeUtil.defineClass("top.nontage.jniil.JNIIL", null, a);
+                UnsafeUtil.defineClass("top.nontage.jniil.JNIIL$InjectionOutputConfig", null, b);
+                UnsafeUtil.defineClass("top.nontage.jniil.injector.functional.MethodInfo", null, c);
+                UnsafeUtil.defineClass("top.nontage.jniil.injector.insn.InsnContext", null, d);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
         }
 
@@ -155,14 +149,12 @@ public class JNIILBootstrap {
             }
             JNIIL.setInstrumentation(instrumentation);
 
-            if (useBootLoader) {
-                try {
-                    File jar = LibraryJarFinder.getLibraryJar();
-                    File filtered = BootstrapJarBuilder.createFilteredBootstrapJar(jar);
-                    instrumentation.appendToBootstrapClassLoaderSearch(new JarFile(filtered));
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+            try {
+                File jar = LibraryJarFinder.getLibraryJar();
+                File filtered = BootstrapJarBuilder.createFilteredBootstrapJar(jar);
+                instrumentation.appendToBootstrapClassLoaderSearch(new JarFile(filtered));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
         }
     }

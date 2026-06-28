@@ -1,13 +1,14 @@
 plugins {
     id 'java'
     id 'maven-publish'
-    id 'com.gradleup.shadow' version '9.1.0'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+
 java {
-    def toolchainVersion = project.findProperty("toolchainVersion") ?: "8"
     toolchain {
-        languageVersion = JavaLanguageVersion.of(toolchainVersion as Integer)
+        languageVersion = JavaLanguageVersion.of(8)
     }
     withSourcesJar()
 }
@@ -18,6 +19,7 @@ version = '1.0-SNAPSHOT'
 repositories {
     mavenLocal()
     mavenCentral()
+    gradlePluginPortal()
 }
 
 dependencies {
@@ -32,7 +34,7 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
 }
 
-tasks.register('shadowJarTest', tasks.named('shadowJar').get().class) {
+tasks.register('shadowJarTest', ShadowJar) {
     archiveClassifier.set('test')
     from sourceSets.main.output
     from sourceSets.main.resources
@@ -41,7 +43,7 @@ tasks.register('shadowJarTest', tasks.named('shadowJar').get().class) {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
-tasks.named('shadowJar') {
+tasks.shadowJar {
     archiveClassifier.set(null)
     relocate 'javassist', 'top.nontage.relocated.javassist'
     relocate 'org.objectweb.asm', 'top.nontage.relocated.asm'
@@ -50,7 +52,7 @@ tasks.named('shadowJar') {
 }
 
 tasks.withType(Test).configureEach {
-    dependsOn tasks.named('shadowJarTest')
+    dependsOn shadowJarTest
     useJUnitPlatform()
     testLogging {
         events "passed", "skipped", "failed"
@@ -60,15 +62,15 @@ tasks.withType(Test).configureEach {
         showStackTraces true
     }
 
-    def testJar = tasks.named('shadowJarTest').get().archiveFile.get().asFile
+    def testJar = tasks.shadowJarTest.archiveFile.get().asFile
     classpath = files(testJar) +
             sourceSets.test.output.classesDirs +
             sourceSets.test.runtimeClasspath
 }
 
 tasks.withType(JavaExec).configureEach {
-    dependsOn tasks.named('shadowJarTest')
-    def testJar = tasks.named('shadowJarTest').get().archiveFile.get().asFile
+    dependsOn shadowJarTest
+    def testJar = tasks.shadowJarTest.archiveFile.get().asFile
     classpath = files(testJar) + sourceSets.main.runtimeClasspath
 }
 
@@ -160,7 +162,7 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             from components.java
-            artifact tasks.named('shadowJarTest')
+            artifact tasks.shadowJarTest
         }
     }
 }

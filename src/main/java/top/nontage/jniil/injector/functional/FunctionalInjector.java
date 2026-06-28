@@ -8,13 +8,13 @@ import org.objectweb.asm.tree.MethodNode;
 import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.annotations.*;
 import top.nontage.jniil.exception.BytecodeVerifyException;
+import top.nontage.jniil.exception.InjectionException;
 import top.nontage.jniil.injector.base.AbstractMethodInjector;
 import top.nontage.jniil.injector.cache.InjectionCacheProxy;
 import top.nontage.jniil.injector.functional.internal.InjectionPointResolver;
 import top.nontage.jniil.injector.functional.internal.LocalVariableValidator;
 import top.nontage.jniil.injector.functional.internal.MethodInfoCodeGenerator;
 import top.nontage.jniil.interfaces.FunctionalInjectable;
-import top.nontage.jniil.interfaces.Injectable;
 import top.nontage.jniil.utils.InjectionUtil;
 import top.nontage.jniil.utils.LocalVariableTableFiller;
 import top.nontage.jniil.verify.BytecodeVerifier;
@@ -40,23 +40,23 @@ public class FunctionalInjector extends AbstractMethodInjector {
     }
 
     @Override
-    public void inject(Injectable... injectable) throws Exception {
-        for (Injectable i : injectable) inject(i);
+    public void inject(Object... injectable) throws Exception {
+        for (Object i : injectable) this.inject(i);
     }
 
     @Override
-    public void inject(Injectable injectable) throws Exception {
-        if (!(injectable instanceof FunctionalInjectable)) {
-            throw new UnsupportedOperationException("FunctionalInjector only supports FunctionalInjectable");
+    public void inject(Object injectableInstance) throws Exception {
+        if (!(injectableInstance instanceof FunctionalInjectable)) {
+            throw new InjectionException("Class: " + injectableInstance.getClass().getName() + " needs to implement FunctionalInjectable");
         }
 
-        FunctionalInjectable funInjectable = (FunctionalInjectable) injectable;
+        FunctionalInjectable funInjectable = (FunctionalInjectable) injectableInstance;
 
         for (Method method : funInjectable.getClass().getMethods()) {
             if (!hasInjectAnnotation(method)) continue;
             checkMethod(method);
 
-            TargetInfo info = extractTargetInfo(injectable, method);
+            TargetInfo info = extractTargetInfo(funInjectable, method);
             ClassLoader loader = getTargetLoader(info).unwarp();
             Class<?> targetClass = Class.forName(info.typeName, true, loader);
 
@@ -104,7 +104,7 @@ public class FunctionalInjector extends AbstractMethodInjector {
 
             resolver.inject(injectedCode);
 
-            byte[] finalBytecode = generateBytecode(cn, cr, info.typeName, baseBytecode);
+            byte[] finalBytecode = generateBytecode(cn, cr, info.typeName, baseBytecode, targetClass.getClassLoader());
             apply(targetClass, finalBytecode);
             injectedClasses.add(info.typeName);
             InjectionCacheProxy.put(info.typeName, finalBytecode);
@@ -142,8 +142,29 @@ public class FunctionalInjector extends AbstractMethodInjector {
         return new CachedClass(cn, originalBytecode, cr);
     }
 
-    private byte[] generateBytecode(ClassNode cn, ClassReader cr, String typeName, byte[] originalBytecode) throws BytecodeVerifyException {
-        ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+    private byte[] generateBytecode(ClassNode cn, ClassReader cr, String typeName, byte[] originalBytecode, ClassLoader targetLoader) throws BytecodeVerifyException {
+        ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+            @Override
+            protected String getCommonSuperClass(String type1, String type2) {
+                Class<?> c, d;
+                try {
+                    c = Class.forName(type1.replace('/', '.'), false, targetLoader);
+                    d = Class.forName(type2.replace('/', '.'), false, targetLoader);
+                } catch (Exception e) {
+                    return "java/lang/Object";
+                }
+
+                if (c.isAssignableFrom(d)) return type1;
+                if (d.isAssignableFrom(c)) return type2;
+                if (c.isInterface() || d.isInterface()) return "java/lang/Object";
+
+                do {
+                    c = c.getSuperclass();
+                } while (!c.isAssignableFrom(d));
+                return c.getName().replace('.', '/');
+            }
+        };
+
         cn.accept(cw);
         byte[] finalBytecode = cw.toByteArray();
 

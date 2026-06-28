@@ -113,7 +113,8 @@ public class AccessorGenerator {
 
     private static GenerateClassData generateBytecodeV22(Class<?> targetClass, Class<?> accessorInterface) {
         try {
-            String targetClassName = accessorInterface.getName() + "$$ImplByJNIIL$$" + classCounter++;
+            String targetPackage = targetClass.getPackage().getName();
+            String targetClassName = targetPackage + "." + accessorInterface.getSimpleName() + "$$ImplByJNIIL$$" + classCounter++;
             String targetClassPath = targetClassName.replace('.', '/');
             String targetInternalName = targetClass.getName().replace('.', '/');
 

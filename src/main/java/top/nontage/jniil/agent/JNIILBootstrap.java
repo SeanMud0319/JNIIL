@@ -2,20 +2,35 @@ package top.nontage.jniil.agent;
 
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 import top.nontage.jniil.JNIIL;
+import top.nontage.jniil.injector.functional.MethodInfo;
+import top.nontage.jniil.injector.insn.InsnContext;
+import top.nontage.jniil.utils.InjectionUtil;
+import top.nontage.jniil.utils.UnsafeUtil;
 import top.nontage.jvmcontext.JvmContext;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.instrument.Instrumentation;
 import java.lang.management.ManagementFactory;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.CodeSource;
+import java.security.ProtectionDomain;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+
+import static org.objectweb.asm.Opcodes.*;
 
 /**
  * Self-attach bootstrap for JNIIL.
@@ -77,7 +92,8 @@ import java.util.zip.ZipOutputStream;
  *
  * <p>Use at your own risk. Not guaranteed to work on all JVM implementations.</p>
  */
-public class JNIILBootstrap implements Opcodes {
+public class JNIILBootstrap {
+
     public enum MODE {
         ATTACH_API,
         /**
@@ -90,6 +106,37 @@ public class JNIILBootstrap implements Opcodes {
 
     public static void install(MODE mode) {
         if (instrumentation != null) return;
+
+        try {
+            Class<?> clazz = Class.forName("top.nontage.jniil.JNIIL", false, null);
+            if (clazz.getClassLoader() != null) {
+                throw new IllegalStateException(
+                        "\n[JNIIL] FATAL: JNIIL class was loaded by AppClassLoader, but it must be in Bootstrap ClassLoader.\n" +
+                                "Cause: A JNIIL class was referenced before JNIILBootstrap.install() was called.\n" +
+                                "Solution: Move JNIILBootstrap.install() to the very first line of your main() method.\n" +
+                                "Example:\n" +
+                                "  public static void main(String[] args) throws Exception {\n" +
+                                "      JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);  // ← FIRST!\n" +
+                                "      // ... your code ...\n" +
+                                "  }\n"
+                );
+            }
+            return;
+        } catch (ClassNotFoundException ignored) {
+            try {
+                byte[] a = InjectionUtil.getClassBytes("top.nontage.jniil.JNIIL");
+                byte[] b = InjectionUtil.getClassBytes("top.nontage.jniil.JNIIL$InjectionOutputConfig");
+                byte[] c = InjectionUtil.getClassBytes("top.nontage.jniil.injector.functional.MethodInfo");
+                byte[] d = InjectionUtil.getClassBytes("top.nontage.jniil.injector.insn.InsnContext");
+                UnsafeUtil.defineClass("top.nontage.jniil.JNIIL", null, a);
+                UnsafeUtil.defineClass("top.nontage.jniil.JNIIL$InjectionOutputConfig", null, b);
+                UnsafeUtil.defineClass("top.nontage.jniil.injector.functional.MethodInfo", null, c);
+                UnsafeUtil.defineClass("top.nontage.jniil.injector.insn.InsnContext", null, d);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
         synchronized (JNIILBootstrap.class) {
             if (instrumentation != null) return;
             switch (mode) {
@@ -101,6 +148,14 @@ public class JNIILBootstrap implements Opcodes {
                     break;
             }
             JNIIL.setInstrumentation(instrumentation);
+
+            try {
+                File jar = LibraryJarFinder.getLibraryJar();
+                File filtered = BootstrapJarBuilder.createFilteredBootstrapJar(jar);
+                instrumentation.appendToBootstrapClassLoaderSearch(new JarFile(filtered));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 

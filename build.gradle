@@ -4,12 +4,13 @@ plugins {
     id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(8)
     }
     withSourcesJar()
-    //withJavadocJar()
 }
 
 group = 'top.nontage'
@@ -18,6 +19,7 @@ version = '1.0-SNAPSHOT'
 repositories {
     mavenLocal()
     mavenCentral()
+    gradlePluginPortal()
 }
 
 dependencies {
@@ -32,7 +34,25 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
 }
 
-test {
+tasks.register('shadowJarTest', ShadowJar) {
+    archiveClassifier.set('test')
+    from sourceSets.main.output
+    from sourceSets.main.resources
+    configurations = [project.configurations.runtimeClasspath]
+    mergeServiceFiles()
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+tasks.shadowJar {
+    archiveClassifier.set(null)
+    relocate 'javassist', 'top.nontage.relocated.javassist'
+    relocate 'org.objectweb.asm', 'top.nontage.relocated.asm'
+    mergeServiceFiles()
+    configurations = [project.configurations.runtimeClasspath]
+}
+
+tasks.withType(Test).configureEach {
+    dependsOn shadowJarTest
     useJUnitPlatform()
     testLogging {
         events "passed", "skipped", "failed"
@@ -41,103 +61,91 @@ test {
         showCauses true
         showStackTraces true
     }
+
+    def testJar = tasks.shadowJarTest.archiveFile.get().asFile
+    classpath = files(testJar) +
+            sourceSets.test.output.classesDirs +
+            sourceSets.test.runtimeClasspath
+}
+
+tasks.withType(JavaExec).configureEach {
+    dependsOn shadowJarTest
+    def testJar = tasks.shadowJarTest.archiveFile.get().asFile
+    classpath = files(testJar) + sourceSets.main.runtimeClasspath
+}
+
+test {
+    include '**/*Test.class'
 }
 
 tasks.register('testStandard', Test) {
-    useJUnitPlatform()
     include '**/StandardInjectorTest.class'
     group = 'verification'
-    description = 'Runs StandardMethodInjector tests'
 }
 
 tasks.register('testInstruction', Test) {
-    useJUnitPlatform()
     include '**/InstructionInjectorTest.class'
     group = 'verification'
-    description = 'Runs InstructionInjector tests'
 }
 
 tasks.register('testFunctional', Test) {
-    useJUnitPlatform()
     include '**/FunctionalInjectorTest.class'
     group = 'verification'
-    description = 'Runs FunctionalInjector tests'
 }
 
 tasks.register('runFunctional', JavaExec) {
-    classpath = sourceSets.main.runtimeClasspath
     mainClass = 'top.nontage.jniil.test.examples.FunctionalExample'
     group = 'application'
-    description = 'Runs FunctionalInjector example'
 }
 
 tasks.register('runStandard', JavaExec) {
-    classpath = sourceSets.main.runtimeClasspath
     mainClass = 'top.nontage.jniil.test.examples.StandardExample'
     group = 'application'
-    description = 'Runs StandardMethodInjector example'
 }
 
 tasks.register('runInstruction', JavaExec) {
-    classpath = sourceSets.main.runtimeClasspath
     mainClass = 'top.nontage.jniil.test.examples.InstructionExample'
     group = 'application'
-    description = 'Runs InstructionInjector example'
 }
 
 tasks.register('testMonitor', Test) {
-    useJUnitPlatform()
     include '**/MonitorTest.class'
     group = 'verification'
-    description = 'Runs InvocationMonitor tests'
 }
 
 tasks.register('runMonitor', JavaExec) {
-    classpath = sourceSets.main.runtimeClasspath
     mainClass = 'top.nontage.jniil.test.examples.MonitorExample'
     group = 'application'
-    description = 'Runs InvocationMonitor example'
 }
 
 tasks.register('testAccessor', Test) {
-    useJUnitPlatform()
     include '**/AccessorTest.class'
     group = 'verification'
-    description = 'Runs Accessor tests'
 }
 
 tasks.register('testInjectionUtil', Test) {
-    useJUnitPlatform()
     include '**/InjectionUtilTest.class'
     group = 'verification'
-    description = 'Runs InjectionUtil tests'
 }
 
 tasks.register('testUnsafeUtil', Test) {
-    useJUnitPlatform()
     include '**/UnsafeUtilTest.class'
     group = 'verification'
-    description = 'Runs UnsafeUtilTest tests'
 }
 
 tasks.register('testJvmContext', Test) {
-    useJUnitPlatform()
     include '**/JvmContextDiagnosticTest.class'
     group = 'verification'
 }
 
 tasks.register('runAccessor', JavaExec) {
-    classpath = sourceSets.main.runtimeClasspath
     mainClass = 'top.nontage.jniil.test.examples.AccessorExample'
     group = 'application'
-    description = 'Runs Accessor example'
 }
 
 tasks.register('runExample', JavaExec) {
-    classpath = sourceSets.main.runtimeClasspath
     mainClass = 'top.nontage.jniil.test.Example'
     group = 'application'
-    description = 'Runs the main Example entry point'
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -150,18 +158,25 @@ tasks.withType(Javadoc).configureEach {
     options.encoding = 'UTF-8'
 }
 
-tasks.shadowJar {
-    archiveClassifier.set(null)
-    relocate 'javassist', 'top.nontage.relocated.javassist'
-    relocate 'org.objectweb.asm', 'top.nontage.relocated.asm'
-    mergeServiceFiles()
-    configurations = [project.configurations.runtimeClasspath]
-}
-
 publishing {
     publications {
         mavenJava(MavenPublication) {
-            from components.java
+            artifact tasks.shadowJar
+            artifact tasks.shadowJarTest
+            artifact tasks.sourcesJar
+
+            pom.withXml {
+                def dependenciesNode = asNode().appendNode('dependencies')
+                configurations.implementation.allDependencies.each { dep ->
+                    if (dep.group == 'top.nontage' && dep.name == 'jvm-context') {
+                        def dependencyNode = dependenciesNode.appendNode('dependency')
+                        dependencyNode.appendNode('groupId', dep.group)
+                        dependencyNode.appendNode('artifactId', dep.name)
+                        dependencyNode.appendNode('version', dep.version)
+                        dependencyNode.appendNode('scope', 'runtime')
+                    }
+                }
+            }
         }
     }
 }

@@ -6,9 +6,9 @@ import org.objectweb.asm.tree.*;
 import org.objectweb.asm.util.Printer;
 import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.annotations.At;
+import top.nontage.jniil.exception.InjectionException;
 import top.nontage.jniil.injector.base.AbstractMethodInjector;
 import top.nontage.jniil.injector.cache.InjectionCacheProxy;
-import top.nontage.jniil.interfaces.Injectable;
 import top.nontage.jniil.interfaces.InsnInjectable;
 import top.nontage.jniil.utils.InjectionUtil;
 import top.nontage.jniil.verify.BytecodeVerifier;
@@ -20,18 +20,17 @@ import java.util.List;
 
 public class InstructionInjector extends AbstractMethodInjector {
     @Override
-    public void inject(Injectable... injectable) throws Exception {
-        for (Injectable IInjectable : injectable) {
-            this.inject(IInjectable);
-        }
+    public void inject(Object... injectable) throws Exception {
+        for (Object i : injectable) this.inject(i);
     }
 
     @Override
-    public void inject(Injectable injectable) throws Exception {
-        if (!(injectable instanceof InsnInjectable)) {
-            throw new UnsupportedOperationException("Instruction Injector only supported InsnInjectable");
+    public void inject(Object injectableInstance) throws Exception {
+        if (!(injectableInstance instanceof InsnInjectable)) {
+            throw new InjectionException("Class: " + injectableInstance.getClass().getName() + " needs to implement InsnInjectable");
         }
-        InsnInjectable insnInjectable = (InsnInjectable) injectable;
+
+        InsnInjectable insnInjectable = (InsnInjectable) injectableInstance;
         Method applyMethod = insnInjectable.getClass().getDeclaredMethod("apply", InsnContext.class, InsnList.class);
         At at = applyMethod.getAnnotation(At.class);
         if (at == null) {

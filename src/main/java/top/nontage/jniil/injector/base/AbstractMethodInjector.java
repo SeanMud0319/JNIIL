@@ -32,7 +32,7 @@ public abstract class AbstractMethodInjector {
     protected static final Set<String> injectedClasses = new HashSet<>();
     protected static final Map<Class<?>, byte[]> originalBytecodes = new HashMap<>();
 
-    public abstract void inject(Injectable... injectable) throws Exception;
+    public abstract void inject(Object... injectable) throws Exception;
 
     public static class TargetInfo {
         public String typeName;
@@ -47,12 +47,17 @@ public abstract class AbstractMethodInjector {
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
-    public void inject(Injectable injectable) throws Exception {
-        if (injectable == null) {
+    public void inject(Object injectableInstance) throws Exception {
+        if (injectableInstance == null) {
             throw new InjectionException("Injectable cannot be null");
         }
 
-        Class<?> clazz = injectable.getClass();
+        if (!(injectableInstance instanceof Injectable)) {
+            throw new InjectionException("Class: " + injectableInstance.getClass().getName() + " needs to implement Injectable");
+        }
+
+        Injectable injectable = (Injectable) injectableInstance;
+        Class<?> clazz = injectableInstance.getClass();
         Method method = getInjectionMethod(clazz);
         if (method == null) return;
 

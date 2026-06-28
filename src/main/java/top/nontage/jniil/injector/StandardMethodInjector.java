@@ -2,7 +2,6 @@ package top.nontage.jniil.injector;
 
 import javassist.ClassPool;
 import top.nontage.jniil.injector.base.AbstractMethodInjector;
-import top.nontage.jniil.interfaces.Injectable;
 
 public final class StandardMethodInjector extends AbstractMethodInjector {
     @Override
@@ -10,9 +9,8 @@ public final class StandardMethodInjector extends AbstractMethodInjector {
         return new ClassPool(null);
     }
 
-    public void inject(Injectable... injectable) throws Exception {
-        for (Injectable IInjectable : injectable) {
-            super.inject(IInjectable);
-        }
+    @Override
+    public void inject(Object... injectable) throws Exception {
+        for (Object i : injectable) super.inject(i);
     }
 }

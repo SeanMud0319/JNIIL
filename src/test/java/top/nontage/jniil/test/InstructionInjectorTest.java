@@ -54,7 +54,7 @@ class InstructionInjectorTest {
 
     @BeforeEach
     void setUp() {
-        JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE, true);
+        JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);
         outputStream = new ByteArrayOutputStream();
         System.setOut(new PrintStream(outputStream));
     }

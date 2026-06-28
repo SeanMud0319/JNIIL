@@ -5,7 +5,7 @@ buildscript {
     dependencies {
         def javaVersion = JavaVersion.current()
         if (javaVersion < JavaVersion.VERSION_11) {
-            classpath "gradle.plugin.com.github.johnrengelman:shadow:8.3.3"
+            classpath "gradle.plugin.com.github.johnrengelman:shadow:8.1.1"
         } else {
             classpath "com.gradleup.shadow:shadow-gradle-plugin:9.0.0"
         }
@@ -97,67 +97,56 @@ test {
 tasks.register('testStandard', Test) {
     include '**/StandardInjectorTest.class'
     group = 'verification'
-    description = 'Runs StandardMethodInjector tests'
 }
 
 tasks.register('testInstruction', Test) {
     include '**/InstructionInjectorTest.class'
     group = 'verification'
-    description = 'Runs InstructionInjector tests'
 }
 
 tasks.register('testFunctional', Test) {
     include '**/FunctionalInjectorTest.class'
     group = 'verification'
-    description = 'Runs FunctionalInjector tests'
 }
 
 tasks.register('runFunctional', JavaExec) {
     mainClass = 'top.nontage.jniil.test.examples.FunctionalExample'
     group = 'application'
-    description = 'Runs FunctionalInjector example'
 }
 
 tasks.register('runStandard', JavaExec) {
     mainClass = 'top.nontage.jniil.test.examples.StandardExample'
     group = 'application'
-    description = 'Runs StandardMethodInjector example'
 }
 
 tasks.register('runInstruction', JavaExec) {
     mainClass = 'top.nontage.jniil.test.examples.InstructionExample'
     group = 'application'
-    description = 'Runs InstructionInjector example'
 }
 
 tasks.register('testMonitor', Test) {
     include '**/MonitorTest.class'
     group = 'verification'
-    description = 'Runs InvocationMonitor tests'
 }
 
 tasks.register('runMonitor', JavaExec) {
     mainClass = 'top.nontage.jniil.test.examples.MonitorExample'
     group = 'application'
-    description = 'Runs InvocationMonitor example'
 }
 
 tasks.register('testAccessor', Test) {
     include '**/AccessorTest.class'
     group = 'verification'
-    description = 'Runs Accessor tests'
 }
 
 tasks.register('testInjectionUtil', Test) {
     include '**/InjectionUtilTest.class'
     group = 'verification'
-    description = 'Runs InjectionUtil tests'
 }
 
 tasks.register('testUnsafeUtil', Test) {
     include '**/UnsafeUtilTest.class'
     group = 'verification'
-    description = 'Runs UnsafeUtilTest tests'
 }
 
 tasks.register('testJvmContext', Test) {
@@ -168,13 +157,11 @@ tasks.register('testJvmContext', Test) {
 tasks.register('runAccessor', JavaExec) {
     mainClass = 'top.nontage.jniil.test.examples.AccessorExample'
     group = 'application'
-    description = 'Runs Accessor example'
 }
 
 tasks.register('runExample', JavaExec) {
     mainClass = 'top.nontage.jniil.test.Example'
     group = 'application'
-    description = 'Runs the main Example entry point'
 }
 
 tasks.withType(JavaCompile).configureEach {

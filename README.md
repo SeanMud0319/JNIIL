@@ -1,3 +1,4 @@
+![CI](https://github.com/SeanMud0319/JNIIL/actions/workflows/ci.yml/badge.svg)
 # JNIIL - Java Runtime Bytecode Instrumentation Library
 
 ## Overview
@@ -5,6 +6,18 @@
 JNIIL is a runtime dynamic instrumentation library for Java. It provides powerful bytecode manipulation capabilities with a clean, developer-friendly API. The library enables runtime method modification, AOP-style method interception, and zero-overhead reflection replacement.
 
 ---
+
+## Java Version Supported
+
+| Version | Status |
+|:--------|:------:|
+| Java 8  |   ✅    |
+| Java 11 |   ✅    |
+| Java 17 |   ✅    |
+| Java 21 |   ✅    |
+| Java 22 |   ✅    |
+| Java 25 |   ✅    |
+
 
 ## Table of Contents
 
@@ -364,6 +377,17 @@ Apache License 2.0
 JNIIL 是一個 Java 執行時期動態 Instrumentation 函式庫。它提供強大的位元組碼操作能力，並具備乾淨、開發者友善的 API。該函式庫支援執行時期方法修改、AOP 風格的方法攔截，以及零開銷的反射替代方案。
 
 ---
+
+## Java 支援版本
+
+| 版本      | 測試狀態 |
+|:--------|:----:|
+| Java 8  |  ✅   |
+| Java 11 |  ✅   |
+| Java 17 |  ✅   |
+| Java 21 |  ✅   |
+| Java 22 |  ✅   |
+| Java 25 |  ✅   |
 
 ## 目錄
 

@@ -62,7 +62,6 @@ public class LibraryJarFinder {
                 for (File hashDir : hashDirs) {
                     File[] jars = hashDir.listFiles((dir, name) -> name.endsWith(".jar") && name.startsWith("jniil-"));
                     if (jars != null && jars.length > 0) {
-                        System.out.println("[JNIIL] Found JAR: " + jars[0].getAbsolutePath());
                         return jars[0];
                     }
                 }

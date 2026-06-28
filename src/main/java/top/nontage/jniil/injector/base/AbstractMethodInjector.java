@@ -78,7 +78,7 @@ public abstract class AbstractMethodInjector {
 
         if (method.getReturnType() != String.class) {
             throw new InjectionException(String.format(
-                    "Injection method '%s' must return void, but returns %s",
+                    "Injection method '%s' must return String, but returns %s",
                     method.getName(), method.getReturnType().getName()
             ));
         }

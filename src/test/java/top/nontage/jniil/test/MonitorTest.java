@@ -22,7 +22,7 @@ class MonitorTest {
 
     @BeforeEach
     void setUp() {
-        JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);
+        JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE, true);
         target = new MonitorTarget("TestUser", 25, 1000);
     }
 

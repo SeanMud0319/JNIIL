@@ -2,20 +2,35 @@ package top.nontage.jniil.agent;
 
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 import top.nontage.jniil.JNIIL;
+import top.nontage.jniil.injector.functional.MethodInfo;
+import top.nontage.jniil.injector.insn.InsnContext;
+import top.nontage.jniil.utils.InjectionUtil;
+import top.nontage.jniil.utils.UnsafeUtil;
 import top.nontage.jvmcontext.JvmContext;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.instrument.Instrumentation;
 import java.lang.management.ManagementFactory;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.CodeSource;
+import java.security.ProtectionDomain;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+
+import static org.objectweb.asm.Opcodes.*;
 
 /**
  * Self-attach bootstrap for JNIIL.
@@ -77,7 +92,16 @@ import java.util.zip.ZipOutputStream;
  *
  * <p>Use at your own risk. Not guaranteed to work on all JVM implementations.</p>
  */
-public class JNIILBootstrap implements Opcodes {
+public class JNIILBootstrap {
+    private static final Set<Class<?>> STRIP_CLASSES = new HashSet<>();
+
+    static {
+        Collections.addAll(STRIP_CLASSES,
+                MethodInfo.class,
+                InsnContext.class
+        );
+    }
+
     public enum MODE {
         ATTACH_API,
         /**
@@ -89,7 +113,40 @@ public class JNIILBootstrap implements Opcodes {
     private static volatile Instrumentation instrumentation;
 
     public static void install(MODE mode) {
+        install(mode, false);
+    }
+
+    public static void install(MODE mode, boolean useBootLoader) {
         if (instrumentation != null) return;
+
+        if (useBootLoader) {
+            try {
+                Class<?> clazz = Class.forName("top.nontage.jniil.JNIIL", false, null);
+                if (clazz.getClassLoader() != null) {
+                    throw new IllegalStateException(
+                            "\n[JNIIL] FATAL: JNIIL class was loaded by AppClassLoader, but it must be in Bootstrap ClassLoader.\n" +
+                                    "Cause: A JNIIL class was referenced before JNIILBootstrap.install() was called.\n" +
+                                    "Solution: Move JNIILBootstrap.install() to the very first line of your main() method.\n" +
+                                    "Example:\n" +
+                                    "  public static void main(String[] args) throws Exception {\n" +
+                                    "      JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);  // ← FIRST!\n" +
+                                    "      // ... your code ...\n" +
+                                    "  }\n"
+                    );
+                }
+                return;
+            } catch (ClassNotFoundException ignored) {
+                try {
+                    byte[] a = InjectionUtil.getClassBytes("top.nontage.jniil.JNIIL");
+                    byte[] b = InjectionUtil.getClassBytes("top.nontage.jniil.JNIIL$InjectionOutputConfig");
+                    UnsafeUtil.defineClass("top.nontage.jniil.JNIIL", null, a);
+                    UnsafeUtil.defineClass("top.nontage.jniil.JNIIL$InjectionOutputConfig", null, b);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+
         synchronized (JNIILBootstrap.class) {
             if (instrumentation != null) return;
             switch (mode) {
@@ -101,7 +158,171 @@ public class JNIILBootstrap implements Opcodes {
                     break;
             }
             JNIIL.setInstrumentation(instrumentation);
+
+            if (useBootLoader) {
+                try {
+                    File filteredJar = createFilteredBootstrapJar(getLibraryJar());
+                    instrumentation.appendToBootstrapClassLoaderSearch(new JarFile(filteredJar));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
         }
+    }
+
+    private static File createFilteredBootstrapJar(File originalJar) throws IOException {
+        File filteredJar = File.createTempFile("jniil-bootstrap-filtered", ".jar");
+        filteredJar.deleteOnExit();
+
+        try (JarFile jarFile = new JarFile(originalJar);
+             ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(filteredJar.toPath()))) {
+
+            Enumeration<JarEntry> entries = jarFile.entries();
+            while (entries.hasMoreElements()) {
+                JarEntry entry = entries.nextElement();
+                String name = entry.getName();
+
+                if (name.endsWith(".class")) {
+                    String className = name.replace('/', '.').substring(0, name.length() - 6);
+                    boolean shouldKeep = STRIP_CLASSES.stream()
+                            .anyMatch(c -> className.equals(c.getName()) || className.startsWith(c.getName() + "$"))
+                            || className.startsWith("top.nontage.jniil.injector.functional.internal")
+                            || className.startsWith("top.nontage.jniil.annotations")
+                            || className.startsWith("top.nontage.jniil.interfaces")
+                            || className.startsWith("top.nontage.relocated")
+                            || className.startsWith("javassist")
+                            || className.startsWith("org.objectweb");
+
+                    if (!shouldKeep) continue;
+                }
+
+                zos.putNextEntry(new ZipEntry(name));
+                try (InputStream is = jarFile.getInputStream(entry)) {
+                    byte[] buffer = new byte[8192];
+                    int len;
+                    while ((len = is.read(buffer)) > 0) zos.write(buffer, 0, len);
+                }
+                zos.closeEntry();
+            }
+        }
+        return filteredJar;
+    }
+
+    private static File getLibraryJar() {
+        try {
+            URL url = getUrl();
+            String protocol = url.getProtocol();
+
+            if ("file".equals(protocol)) {
+                try {
+                    File file = new File(url.toURI());
+                    if (file.exists() && file.isFile()) {
+                        return file;
+                    }
+                } catch (URISyntaxException e) {
+                    File file = new File(url.getPath());
+                    if (file.exists() && file.isFile()) {
+                        return file;
+                    }
+                }
+            }
+
+            if ("jar".equals(protocol)) {
+                return extractFileFromJarUrl(url);
+            }
+
+        } catch (Exception ignored) {
+        }
+
+        return findJarInCache();
+    }
+
+    private static File findJarInCache() {
+        String userHome = System.getProperty("user.home");
+        String version = getVersion();
+
+        File mavenJar = new File(
+                userHome + "/.m2/repository/top/nontage/jniil/" + version + "/jniil-" + version + ".jar"
+        );
+        if (mavenJar.exists() && mavenJar.isFile()) {
+            return mavenJar;
+        }
+
+        File gradleBase = new File(
+                userHome + "/.gradle/caches/modules-2/files-2.1/top.nontage/jniil/" + version + "/"
+        );
+        if (gradleBase.exists() && gradleBase.isDirectory()) {
+            File[] hashDirs = gradleBase.listFiles(File::isDirectory);
+            if (hashDirs != null) {
+                for (File hashDir : hashDirs) {
+                    File[] jars = hashDir.listFiles((dir, name) -> name.endsWith(".jar") && name.startsWith("jniil-"));
+                    if (jars != null && jars.length > 0) {
+                        System.out.println("[JNIIL] Found JAR: " + jars[0].getAbsolutePath());
+                        return jars[0];
+                    }
+                }
+            }
+        }
+
+        throw new IllegalStateException(
+                "Cannot find JNIIL JAR. Run 'mvn install' or './gradlew publishToMavenLocal' first.\n" +
+                        "Searched:\n" +
+                        "  - " + mavenJar.getAbsolutePath() + "\n" +
+                        "  - " + gradleBase.getAbsolutePath()
+        );
+    }
+
+    private static String getVersion() {
+        try {
+            String v = JNIILBootstrap.class.getPackage().getImplementationVersion();
+            if (v != null && !v.isEmpty()) return v;
+        } catch (Exception ignored) {
+        }
+        return "1.0-SNAPSHOT";
+    }
+
+    private static File extractFileFromJarUrl(URL url) {
+        String path = url.getPath();
+        int exclamation = path.indexOf("!");
+        if (exclamation == -1) {
+            throw new IllegalStateException(
+                    "Invalid jar URL: " + url
+            );
+        }
+        String jarPath = path.substring(0, exclamation);
+        if (jarPath.startsWith("file:")) {
+            jarPath = jarPath.substring(5);
+        }
+        File file = new File(jarPath);
+        if (!file.exists()) {
+            throw new IllegalStateException(
+                    "Jar file does not exist: " + file.getAbsolutePath()
+            );
+        }
+        return file;
+    }
+
+    private static URL getUrl() {
+        Class<?> clazz = JNIILBootstrap.class;
+        ProtectionDomain domain = clazz.getProtectionDomain();
+        if (domain == null) {
+            throw new IllegalStateException(
+                    "ProtectionDomain is null (class loaded by Bootstrap?)"
+            );
+        }
+        CodeSource source = domain.getCodeSource();
+        if (source == null) {
+            throw new IllegalStateException(
+                    "CodeSource is null for " + clazz.getName()
+            );
+        }
+        URL url = source.getLocation();
+        if (url == null) {
+            throw new IllegalStateException(
+                    "URL is null from CodeSource"
+            );
+        }
+        return url;
     }
 
     // This is for agent

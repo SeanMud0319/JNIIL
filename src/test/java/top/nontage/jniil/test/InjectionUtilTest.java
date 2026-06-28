@@ -24,7 +24,7 @@ class InjectionUtilTest {
 
     @BeforeAll
     static void setUp() {
-        JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);
+        JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE, true);
         inst = JNIIL.getInstrumentation();
         assertNotNull(inst, "Instrumentation should be available");
     }

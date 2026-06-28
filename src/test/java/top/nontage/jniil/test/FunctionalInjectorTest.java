@@ -23,7 +23,7 @@ class FunctionalInjectorTest {
     private ByteArrayOutputStream outputStream;
 
     static {
-        JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);
+        JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE, true);
     }
 
     @BeforeEach

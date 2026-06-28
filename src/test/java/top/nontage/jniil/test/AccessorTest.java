@@ -42,7 +42,7 @@ class AccessorTest {
 
     @BeforeEach
     void setUp() {
-        JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);
+        JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE, true);
         target = new AccessorTarget("TestUser", 25, 50000.0);
     }
 

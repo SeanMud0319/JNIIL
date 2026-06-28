@@ -53,7 +53,7 @@ import java.util.Map;
  * @see javassist.CtMethod
  * @see top.nontage.jniil.annotations.InjectMethodInfo
  */
-public interface Injectable extends Opcodes {
+public interface Injectable {
     String getInjectSourceCode(CtMethod ctMethod);
 
     default String targetTypeInternalName() {

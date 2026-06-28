@@ -12,6 +12,8 @@ import top.nontage.jniil.injector.insn.InstructionInjector;
 import top.nontage.jniil.interfaces.InsnInjectable;
 import top.nontage.jniil.utils.UnsafeUtil;
 
+import static org.objectweb.asm.Opcodes.*;
+
 /**
  * <h1>AccessorInitializer</h1>
  * * <p>A low-level JVM patch addressing <a href="https://bugs.openjdk.org/browse/JDK-8263089">JDK-8263089</a>.</p>

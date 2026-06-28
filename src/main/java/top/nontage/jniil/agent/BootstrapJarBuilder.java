@@ -11,22 +11,29 @@ import java.util.jar.JarFile;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-/**
- * Builds a filtered JAR for Bootstrap ClassLoader deployment.
- * Only keeps essential classes needed for cross-loader injection.
- */
 public class BootstrapJarBuilder {
 
     private static final Set<Class<?>> KEEP_CLASSES = new HashSet<>();
+    private static boolean hasRelocated = false;
 
     static {
-        Collections.addAll(KEEP_CLASSES,
-                MethodInfo.class,
-                InsnContext.class
-        );
+        Collections.addAll(KEEP_CLASSES, MethodInfo.class, InsnContext.class);
     }
 
     public static File createFilteredBootstrapJar(File originalJar) throws IOException {
+        hasRelocated = false;
+
+        try (JarFile jarFile = new JarFile(originalJar)) {
+            Enumeration<JarEntry> entries = jarFile.entries();
+            while (entries.hasMoreElements()) {
+                String name = entries.nextElement().getName();
+                if (name.startsWith("top/nontage/relocated")) {
+                    hasRelocated = true;
+                    break;
+                }
+            }
+        }
+
         File filteredJar = File.createTempFile("jniil-bootstrap-filtered", ".jar");
         filteredJar.deleteOnExit();
 
@@ -37,12 +44,12 @@ public class BootstrapJarBuilder {
             while (entries.hasMoreElements()) {
                 JarEntry entry = entries.nextElement();
                 String name = entry.getName();
-
-                if (name.endsWith(".class")) {
-                    String className = name.replace('/', '.').substring(0, name.length() - 6);
-                    boolean shouldKeep = shouldKeepClass(className);
-                    if (!shouldKeep) continue;
+                if (entry.isDirectory() || !name.endsWith(".class")) {
+                    continue;
                 }
+
+                String className = name.replace('/', '.').substring(0, name.length() - 6);
+                if (!shouldKeepClass(className)) continue;
 
                 zos.putNextEntry(new ZipEntry(name));
                 try (InputStream is = jarFile.getInputStream(entry)) {
@@ -57,13 +64,18 @@ public class BootstrapJarBuilder {
     }
 
     private static boolean shouldKeepClass(String className) {
-        return KEEP_CLASSES.stream()
-                .anyMatch(c -> className.equals(c.getName()) || className.startsWith(c.getName() + "$"))
-                || className.startsWith("top.nontage.jniil.injector.functional.internal")
-                || className.startsWith("top.nontage.jniil.annotations")
-                || className.startsWith("top.nontage.jniil.interfaces")
-                || className.startsWith("top.nontage.relocated")
-                || className.startsWith("javassist")
-                || className.startsWith("org.objectweb");
+        if (KEEP_CLASSES.stream().anyMatch(c -> className.equals(c.getName()) || className.startsWith(c.getName() + "$"))) return true;
+
+        if (className.startsWith("top.nontage.jniil.injector.functional.internal")) return true;
+        if (className.startsWith("top.nontage.jniil.annotations")) return true;
+        if (className.startsWith("top.nontage.jniil.interfaces")) return true;
+        if (className.startsWith("top.nontage.relocated")) return true;
+
+        if (!hasRelocated) {
+            if (className.startsWith("javassist")) return true;
+            return className.startsWith("org.objectweb");
+        }
+
+        return false;
     }
 }

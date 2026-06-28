@@ -104,7 +104,7 @@ public class FunctionalInjector extends AbstractMethodInjector {
 
             resolver.inject(injectedCode);
 
-            byte[] finalBytecode = generateBytecode(cn, cr, info.typeName, baseBytecode);
+            byte[] finalBytecode = generateBytecode(cn, cr, info.typeName, baseBytecode, targetClass.getClassLoader());
             apply(targetClass, finalBytecode);
             injectedClasses.add(info.typeName);
             InjectionCacheProxy.put(info.typeName, finalBytecode);
@@ -142,8 +142,29 @@ public class FunctionalInjector extends AbstractMethodInjector {
         return new CachedClass(cn, originalBytecode, cr);
     }
 
-    private byte[] generateBytecode(ClassNode cn, ClassReader cr, String typeName, byte[] originalBytecode) throws BytecodeVerifyException {
-        ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+    private byte[] generateBytecode(ClassNode cn, ClassReader cr, String typeName, byte[] originalBytecode, ClassLoader targetLoader) throws BytecodeVerifyException {
+        ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+            @Override
+            protected String getCommonSuperClass(String type1, String type2) {
+                Class<?> c, d;
+                try {
+                    c = Class.forName(type1.replace('/', '.'), false, targetLoader);
+                    d = Class.forName(type2.replace('/', '.'), false, targetLoader);
+                } catch (Exception e) {
+                    return "java/lang/Object";
+                }
+
+                if (c.isAssignableFrom(d)) return type1;
+                if (d.isAssignableFrom(c)) return type2;
+                if (c.isInterface() || d.isInterface()) return "java/lang/Object";
+
+                do {
+                    c = c.getSuperclass();
+                } while (!c.isAssignableFrom(d));
+                return c.getName().replace('.', '/');
+            }
+        };
+
         cn.accept(cw);
         byte[] finalBytecode = cw.toByteArray();
 

@@ -1,6 +1,5 @@
 package top.nontage.jniil.utils;
 
-import sun.misc.Unsafe;
 import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.verify.BytecodeVerifier;
 
@@ -8,12 +7,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.instrument.ClassFileTransformer;
-import java.lang.instrument.Instrumentation;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandleProxies;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,14 +19,13 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class InjectionUtil {
-    private static final Instrumentation inst = JNIIL.getInstrumentation();
 
     private InjectionUtil() {
 
     }
 
     public static Class<?> findClassAcrossClassLoaders(String className) throws ClassNotFoundException {
-        for (Class<?> clazz : inst.getAllLoadedClasses()) {
+        for (Class<?> clazz : JNIIL.getInstrumentation().getAllLoadedClasses()) {
             ClassLoader loader = clazz.getClassLoader();
 
             if (BytecodeVerifier.VERIFIER_LOADERS.contains(loader)) {
@@ -54,7 +50,7 @@ public class InjectionUtil {
 
     public static void printAllClassLoader() {
         Set<ClassLoader> loaders = new HashSet<>();
-        for (Class<?> clazz : inst.getAllLoadedClasses()) {
+        for (Class<?> clazz : JNIIL.getInstrumentation().getAllLoadedClasses()) {
             ClassLoader loader = clazz.getClassLoader();
             loaders.add(loader);
         }
@@ -85,8 +81,24 @@ public class InjectionUtil {
         }
     }
 
-    // It will return the original bytecode of the class, not the modified one.
-    public static byte[] getOriginalClassBytes(Class<?> clazz) throws IOException {
+    // Return the original bytes of the class in file
+    public static byte[] getClassBytes(String className) throws IOException {
+        String path = className.replace('.', '/') + ".class";
+        try (InputStream in = InjectionUtil.class.getClassLoader().getResourceAsStream(path)) {
+            if (in == null) throw new IOException("Class not found: " + path);
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            byte[] data = new byte[4096];
+            int nRead;
+            while ((nRead = in.read(data, 0, data.length)) != -1) {
+                buffer.write(data, 0, nRead);
+            }
+            buffer.flush();
+            return buffer.toByteArray();
+        }
+    }
+
+    // Return the original bytes of the class in file
+    public static byte[] getClassBytes(Class<?> clazz) throws IOException {
         String path = clazz.getName().replace('.', '/') + ".class";
         try (InputStream in = clazz.getClassLoader().getResourceAsStream(path)) {
             if (in == null) throw new IOException("Class not found: " + path);
@@ -100,7 +112,13 @@ public class InjectionUtil {
             return buffer.toByteArray();
         }
     }
-    // Return the class in memory
+
+    // Return the class bytes in memory
+    public static byte[] getOriginalClassBytes(Class<?> clazz) throws Exception {
+        return getOriginalClassBytes(clazz.getName());
+    }
+
+    // Return the class bytes in memory
     public static byte[] getOriginalClassBytes(String targetClassName) throws Exception {
         final byte[][] result = new byte[1][];
         ClassFileTransformer transformer = (loader, className, classBeingRedefined, protectionDomain, classfileBuffer) -> {
@@ -109,14 +127,14 @@ public class InjectionUtil {
             }
             return null;
         };
-        inst.addTransformer(transformer, true);
-        for (Class<?> clazz : inst.getAllLoadedClasses()) {
+        JNIIL.getInstrumentation().addTransformer(transformer, true);
+        for (Class<?> clazz : JNIIL.getInstrumentation().getAllLoadedClasses()) {
             if (clazz.getName().equals(targetClassName)) {
-                inst.retransformClasses(clazz);
+                JNIIL.getInstrumentation().retransformClasses(clazz);
                 break;
             }
         }
-        inst.removeTransformer(transformer);
+        JNIIL.getInstrumentation().removeTransformer(transformer);
         return result[0];
     }
 

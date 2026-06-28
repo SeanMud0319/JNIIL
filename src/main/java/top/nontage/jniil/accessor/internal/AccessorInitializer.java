@@ -10,6 +10,7 @@ import top.nontage.jniil.annotations.InjectMethodInfo;
 import top.nontage.jniil.injector.insn.InsnContext;
 import top.nontage.jniil.injector.insn.InstructionInjector;
 import top.nontage.jniil.interfaces.InsnInjectable;
+import top.nontage.jniil.utils.InjectionUtil;
 import top.nontage.jniil.utils.UnsafeUtil;
 
 import static org.objectweb.asm.Opcodes.*;
@@ -48,21 +49,25 @@ public class AccessorInitializer {
         if (initialize) return;
         initialize = true;
         try {
-            accessorRegistry = UnsafeUtil.defineClass("top.nontage.jniil.accessor.AccessorRegistry", null, generateRegistryBytecode());
-            boolean verify = JNIIL.isJvmVerifyToggle();
+            accessorRegistry = InjectionUtil.findClassAcrossClassLoaders("top.nontage.jniil.accessor.AccessorRegistry");
+        } catch (ClassNotFoundException ignored) {
             try {
-                if (verify) JNIIL.setJvmVerifyToggle(false);
+                accessorRegistry = UnsafeUtil.defineClass("top.nontage.jniil.accessor.AccessorRegistry", null, generateRegistryBytecode());
+                boolean verify = JNIIL.isJvmVerifyToggle();
+                try {
+                    if (verify) JNIIL.setJvmVerifyToggle(false);
 
-                if (IS_JAVA_8) {
-                    new InstructionInjector().inject(new DelegatingClassLoaderPatch());
-                } else {
-                    new InstructionInjector().inject(new BuiltinClassLoaderPatch());
+                    if (IS_JAVA_8) {
+                        new InstructionInjector().inject(new DelegatingClassLoaderPatch());
+                    } else {
+                        new InstructionInjector().inject(new BuiltinClassLoaderPatch());
+                    }
+                } finally {
+                    if (verify) JNIIL.setJvmVerifyToggle(true);
                 }
-            } finally {
-                if (verify) JNIIL.setJvmVerifyToggle(true);
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to initialize AccessorRegistry", e);
             }
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to initialize AccessorRegistry", e);
         }
     }
 

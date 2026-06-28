@@ -161,8 +161,22 @@ tasks.withType(Javadoc).configureEach {
 publishing {
     publications {
         mavenJava(MavenPublication) {
-            from components.java
+            artifact tasks.shadowJar
             artifact tasks.shadowJarTest
+            artifact tasks.sourcesJar
+
+            pom.withXml {
+                def dependenciesNode = asNode().appendNode('dependencies')
+                configurations.implementation.allDependencies.each { dep ->
+                    if (dep.group == 'top.nontage' && dep.name == 'jvm-context') {
+                        def dependencyNode = dependenciesNode.appendNode('dependency')
+                        dependencyNode.appendNode('groupId', dep.group)
+                        dependencyNode.appendNode('artifactId', dep.name)
+                        dependencyNode.appendNode('version', dep.version)
+                        dependencyNode.appendNode('scope', 'runtime')
+                    }
+                }
+            }
         }
     }
 }

@@ -9,13 +9,11 @@ import top.nontage.jniil.utils.InjectionUtil;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.instrument.ClassDefinition;
-import java.lang.instrument.Instrumentation;
 import java.util.Collections;
 import java.util.Set;
 import java.util.WeakHashMap;
 
 public class BytecodeVerifier {
-    private static final Instrumentation inst = JNIIL.getInstrumentation();
 
     public static final Set<ClassLoader> VERIFIER_LOADERS =
             Collections.newSetFromMap(new WeakHashMap<>());
@@ -44,10 +42,10 @@ public class BytecodeVerifier {
         }
     }
 
-    public static boolean asmVerify(byte[] classBytes, StringWriter output) {
+    public static boolean asmVerify(ClassLoader classLoader, byte[] classBytes, StringWriter output) {
         PrintWriter pw = new PrintWriter(output);
         ClassReader cr = new ClassReader(classBytes);
-        CheckClassAdapter.verify(cr, false, pw);
+        CheckClassAdapter.verify(cr, classLoader, false, pw);
         pw.flush();
         return output.toString().isEmpty();
     }
@@ -58,7 +56,7 @@ public class BytecodeVerifier {
             };
             VERIFIER_LOADERS.add(tempLoader);
             Class<?> oldClass = InjectionUtil.unsafeInjectClass(tempLoader, className, oldBytes);
-            inst.redefineClasses(new ClassDefinition(oldClass, newBytes));
+            JNIIL.getInstrumentation().redefineClasses(new ClassDefinition(oldClass, newBytes));
             return true;
         } catch (Throwable e) {
             System.err.println("JVM verification threw unexpected exception: " + e);
@@ -73,9 +71,14 @@ public class BytecodeVerifier {
         String jvmError = null;
 
         if (JNIIL.isAsmVerifyToggle()) {
-            asmValid = asmVerify(finalBytecode, sw);
-            if (!asmValid) {
-                System.err.println("[BytecodeVerifier] ASM verification failed for " + className);
+            try {
+                Class<?> clazz = InjectionUtil.findClassAcrossClassLoaders(className);
+                asmValid = asmVerify(clazz.getClassLoader(), finalBytecode, sw);
+                if (!asmValid) {
+                    System.err.println("[BytecodeVerifier] ASM verification failed for " + className);
+                }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
             }
         }
 

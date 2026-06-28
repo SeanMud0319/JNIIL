@@ -16,7 +16,7 @@ public class LocalVariableChecker {
             if (shouldFillLocals) {
                 bytecode = new LocalVariableTableFiller().fillLocalVariableNames(clazz, false);
             } else {
-                bytecode = InjectionUtil.getOriginalClassBytes(clazz);
+                bytecode = InjectionUtil.getClassBytes(clazz);
             }
             ClassReader cr = new ClassReader(bytecode);
             ClassNode cn = new ClassNode();

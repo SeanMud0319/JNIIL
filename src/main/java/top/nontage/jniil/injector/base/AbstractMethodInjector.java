@@ -517,7 +517,7 @@ public abstract class AbstractMethodInjector {
         ClassFileTransformer transformer = (loader, className, classBeingRedefined, protectionDomain, classfileBuffer) -> {
             if (classBeingRedefined == clazz) {
                 if (JNIIL.isStoreRevertByteCode()) {
-                    List<InjectionRecord> history = injectionRecords.computeIfAbsent(clazz, k -> new ArrayList<>());
+                    List<InjectionRecord> history = injectionRecords.computeIfAbsent(clazz, k -> Collections.synchronizedList(new ArrayList<>()));
                     int nextCount = history.size() + 1;
                     InjectionRecord record = new InjectionRecord(clazz, lastBytecode, nextCount);
                     history.add(record);
@@ -582,6 +582,6 @@ public abstract class AbstractMethodInjector {
         if (!JNIIL.isStoreRevertByteCode()) {
             throw new UnsupportedOperationException("Store Revert not enable, Use JNIIL.setStoreRevertByteCode(true) to enable.");
         }
-        return injectionRecords;
+        return Collections.unmodifiableMap(injectionRecords);
     }
 }

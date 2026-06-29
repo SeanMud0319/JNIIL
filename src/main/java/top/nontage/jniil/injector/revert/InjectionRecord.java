@@ -3,6 +3,7 @@ package top.nontage.jniil.injector.revert;
 import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.injector.base.AbstractMethodInjector;
 
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -42,7 +43,7 @@ public class InjectionRecord {
 
     /** @return The stored bytecode array. */
     public byte[] getBytecode() {
-        return bytecode;
+        return Arrays.copyOf(bytecode, bytecode.length);
     }
 
     /** @return The historical count/sequence index of this injection. */
@@ -57,7 +58,7 @@ public class InjectionRecord {
      * @return A list of {@link InjectionRecord} for the given class.
      * @throws UnsupportedOperationException if {@code JNIIL.isStoreRevertByteCode()} is false.
      */
-    public static List<InjectionRecord> getInjectionRecord(Class<?> clazz) {
+    public static List<InjectionRecord> getInjectionHistory(Class<?> clazz) {
         if (!JNIIL.isStoreRevertByteCode()) {
             throw new UnsupportedOperationException("Store Revert not enabled. Use JNIIL.setStoreRevertByteCode(true) to enable.");
         }

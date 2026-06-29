@@ -25,7 +25,7 @@ import java.lang.instrument.UnmodifiableClassException;
  * conditional branches within your injected bytecode rather than modifying the class structure.</p>
  */
 public class InjectionReverter {
-    public static Instrumentation inst = JNIIL.getInstrumentation();
+    private static Instrumentation inst = JNIIL.getInstrumentation();
 
     /**
      * Reverts a class to the state represented by the provided {@link InjectionRecord}.
@@ -35,12 +35,20 @@ public class InjectionReverter {
      * @throws UnsupportedOperationException If JNIIL revert storage is not enabled.
      */
     public static void revertInjection(InjectionRecord record) throws UnmodifiableClassException {
+        if (record == null) {
+            throw new IllegalArgumentException("InjectionRecord cannot be null");
+        }
+
         if (!JNIIL.isStoreRevertByteCode()) {
             throw new UnsupportedOperationException("Store Revert not enabled. Use JNIIL.setStoreRevertByteCode(true) to enable.");
         }
 
         Class<?> clazz = record.getType();
         byte[] bytes = record.getBytecode();
+
+        if (bytes == null || bytes.length == 0) {
+            throw new IllegalArgumentException("Bytecode is null or empty");
+        }
 
         ClassFileTransformer transformer = (loader, className, classBeingRedefined, protectionDomain, classfileBuffer) -> {
             if (classBeingRedefined == clazz) {

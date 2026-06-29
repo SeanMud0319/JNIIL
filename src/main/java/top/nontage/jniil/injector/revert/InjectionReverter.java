@@ -54,7 +54,7 @@ public class InjectionReverter {
             if (classBeingRedefined == clazz) {
                 // Restore cache to the reverted state
                 InjectionCacheProxy.put(clazz, bytes);
-                InjectionCacheProxy.removeNode(className);
+                InjectionCacheProxy.removeNode(className == null ? clazz.getName() : className.replace('/', '.'));
                 return bytes;
             }
             return null;

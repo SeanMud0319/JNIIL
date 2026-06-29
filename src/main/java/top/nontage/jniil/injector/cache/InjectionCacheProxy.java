@@ -79,7 +79,7 @@ public class InjectionCacheProxy implements Opcodes {
                 byte[] classBytes = generateInjectionCacheBytes();
                 hiddenCacheClass = UnsafeUtil.defineClass("top.nontage.jniil.injector.cache.InjectionCache", injectionCacheLoader, classBytes);
             } catch (Throwable t) {
-                t.printStackTrace();
+                throw new RuntimeException("Failed to initial InjectionCacheProxy: ", t);
             }
         } finally {
             if (hiddenCacheClass != null) {

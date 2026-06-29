@@ -10,6 +10,7 @@ import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.injector.cache.InjectionCacheProxy;
 
 import java.lang.instrument.ClassFileTransformer;
+import java.lang.instrument.IllegalClassFormatException;
 import java.lang.instrument.Instrumentation;
 import java.lang.instrument.UnmodifiableClassException;
 import java.util.*;
@@ -113,8 +114,7 @@ public class LocalVariableTableFiller {
                 return transformedBytes[0];
 
             } catch (Exception e) {
-                e.printStackTrace();
-                return null;
+                throw new RuntimeException("Failed to fill Local Variable Table: ", e);
             }
         };
 

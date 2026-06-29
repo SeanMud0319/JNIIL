@@ -44,7 +44,7 @@ public final class InvocationMonitor {
         try {
             initCallerMechanism();
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new RuntimeException("Failed to initial InvocationMonitor", e);
         }
     }
 
@@ -111,8 +111,7 @@ public final class InvocationMonitor {
                                 hookExecutable(method);
                                 LISTENERS.put(method, new CopyOnWriteArrayList<>());
                             } catch (Exception e) {
-                                e.printStackTrace();
-                                continue;
+                                throw new RuntimeException("Failed to hook executable: ", e);
                             }
                         }
                         LISTENERS.get(method).addAll(matcherListeners);
@@ -128,8 +127,7 @@ public final class InvocationMonitor {
                                 hookExecutable(constructor);
                                 LISTENERS.put(constructor, new CopyOnWriteArrayList<>());
                             } catch (Exception e) {
-                                e.printStackTrace();
-                                continue;
+                                throw new RuntimeException("Failed to hook executable: ", e);
                             }
                         }
                         LISTENERS.get(constructor).addAll(matcherListeners);

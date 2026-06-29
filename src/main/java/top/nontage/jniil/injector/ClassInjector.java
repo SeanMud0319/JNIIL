@@ -52,7 +52,7 @@ public class ClassInjector {
             }
 
         } catch (Throwable e) {
-            e.printStackTrace();
+            throw new RuntimeException("Failed to inject class: ", e);
         }
     }
 

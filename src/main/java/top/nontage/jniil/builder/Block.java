@@ -252,7 +252,7 @@ public class Block {
         try {
             addReturnStatement(this.ctMethod.getReturnType(), value);
         } catch (NotFoundException e) {
-            e.printStackTrace();
+            throw new RuntimeException(e);
         }
     }
 
@@ -260,7 +260,7 @@ public class Block {
         try {
             addReturnStatement(ctMethod.getReturnType(), value);
         } catch (NotFoundException e) {
-            e.printStackTrace();
+            throw new RuntimeException(e);
         }
     }
 

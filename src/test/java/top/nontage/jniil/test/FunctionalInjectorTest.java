@@ -22,13 +22,9 @@ class FunctionalInjectorTest {
     private final PrintStream originalOut = System.out;
     private ByteArrayOutputStream outputStream;
 
-    static {
-        JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);
-    }
-
     @BeforeEach
     void setUp() {
-
+        JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);
         outputStream = new ByteArrayOutputStream();
         System.setOut(new PrintStream(outputStream));
     }

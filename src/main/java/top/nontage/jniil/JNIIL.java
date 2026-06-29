@@ -47,12 +47,12 @@ public class JNIIL {
         return methodOutput.dir;
     }
 
-    public static void setBytecodeVerifying(boolean enabled) {
-        if (!enabled && bytecodeVerifyWarning) {
+    public static void setBytecodeVerifying(boolean flag) {
+        if (!flag && bytecodeVerifyWarning) {
             System.out.println("[JNIIL] Bytecode verifying disabled. Invalid bytecode may cause runtime errors.");
         }
-        jvmVerifyToggle = false;
-        asmVerifyToggle = false;
+        jvmVerifyToggle = flag;
+        asmVerifyToggle = flag;
     }
 
     public static boolean isBytecodeVerifying() {

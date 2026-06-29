@@ -138,6 +138,11 @@ tasks.register('testJvmContext', Test) {
     group = 'verification'
 }
 
+tasks.register("testClassInjector", Test) {
+    include '**/ClassInjecotrTest.class'
+    group = 'verification'
+}
+
 tasks.register('runAccessor', JavaExec) {
     mainClass = 'top.nontage.jniil.test.examples.AccessorExample'
     group = 'application'

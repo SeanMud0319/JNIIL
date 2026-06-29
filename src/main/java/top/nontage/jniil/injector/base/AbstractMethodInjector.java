@@ -25,12 +25,13 @@ import java.lang.instrument.Instrumentation;
 import java.lang.instrument.UnmodifiableClassException;
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class AbstractMethodInjector {
 
     protected static final Instrumentation inst = JNIIL.getInstrumentation();
-    protected static final Set<String> injectedClasses = new HashSet<>();
-    protected static final Map<Class<?>, byte[]> originalBytecodes = new HashMap<>();
+    protected static final Set<String> injectedClasses = ConcurrentHashMap.newKeySet();
+    protected static final Map<Class<?>, byte[]> originalBytecodes = new ConcurrentHashMap<>();
 
     public abstract void inject(Object... injectable) throws Exception;
 
@@ -78,7 +79,7 @@ public abstract class AbstractMethodInjector {
 
         if (method.getReturnType() != String.class) {
             throw new InjectionException(String.format(
-                    "Injection method '%s' must return void, but returns %s",
+                    "Injection method '%s' must return String, but returns %s",
                     method.getName(), method.getReturnType().getName()
             ));
         }
@@ -514,8 +515,8 @@ public abstract class AbstractMethodInjector {
     protected void apply(Class<?> clazz, byte[] newBytecode) throws UnmodifiableClassException {
         ClassFileTransformer transformer = (loader, className, classBeingRedefined, protectionDomain, classfileBuffer) -> {
             if (classBeingRedefined == clazz) {
-                if (JNIIL.isStoreOriginalByteCode() && !originalBytecodes.containsKey(clazz)) {
-                    originalBytecodes.put(clazz, Arrays.copyOf(classfileBuffer, classfileBuffer.length));
+                if (JNIIL.isStoreOriginalByteCode()) {
+                    originalBytecodes.computeIfAbsent(clazz, k -> Arrays.copyOf(classfileBuffer, classfileBuffer.length));
                 }
                 return newBytecode;
             }

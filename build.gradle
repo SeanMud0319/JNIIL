@@ -153,6 +153,11 @@ tasks.register('runExample', JavaExec) {
     group = 'application'
 }
 
+tasks.build {
+    dependsOn tasks.shadowJar
+    dependsOn tasks.shadowJarTest
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.compilerArgs << "-Xlint:-sunapi"

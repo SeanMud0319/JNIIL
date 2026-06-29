@@ -9,7 +9,7 @@ public class JNIIL {
     private static final InjectionOutputConfig classOutput = new InjectionOutputConfig();
     private static final InjectionOutputConfig methodOutput = new InjectionOutputConfig();
 
-    private static boolean storeOriginalByteCode = false;
+    private static boolean storeRevertByteCode = false;
     private static boolean bytecodeVerifyWarning = true;
     private static boolean jvmVerifyToggle = false;
     private static boolean asmVerifyToggle = true;
@@ -59,36 +59,36 @@ public class JNIIL {
         return isAsmVerifyToggle() || isJvmVerifyToggle();
     }
 
-    public static void setBytecodeVerifyWarning(boolean enabled) {
-        bytecodeVerifyWarning = enabled;
+    public static void setBytecodeVerifyWarning(boolean flag) {
+        bytecodeVerifyWarning = flag;
     }
 
     public static boolean isBytecodeVerifyWarning() {
         return bytecodeVerifyWarning;
     }
 
-    public static void setJvmVerifyToggle(boolean enabled) {
-        jvmVerifyToggle = enabled;
+    public static void setJvmVerifyToggle(boolean flag) {
+        jvmVerifyToggle = flag;
     }
 
     public static boolean isJvmVerifyToggle() {
         return jvmVerifyToggle;
     }
 
-    public static void setAsmVerifyToggle(boolean enabled) {
-        asmVerifyToggle = enabled;
+    public static void setAsmVerifyToggle(boolean flag) {
+        asmVerifyToggle = flag;
     }
 
     public static boolean isAsmVerifyToggle() {
         return asmVerifyToggle;
     }
 
-    public static void setStoreOriginalByteCode(boolean enabled) {
-        storeOriginalByteCode = enabled;
+    public static void setStoreRevertByteCode(boolean flag) {
+        storeRevertByteCode = flag;
     }
 
-    public static boolean isStoreOriginalByteCode() {
-        return storeOriginalByteCode;
+    public static boolean isStoreRevertByteCode() {
+        return storeRevertByteCode;
     }
 
     private static class InjectionOutputConfig {

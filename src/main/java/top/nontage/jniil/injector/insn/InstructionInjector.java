@@ -19,6 +19,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class InstructionInjector extends AbstractMethodInjector {
+    // You can see there's many things similar to FunctionalInjector, but in runtime, there are in different classloader so we can't direct access their member
+    private static class CachedClass {
+        final ClassNode node;
+        final byte[] bytecode;
+        final ClassReader reader;
+
+        CachedClass(ClassNode node, byte[] bytecode, ClassReader reader) {
+            this.node = node;
+            this.bytecode = bytecode;
+            this.reader = reader;
+        }
+    }
+
     @Override
     public void inject(Object... injectable) throws Exception {
         for (Object i : injectable) this.inject(i);
@@ -42,13 +55,10 @@ public class InstructionInjector extends AbstractMethodInjector {
         ClassLoader loader = getTargetLoader(info).unwarp();
         Class<?> targetClass = Class.forName(info.typeName, true, loader);
 
-        byte[] currentBytecode = InjectionCacheProxy.contains(info.typeName)
-                ? InjectionCacheProxy.get(targetClass)
-                : InjectionUtil.getOriginalClassBytes(info.typeName);
-
-        ClassReader cr = new ClassReader(currentBytecode);
-        ClassNode cn = new ClassNode();
-        cr.accept(cn, ClassReader.EXPAND_FRAMES);
+        InstructionInjector.CachedClass cached = getCachedClass(info.typeName, targetClass);
+        ClassNode cn = cached.node;
+        ClassReader cr = cached.reader;
+        byte[] baseBytecode = cached.bytecode;
 
         MethodNode targetMethod = null;
         for (MethodNode mn : cn.methods) {
@@ -93,12 +103,13 @@ public class InstructionInjector extends AbstractMethodInjector {
         byte[] finalBytecode = cw.toByteArray();
 
         if (JNIIL.isBytecodeVerifying()) {
-            BytecodeVerifier.verify(info.typeName, currentBytecode, finalBytecode);
+            BytecodeVerifier.verify(info.typeName, baseBytecode, finalBytecode);
         }
 
-        apply(targetClass, finalBytecode);
-        InjectionCacheProxy.put(targetClass, finalBytecode);
+        apply(targetClass, finalBytecode, baseBytecode);
         injectedClasses.add(info.typeName);
+        InjectionCacheProxy.put(info.typeName, finalBytecode);
+        InjectionCacheProxy.put(info.typeName, cn);
 
         if (JNIIL.isMethodOutputEnabled()) {
             String relativePath = info.typeName.replace('.', File.separatorChar) + ".class";
@@ -106,6 +117,31 @@ public class InstructionInjector extends AbstractMethodInjector {
             InjectionUtil.dumpClass(finalBytecode, outputFile.getAbsolutePath());
             System.out.println("[JNIIL-DEBUG] Class dumped to hierarchy: " + outputFile.getAbsolutePath());
         }
+    }
+
+    private InstructionInjector.CachedClass getCachedClass(String typeName, Class<?> targetClass) throws Exception {
+        ClassNode cachedNode = InjectionCacheProxy.getNode(typeName);
+        byte[] cachedBytecode = InjectionCacheProxy.contains(typeName) ? InjectionCacheProxy.get(targetClass) : null;
+
+        if (cachedNode == null && cachedBytecode != null) {
+            ClassReader cr = new ClassReader(cachedBytecode);
+            ClassNode cn = new ClassNode();
+            cr.accept(cn, ClassReader.EXPAND_FRAMES);
+            InjectionCacheProxy.put(typeName, cn);
+            return new InstructionInjector.CachedClass(cn, cachedBytecode, cr);
+        }
+
+        if (cachedNode != null && cachedBytecode != null) {
+            ClassReader reader = new ClassReader(cachedBytecode);
+            return new InstructionInjector.CachedClass(cachedNode, cachedBytecode, reader);
+        }
+
+        byte[] originalBytecode = InjectionUtil.getOriginalClassBytes(typeName);
+        ClassReader cr = new ClassReader(originalBytecode);
+        ClassNode cn = new ClassNode();
+        cr.accept(cn, ClassReader.EXPAND_FRAMES);
+
+        return new InstructionInjector.CachedClass(cn, originalBytecode, cr);
     }
 
     public static AbstractInsnNode findAnchorByAt(MethodNode mn, At at) {

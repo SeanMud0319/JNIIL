@@ -9,6 +9,7 @@ import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.annotations.*;
 import top.nontage.jniil.exception.InjectionException;
 import top.nontage.jniil.injector.cache.InjectionCacheProxy;
+import top.nontage.jniil.injector.revert.InjectionRecord;
 import top.nontage.jniil.interfaces.Injectable;
 import top.nontage.jniil.interfaces.InsnInjectable;
 import top.nontage.jniil.javassist.FileClassPath;
@@ -31,7 +32,7 @@ public abstract class AbstractMethodInjector {
 
     protected static final Instrumentation inst = JNIIL.getInstrumentation();
     protected static final Set<String> injectedClasses = ConcurrentHashMap.newKeySet();
-    protected static final Map<Class<?>, byte[]> originalBytecodes = new ConcurrentHashMap<>();
+    protected static final Map<Class<?>, List<InjectionRecord>> injectionRecords = new ConcurrentHashMap<>();
 
     public abstract void inject(Object... injectable) throws Exception;
 
@@ -154,11 +155,14 @@ public abstract class AbstractMethodInjector {
         }
 
         CtClass ctClass;
+        byte[] lastBytecode;
         try {
             if (InjectionCacheProxy.contains(info.typeName)) {
                 ctClass = pool.makeClass(new ByteArrayInputStream(InjectionCacheProxy.get(targetClass)));
+                lastBytecode = InjectionCacheProxy.get(targetClass);
             } else {
                 ctClass = pool.get(info.typeName);
+                lastBytecode = InjectionUtil.getClassBytes(targetClass);
             }
         } catch (NotFoundException e) {
             throw new InjectionException("Cannot find class " + info.typeName + " in ClassPool", e);
@@ -215,7 +219,7 @@ public abstract class AbstractMethodInjector {
         }
 
         try {
-            apply(targetClass, bytecode);
+            apply(targetClass, bytecode, lastBytecode);
         } catch (UnmodifiableClassException e) {
             throw new InjectionException("Cannot retransform class " + info.typeName + " (may be locked by JVM)", e);
         }
@@ -512,11 +516,14 @@ public abstract class AbstractMethodInjector {
         ctMethod.insertAt(foundLineNumber[0], src);
     }
 
-    protected void apply(Class<?> clazz, byte[] newBytecode) throws UnmodifiableClassException {
+    protected void apply(Class<?> clazz, byte[] newBytecode, byte[] lastBytecode) throws UnmodifiableClassException {
         ClassFileTransformer transformer = (loader, className, classBeingRedefined, protectionDomain, classfileBuffer) -> {
             if (classBeingRedefined == clazz) {
-                if (JNIIL.isStoreOriginalByteCode()) {
-                    originalBytecodes.computeIfAbsent(clazz, k -> Arrays.copyOf(classfileBuffer, classfileBuffer.length));
+                if (JNIIL.isStoreRevertByteCode()) {
+                    List<InjectionRecord> history = injectionRecords.computeIfAbsent(clazz, k -> Collections.synchronizedList(new ArrayList<>()));
+                    int nextCount = history.size() + 1;
+                    InjectionRecord record = new InjectionRecord(clazz, lastBytecode, nextCount);
+                    history.add(record);
                 }
                 return newBytecode;
             }
@@ -574,7 +581,10 @@ public abstract class AbstractMethodInjector {
         }
     }
 
-    public static Map<Class<?>, byte[]> getOriginalBytecodes() {
-        return originalBytecodes;
+    public static Map<Class<?>, List<InjectionRecord>> getInjectionRecords() {
+        if (!JNIIL.isStoreRevertByteCode()) {
+            throw new UnsupportedOperationException("Store Revert not enabled, Use JNIIL.setStoreRevertByteCode(true) to enable.");
+        }
+        return Collections.unmodifiableMap(injectionRecords);
     }
 }

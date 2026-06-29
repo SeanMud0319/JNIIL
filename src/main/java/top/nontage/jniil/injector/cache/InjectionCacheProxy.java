@@ -108,6 +108,7 @@ public class InjectionCacheProxy implements Opcodes {
     public static byte[] get(Class<?> clazz) { return CACHE.get(clazz.getName()); }
     public static byte[] get(String className) { return CACHE.get(className); }
     public static ClassNode getNode(String className) { return NODE_CACHE.get(className); }
+    public static ClassNode removeNode(String className) { return NODE_CACHE.remove(className); }
 
     public static boolean contains(Class<?> clazz) { return CACHE.containsKey(clazz.getName()); }
     public static boolean contains(String className) { return CACHE.containsKey(className); }

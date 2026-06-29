@@ -9,7 +9,6 @@ import top.nontage.jniil.annotations.At;
 import top.nontage.jniil.exception.InjectionException;
 import top.nontage.jniil.injector.base.AbstractMethodInjector;
 import top.nontage.jniil.injector.cache.InjectionCacheProxy;
-import top.nontage.jniil.injector.functional.FunctionalInjector;
 import top.nontage.jniil.interfaces.InsnInjectable;
 import top.nontage.jniil.utils.InjectionUtil;
 import top.nontage.jniil.verify.BytecodeVerifier;

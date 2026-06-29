@@ -4,6 +4,7 @@ import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.injector.base.AbstractMethodInjector;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -64,6 +65,11 @@ public class InjectionRecord {
         if (!JNIIL.isStoreRevertByteCode()) {
             throw new UnsupportedOperationException("Store Revert not enabled. Use JNIIL.setStoreRevertByteCode(true) to enable.");
         }
-        return AbstractMethodInjector.getInjectionRecords().get(clazz);
+
+        List<InjectionRecord> history = AbstractMethodInjector.getInjectionRecords().get(clazz);
+        if (history == null) {
+            return Collections.emptyList();
+        }
+        return Collections.unmodifiableList(history);
     }
 }

@@ -105,7 +105,7 @@ public class FunctionalInjector extends AbstractMethodInjector {
             resolver.inject(injectedCode);
 
             byte[] finalBytecode = generateBytecode(cn, cr, info.typeName, baseBytecode, targetClass.getClassLoader());
-            apply(targetClass, finalBytecode);
+            apply(targetClass, finalBytecode, baseBytecode);
             injectedClasses.add(info.typeName);
             InjectionCacheProxy.put(info.typeName, finalBytecode);
             InjectionCacheProxy.put(info.typeName, cn);

@@ -8,6 +8,7 @@ import top.nontage.jniil.utils.UnsafeUtil;
 import java.io.File;
 import java.io.FileOutputStream;
 
+// Inject specified class into target classloader. default BootStrap loader
 public class ClassInjector {
 
     public static void injectClasses(Class<?>... classes) {

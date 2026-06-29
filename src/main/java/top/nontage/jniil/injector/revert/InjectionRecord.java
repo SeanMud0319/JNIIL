@@ -31,8 +31,10 @@ public class InjectionRecord {
      * @param count    The chronological order or iteration count of this injection.
      */
     public InjectionRecord(Class<?> type, byte[] bytecode, int count) {
+        if (type == null) throw new IllegalArgumentException("type cannot be null");
+        if (bytecode == null) throw new IllegalArgumentException("bytecode cannot be null");
         this.type = type;
-        this.bytecode = bytecode;
+        this.bytecode = Arrays.copyOf(bytecode, bytecode.length);
         this.count = count;
     }
 

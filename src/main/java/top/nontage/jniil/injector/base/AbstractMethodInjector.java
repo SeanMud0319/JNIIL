@@ -155,11 +155,14 @@ public abstract class AbstractMethodInjector {
         }
 
         CtClass ctClass;
+        CtClass lastCt;
         try {
             if (InjectionCacheProxy.contains(info.typeName)) {
                 ctClass = pool.makeClass(new ByteArrayInputStream(InjectionCacheProxy.get(targetClass)));
+                lastCt = pool.makeClass(new ByteArrayInputStream(InjectionCacheProxy.get(targetClass)));
             } else {
                 ctClass = pool.get(info.typeName);
+                lastCt = pool.get(info.typeName);
             }
         } catch (NotFoundException e) {
             throw new InjectionException("Cannot find class " + info.typeName + " in ClassPool", e);
@@ -216,7 +219,7 @@ public abstract class AbstractMethodInjector {
         }
 
         try {
-            apply(targetClass, bytecode, ctClass.toBytecode());
+            apply(targetClass, bytecode, lastCt.toBytecode());
         } catch (UnmodifiableClassException e) {
             throw new InjectionException("Cannot retransform class " + info.typeName + " (may be locked by JVM)", e);
         }
@@ -580,7 +583,7 @@ public abstract class AbstractMethodInjector {
 
     public static Map<Class<?>, List<InjectionRecord>> getInjectionRecords() {
         if (!JNIIL.isStoreRevertByteCode()) {
-            throw new UnsupportedOperationException("Store Revert not enable, Use JNIIL.setStoreRevertByteCode(true) to enable.");
+            throw new UnsupportedOperationException("Store Revert not enabled, Use JNIIL.setStoreRevertByteCode(true) to enable.");
         }
         return Collections.unmodifiableMap(injectionRecords);
     }

@@ -25,7 +25,7 @@ import java.lang.instrument.UnmodifiableClassException;
  * conditional branches within your injected bytecode rather than modifying the class structure.</p>
  */
 public class InjectionReverter {
-    private static Instrumentation inst = JNIIL.getInstrumentation();
+    private static final Instrumentation inst = JNIIL.getInstrumentation();
 
     /**
      * Reverts a class to the state represented by the provided {@link InjectionRecord}.

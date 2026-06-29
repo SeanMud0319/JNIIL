@@ -155,14 +155,14 @@ public abstract class AbstractMethodInjector {
         }
 
         CtClass ctClass;
-        CtClass lastCt;
+        byte[] lastBytecode;
         try {
             if (InjectionCacheProxy.contains(info.typeName)) {
                 ctClass = pool.makeClass(new ByteArrayInputStream(InjectionCacheProxy.get(targetClass)));
-                lastCt = pool.makeClass(new ByteArrayInputStream(InjectionCacheProxy.get(targetClass)));
+                lastBytecode = InjectionCacheProxy.get(targetClass);
             } else {
                 ctClass = pool.get(info.typeName);
-                lastCt = pool.get(info.typeName);
+                lastBytecode = InjectionUtil.getClassBytes(targetClass);
             }
         } catch (NotFoundException e) {
             throw new InjectionException("Cannot find class " + info.typeName + " in ClassPool", e);
@@ -219,7 +219,7 @@ public abstract class AbstractMethodInjector {
         }
 
         try {
-            apply(targetClass, bytecode, lastCt.toBytecode());
+            apply(targetClass, bytecode, lastBytecode);
         } catch (UnmodifiableClassException e) {
             throw new InjectionException("Cannot retransform class " + info.typeName + " (may be locked by JVM)", e);
         }

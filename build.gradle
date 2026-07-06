@@ -1,11 +1,15 @@
 plugins {
     id 'java'
     id 'com.github.johnrengelman.shadow' version '8.1.1'
-    id 'com.vanniktech.maven.publish' version '0.29.0'
+    id 'com.vanniktech.maven.publish' version '0.29.0' apply false
 }
 
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-import com.vanniktech.maven.publish.SonatypeHost
+
+// Only apply maven-publish plugin if running on Java 11+
+if (JavaVersion.current().isJava11Compatible()) {
+    plugins.apply('com.vanniktech.maven.publish')
+}
 
 java {
     toolchain {
@@ -172,37 +176,40 @@ tasks.withType(AbstractPublishToMaven) {
     dependsOn tasks.shadowJar
 }
 
-mavenPublishing {
-    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
+// Only configure publishing if the plugin is applied
+if (project.plugins.hasPlugin('com.vanniktech.maven.publish')) {
+    mavenPublishing {
+        publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL)
 
-    if (project.hasProperty('enablePublishing')) {
-        signAllPublications()
-    }
-
-    coordinates(group, 'jniil', version)
-
-    pom {
-        name = 'jniil'
-        description = 'Java Non-intrusive Instrumentation Library.'
-        inceptionYear = '2026'
-        url = 'https://github.com/SeanMud0319/JNIIL'
-        licenses {
-            license {
-                name = 'Apache License, Version 2.0'
-                url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
-            }
+        if (project.hasProperty('enablePublishing')) {
+            signAllPublications()
         }
-        developers {
-            developer {
-                id = 'nontage'
-                name = 'Nontage'
-                email = 'whe91000@gmail.com'
-            }
-        }
-        scm {
+
+        coordinates(group, 'jniil', version)
+
+        pom {
+            name = 'jniil'
+            description = 'Java Non-intrusive Instrumentation Library.'
+            inceptionYear = '2026'
             url = 'https://github.com/SeanMud0319/JNIIL'
-            connection = 'scm:git:git://github.com/SeanMud0319/JNIIL.git'
-            developerConnection = 'scm:git:ssh://github.com:SeanMud0319/JNIIL.git'
+            licenses {
+                license {
+                    name = 'Apache License, Version 2.0'
+                    url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
+                }
+            }
+            developers {
+                developer {
+                    id = 'nontage'
+                    name = 'Nontage'
+                    email = 'whe91000@gmail.com'
+                }
+            }
+            scm {
+                url = 'https://github.com/SeanMud0319/JNIIL'
+                connection = 'scm:git:git://github.com/SeanMud0319/JNIIL.git'
+                developerConnection = 'scm:git:ssh://github.com:SeanMud0319/JNIIL.git'
+            }
         }
     }
 }

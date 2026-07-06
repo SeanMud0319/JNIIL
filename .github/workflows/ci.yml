@@ -44,7 +44,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Install JvmContext to local maven
-        run: cd JvmContext && mvn install -DskipTests -Dgpg.skip=true
+        run: cd JvmContext && mvn install -DskipTests
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4

@@ -1,17 +1,16 @@
 plugins {
     id 'java'
-    id 'maven-publish'
-    id 'signing'
     id 'com.github.johnrengelman.shadow' version '8.1.1'
+    id 'com.vanniktech.maven.publish' version '0.29.0'
 }
 
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import com.vanniktech.maven.publish.SonatypeHost
 
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(8)
     }
-    withSourcesJar()
 }
 
 group = 'top.nontage'
@@ -169,54 +168,41 @@ tasks.withType(Javadoc).configureEach {
     options.encoding = 'UTF-8'
 }
 
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            groupId = group
-            artifactId = 'jniil'
-            version = version
-
-            artifact tasks.shadowJar
-            artifact tasks.sourcesJar
-
-            pom {
-                description = 'Java Non-intrusive Instrumentation Library.'
-                url = 'https://github.com/SeanMud0319/JNIIL'
-                licenses {
-                    license {
-                        name = 'Apache License, Version 2.0'
-                        url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
-                    }
-                }
-                developers {
-                    developer {
-                        id = 'nontage'
-                        name = 'Nontage'
-                        email = 'whe91000@gmail.com'
-                    }
-                }
-                scm {
-                    connection = 'scm:git:git://github.com/SeanMud0319/JNIIL.git'
-                    developerConnection = 'scm:git:ssh://github.com:SeanMud0319/JNIIL.git'
-                    url = 'https://github.com/SeanMud0319/JNIIL'
-                }
-            }
-        }
-    }
-    repositories {
-        maven {
-            name = 'SonatypeCentral'
-            url = 'https://central.sonatype.com/api/v1/publisher'
-            credentials {
-                username = project.findProperty('sonatypeUsername') ?: System.getenv('SONATYPE_USERNAME')
-                password = project.findProperty('sonatypePassword') ?: System.getenv('SONATYPE_PASSWORD')
-            }
-        }
-        mavenLocal()
-    }
+tasks.withType(AbstractPublishToMaven) {
+    dependsOn tasks.shadowJar
 }
 
-signing {
-    useGpgCmd()
-    sign publishing.publications.mavenJava
+mavenPublishing {
+    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
+
+    if (project.hasProperty('enablePublishing')) {
+        signAllPublications()
+    }
+
+    coordinates(group, 'jniil', version)
+
+    pom {
+        name = 'jniil'
+        description = 'Java Non-intrusive Instrumentation Library.'
+        inceptionYear = '2026'
+        url = 'https://github.com/SeanMud0319/JNIIL'
+        licenses {
+            license {
+                name = 'Apache License, Version 2.0'
+                url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
+            }
+        }
+        developers {
+            developer {
+                id = 'nontage'
+                name = 'Nontage'
+                email = 'whe91000@gmail.com'
+            }
+        }
+        scm {
+            url = 'https://github.com/SeanMud0319/JNIIL'
+            connection = 'scm:git:git://github.com/SeanMud0319/JNIIL.git'
+            developerConnection = 'scm:git:ssh://github.com:SeanMud0319/JNIIL.git'
+        }
+    }
 }

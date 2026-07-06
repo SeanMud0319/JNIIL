@@ -17,18 +17,17 @@ import static org.objectweb.asm.Opcodes.*;
 
 /**
  * <h1>AccessorInitializer</h1>
- * * <p>A low-level JVM patch addressing <a href="https://bugs.openjdk.org/browse/JDK-8263089">JDK-8263089</a>.</p>
- * * <p>This class manages the lifecycle of generated Accessors by bypassing ClassLoader isolation.
+ * <p>A low-level JVM patch addressing <a href="https://bugs.openjdk.org/browse/JDK-8263089">JDK-8263089</a>.</p>
+ * <p>This class manages the lifecycle of generated Accessors by bypassing ClassLoader isolation.
  * When Java's reflection inflates (after ~15 uses), it creates classes inheriting from {@code MagicAccessorImpl}.
  * Due to the unidirectional nature of ClassLoaders and a specific bug in {@code DelegatingClassLoader},
  * these internal accessors often fail to resolve target interfaces.</p>
- * * <p><b>Mechanism:</b>
+ * <p><b>Mechanism:</b></p>
  * <ul>
  * <li>Injects a registry into the Bootstrap ClassPath.</li>
  * <li>Applies runtime bytecode patches to {@link ClassLoader} to intercept loading requests.</li>
  * <li>Redirects lookups containing "$$ImplByJNIIL$$" to our internal registry, bridging the isolation gap.</li>
  * </ul>
- * </p>
  */
 public class AccessorInitializer {
     private static boolean initialize = false;

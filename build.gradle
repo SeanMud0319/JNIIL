@@ -1,12 +1,22 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies {
+        if (JavaVersion.current().isJava11Compatible()) {
+            classpath 'com.vanniktech:gradle-maven-publish-plugin:0.29.0'
+        }
+    }
+}
+
 plugins {
     id 'java'
     id 'com.github.johnrengelman.shadow' version '8.1.1'
-    id 'com.vanniktech.maven.publish' version '0.29.0' apply false
 }
 
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
-// Only apply maven-publish plugin if running on Java 11+
 if (JavaVersion.current().isJava11Compatible()) {
     plugins.apply('com.vanniktech.maven.publish')
 }
@@ -176,7 +186,6 @@ tasks.withType(AbstractPublishToMaven) {
     dependsOn tasks.shadowJar
 }
 
-// Only configure publishing if the plugin is applied
 if (project.plugins.hasPlugin('com.vanniktech.maven.publish')) {
     mavenPublishing {
         publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL)

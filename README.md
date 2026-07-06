@@ -1,4 +1,6 @@
+![Maven Central](https://img.shields.io/maven-central/v/top.nontage/jniil?label=Maven%20Central)
 ![CI](https://github.com/SeanMud0319/JNIIL/actions/workflows/ci.yml/badge.svg)
+![License](https://img.shields.io/github/license/seanmud0319/jniil)
 # JNIIL - Java Non-intrusive Instrumentation Library
 
 ## Overview
@@ -50,15 +52,9 @@ JNIIL is a runtime dynamic instrumentation library for Java. It provides powerfu
 
 ## Installation
 
-You need to compile [JvmContext](https://github.com/SeanMud0319/JvmContext) first, then use publishToMavenLocal. Use JDK 8
-
 ### Gradle
 
 ```gradle
-repositories {
-    mavenLocal()
-}
-
 dependencies {
     implementation("top.nontage:jniil:1.0.0")
 }
@@ -420,8 +416,6 @@ JNIIL 是一個 Java 執行時期動態 Instrumentation 函式庫。它提供強
 ---
 
 ## 安裝
-
-你需要先編譯 [JvmContext](https://github.com/SeanMud0319/JvmContext) , 接著在 JNIIL 專案中使用 publishToMavenLocal (專案環境請使用 JDK8)
 
 ### Gradle
 

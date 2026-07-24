@@ -10,4 +10,8 @@ import java.lang.annotation.Target;
 public @interface Invoker {
     String value() default "";
     boolean isStatic() default false;
+    // This will replace the Object parameters
+    // use hint {"java.lang.String", "java.lang.String" } then it will from greet(String s, Object obj1, Object obj2) ->
+    // greet(String s, String obj1, String obj2)
+    String[] hints() default {};
 }

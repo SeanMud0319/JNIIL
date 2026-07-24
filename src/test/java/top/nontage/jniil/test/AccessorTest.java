@@ -164,4 +164,16 @@ class AccessorTest {
         // The correct usage is demonstrated in the other tests.
         assertTrue(true, "isStatic validation is handled by AccessorGenerator");
     }
+
+    @Test
+    @DisplayName("Test 10: Wildcard Invoker")
+    void testWildcardInvoker() {
+        UserAccessor accessor1 = AccessorFactory.getAccessor(target, UserAccessor.class);
+        int r1 = accessor1.calculate(10, 20);
+        int r2 = accessor1.calculate(20, Integer.valueOf(30));
+        int r3 = accessor1.calculate(Integer.valueOf(40), Integer.valueOf(50));
+        assertEquals(30, r1);
+        assertEquals(50, r2);
+        assertEquals(90, r3);
+    }
 }

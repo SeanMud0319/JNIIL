@@ -121,4 +121,10 @@ public interface UserAccessor {
 
     @Invoker(value = "callPrivateMethod")
     String callPrivateMethodViaPublic(String input);
+
+    @Invoker
+    int calculate(Object o1, Object o2);
+
+    @Invoker
+    int calculate(int o1, Object o2);
 }

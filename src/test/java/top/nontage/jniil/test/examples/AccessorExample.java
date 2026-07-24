@@ -100,6 +100,9 @@ public class AccessorExample {
         String publicResult = accessor.callPrivateMethodViaPublic("viaPublic");
         System.out.println("  callPrivateMethodViaPublic(\"viaPublic\") = " + publicResult);
 
+        int r = accessor.calculate(30, Integer.valueOf(30));
+        System.out.println(" calculate(30, Integer.valueOf(30)) = " + r);
+
         System.out.println("\n=========================================");
     }
 }

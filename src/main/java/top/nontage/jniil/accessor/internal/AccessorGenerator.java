@@ -18,12 +18,13 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class AccessorGenerator {
     private static final String MAGIC_ACCESSOR_PATH;
     private static final boolean IS_LEGACY_STRATEGY;
     private static final ClassLoader delegatingClassLoader;
-    private static long classCounter = 0;
+    private static final AtomicLong classCounter = new AtomicLong(0);
 
     static {
         if (isClassPresent("sun.reflect.MagicAccessorImpl")) {
@@ -111,13 +112,17 @@ public class AccessorGenerator {
             return hiddenLookup.lookupClass();
         } catch (NoSuchMethodException e) {
             throw new UnsupportedOperationException("Hidden class not supported in this JVM", e);
+        } catch (IllegalAccessException e) {
+            throw new UnsupportedOperationException(
+                    "Cannot access " + targetClass.getName() +
+                            " for hidden class definition. Add 'opens' directive if using modules.", e);
         }
     }
 
     private static GenerateClassData generateBytecodeV22(Class<?> targetClass, Class<?> accessorInterface) {
         try {
             String targetPackage = targetClass.getPackage().getName();
-            String targetClassName = targetPackage + "." + accessorInterface.getSimpleName() + "$$ImplByJNIIL$$" + classCounter++;
+            String targetClassName = targetPackage + "." + accessorInterface.getSimpleName() + "$$ImplByJNIIL$$" + classCounter.incrementAndGet();
             String targetClassPath = targetClassName.replace('.', '/');
             String targetInternalName = targetClass.getName().replace('.', '/');
 
@@ -235,7 +240,7 @@ public class AccessorGenerator {
         String[] hints = invoker.hints();
         Class<?>[] resolvedParams = resolveParameterTypes(interfaceParams, hints, targetClass.getClassLoader());
 
-        Method targetMethod = findTargetMethod(targetClass, targetMethodName, resolvedParams);
+        Method targetMethod = findTargetMethod(targetClass, targetMethodName, resolvedParams, targetIsStatic);
         Class<?>[] targetParamTypes = targetMethod.getParameterTypes();
 
         MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, method.getName(), Type.getMethodDescriptor(method), null, getExceptions(method));
@@ -302,7 +307,7 @@ public class AccessorGenerator {
 
     private static GenerateClassData generateBytecodeV8(Class<?> targetClass, Class<?> accessorInterface) {
         try {
-            String targetClassName = accessorInterface.getName() + "$$ImplByJNIIL$$" + classCounter++;
+            String targetClassName = accessorInterface.getName() + "$$ImplByJNIIL$$" + classCounter.incrementAndGet();
             String targetClassPath = targetClassName.replace('.', '/');
             String targetInternalName = targetClass.getName().replace('.', '/');
 
@@ -423,7 +428,7 @@ public class AccessorGenerator {
         String[] hints = invoker.hints();
         Class<?>[] resolvedParams = resolveParameterTypes(interfaceParams, hints, targetClass.getClassLoader());
 
-        Method targetMethod = findTargetMethod(targetClass, targetMethodName, resolvedParams);
+        Method targetMethod = findTargetMethod(targetClass, targetMethodName, resolvedParams, targetIsStatic);
         Class<?>[] targetParamTypes = targetMethod.getParameterTypes();
 
         MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, method.getName(),
@@ -470,6 +475,17 @@ public class AccessorGenerator {
     }
 
     private static Class<?>[] resolveParameterTypes(Class<?>[] interfaceParams, String[] hints, ClassLoader classLoader) {
+        long objectParamCount = Arrays.stream(interfaceParams)
+                .filter(p -> p == Object.class)
+                .count();
+
+        if (hints.length > objectParamCount) {
+            throw new IllegalArgumentException(
+                    "Too many hints provided: " + hints.length +
+                            " hints but only " + objectParamCount + " Object parameters"
+            );
+        }
+
         Class<?>[] resolved = interfaceParams.clone();
         int hintIndex = 0;
         for (int i = 0; i < resolved.length; i++) {
@@ -483,15 +499,24 @@ public class AccessorGenerator {
 
     private static Class<?> loadClass(String className, ClassLoader classLoader) {
         switch (className) {
-            case "int": return int.class;
-            case "long": return long.class;
-            case "double": return double.class;
-            case "float": return float.class;
-            case "boolean": return boolean.class;
-            case "byte": return byte.class;
-            case "char": return char.class;
-            case "short": return short.class;
-            case "void": return void.class;
+            case "int":
+                return int.class;
+            case "long":
+                return long.class;
+            case "double":
+                return double.class;
+            case "float":
+                return float.class;
+            case "boolean":
+                return boolean.class;
+            case "byte":
+                return byte.class;
+            case "char":
+                return char.class;
+            case "short":
+                return short.class;
+            case "void":
+                return void.class;
             default:
                 try {
                     return Class.forName(className, false, classLoader);
@@ -501,11 +526,15 @@ public class AccessorGenerator {
         }
     }
 
-    private static Method findTargetMethod(Class<?> targetClass, String methodName, Class<?>[] paramTypes) throws NoSuchMethodException {
+    private static Method findTargetMethod(Class<?> targetClass, String methodName, Class<?>[] paramTypes, boolean requireStatic) throws NoSuchMethodException {
         Method[] methods = targetClass.getDeclaredMethods();
 
         List<Method> candidates = new ArrayList<>();
         for (Method m : methods) {
+            if (Modifier.isStatic(m.getModifiers()) != requireStatic) {
+                continue;
+            }
+
             if (m.getName().equals(methodName)) {
                 candidates.add(m);
             }

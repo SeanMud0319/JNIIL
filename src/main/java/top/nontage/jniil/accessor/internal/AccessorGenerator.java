@@ -16,7 +16,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -475,22 +474,29 @@ public class AccessorGenerator {
     }
 
     private static Class<?>[] resolveParameterTypes(Class<?>[] interfaceParams, String[] hints, ClassLoader classLoader) {
-        long objectParamCount = Arrays.stream(interfaceParams)
-                .filter(p -> p == Object.class)
-                .count();
-
+        int objectParamCount = 0;
+        for (Class<?> param : interfaceParams) {
+            if (param == Object.class) {
+                objectParamCount++;
+            }
+        }
         if (hints.length > objectParamCount) {
             throw new IllegalArgumentException(
-                    "Too many hints provided: " + hints.length +
-                            " hints but only " + objectParamCount + " Object parameters"
+                    "Too many hints provided: expected at most " + objectParamCount +
+                            " but got " + hints.length + " for @Invoker"
             );
         }
-
         Class<?>[] resolved = interfaceParams.clone();
         int hintIndex = 0;
         for (int i = 0; i < resolved.length; i++) {
-            if (resolved[i] == Object.class && hintIndex < hints.length && !hints[hintIndex].isEmpty()) {
-                resolved[i] = loadClass(hints[hintIndex], classLoader);
+            if (resolved[i] != Object.class) {
+                continue;
+            }
+            if (hintIndex < hints.length) {
+                String hint = hints[hintIndex];
+                if (!hint.isEmpty()) {
+                    resolved[i] = loadClass(hint, classLoader);
+                }
                 hintIndex++;
             }
         }

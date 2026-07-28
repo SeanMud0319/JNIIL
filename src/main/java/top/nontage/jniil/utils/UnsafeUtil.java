@@ -2,6 +2,7 @@ package top.nontage.jniil.utils;
 
 import sun.misc.Unsafe;
 
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
@@ -13,6 +14,9 @@ public class UnsafeUtil {
 
     public static final Unsafe unsafe;
     public static final MethodHandles.Lookup IMPL_LOOKUP;
+    public static final MethodHandle FIND_VAR_HANDLE_MH;
+    public static final MethodHandle VAR_HANDLE_GET_MH;
+    public static final MethodHandle VAR_HANDLE_SET_MH;
 
     static {
         try {
@@ -39,6 +43,31 @@ public class UnsafeUtil {
             throw new RuntimeException("Failed to acquire IMPL_LOOKUP in this JVM environment", t);
         }
         IMPL_LOOKUP = lookup;
+
+        MethodHandle findVarHandleMH = null;
+        MethodHandle varHandleGetMH = null;
+        MethodHandle varHandleSetMH = null;
+
+        try {
+            Class<?> varHandleClass = Class.forName("java.lang.invoke.VarHandle");
+
+            Method findVarHandle = MethodHandles.Lookup.class.getMethod("findVarHandle", Class.class, String.class, Class.class);
+            findVarHandleMH = IMPL_LOOKUP.unreflect(findVarHandle);
+
+            // VarHandle.get 和 set 是 PolymorphicSignature，需要用 MethodType 匹配
+            // 它們的實際簽名是 (Object...) 但會根據參數型別動態調整
+            // 使用 MethodType.genericMethodType 來匹配變參數
+            MethodType getType = MethodType.genericMethodType(1);
+            MethodType setType = MethodType.genericMethodType(2);
+
+            varHandleGetMH = IMPL_LOOKUP.findVirtual(varHandleClass, "get", getType);
+            varHandleSetMH = IMPL_LOOKUP.findVirtual(varHandleClass, "set", setType);
+        } catch (Throwable ignored) {
+        }
+
+        FIND_VAR_HANDLE_MH = findVarHandleMH;
+        VAR_HANDLE_GET_MH = varHandleGetMH;
+        VAR_HANDLE_SET_MH = varHandleSetMH;
     }
 
     private UnsafeUtil() {
@@ -99,6 +128,44 @@ public class UnsafeUtil {
         }
     }
 
+    // Put the instance if the field is object or put Class if the field is static
+    public static Object forceGetMH(Object instanceOrClass, String fieldName, Class<?> fieldType) throws Throwable {
+        Class<?> clazz;
+        Object instance = null;
+
+        if (instanceOrClass instanceof Class) {
+            clazz = (Class<?>) instanceOrClass;
+        } else {
+            clazz = instanceOrClass.getClass();
+            instance = instanceOrClass;
+        }
+
+        boolean isStatic = instanceOrClass instanceof Class;
+        Object receiver = isStatic ? null : instance;
+
+        Object vh = FIND_VAR_HANDLE_MH.invoke(IMPL_LOOKUP, clazz, fieldName, fieldType);
+        return VAR_HANDLE_GET_MH.invoke(vh, receiver);
+    }
+
+    // Put the instance if the field is object or put Class if the field is static
+    public static void forceSetMH(Object instanceOrClass, String fieldName, Class<?> fieldType, Object value) throws Throwable {
+        Class<?> clazz;
+        Object instance = null;
+
+        if (instanceOrClass instanceof Class) {
+            clazz = (Class<?>) instanceOrClass;
+        } else {
+            clazz = instanceOrClass.getClass();
+            instance = instanceOrClass;
+        }
+
+        boolean isStatic = instanceOrClass instanceof Class;
+        Object receiver = isStatic ? null : instance;
+
+        Object vh = FIND_VAR_HANDLE_MH.invoke(IMPL_LOOKUP, clazz, fieldName, fieldType);
+        VAR_HANDLE_SET_MH.invoke(vh, receiver, value);
+    }
+
     public static Object forceInvoke(Method method, Object obj, Object... args) {
         try {
             MethodType type = MethodType.methodType(method.getReturnType(), method.getParameterTypes());
@@ -154,7 +221,7 @@ public class UnsafeUtil {
             Class<?> internalUnsafeClass = Class.forName("jdk.internal.misc.Unsafe");
             Field theUnsafe = internalUnsafeClass.getDeclaredField("theUnsafe");
             Object internalUnsafe = forceGet(theUnsafe, null);
-            Method defineClassMethod = internalUnsafe.getClass().getDeclaredMethod("defineClass", String.class, byte[].class, int.class, int.class, ClassLoader.class, ProtectionDomain.class);
+            Method defineClassMethod = internalUnsafeClass.getDeclaredMethod("defineClass", String.class, byte[].class, int.class, int.class, ClassLoader.class, ProtectionDomain.class);
             return (Class<?>) forceInvoke(defineClassMethod, internalUnsafe, name, bytes, 0, bytes.length, loader, null);
         } catch (Throwable throwable) {
             if (throwable.getClass() == ClassNotFoundException.class) {

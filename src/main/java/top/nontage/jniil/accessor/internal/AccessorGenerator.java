@@ -7,6 +7,7 @@ import org.objectweb.asm.Type;
 import top.nontage.jniil.accessor.AccessorFactory;
 import top.nontage.jniil.annotations.Accessor;
 import top.nontage.jniil.annotations.Invoker;
+import top.nontage.jniil.utils.DebugUtil;
 import top.nontage.jniil.utils.InjectionUtil;
 import top.nontage.jniil.utils.UnsafeUtil;
 
@@ -27,7 +28,7 @@ public class AccessorGenerator {
 
     static {
         ClassLoader tempLoader;
-        int javaVersion = getJavaVersion();
+        int javaVersion = DebugUtil.getJavaVersion();
         if (javaVersion >= 22) {
             MAGIC_ACCESSOR_PATH = null;
             IS_LEGACY_STRATEGY = false;
@@ -770,18 +771,6 @@ public class AccessorGenerator {
         } catch (Throwable e) {
             return false;
         }
-    }
-
-    private static int getJavaVersion() {
-        String version = System.getProperty("java.version");
-        if (version.startsWith("1.")) {
-            return Integer.parseInt(version.substring(2, 3));
-        }
-        int dotIndex = version.indexOf('.');
-        if (dotIndex != -1) {
-            return Integer.parseInt(version.substring(0, dotIndex));
-        }
-        return Integer.parseInt(version);
     }
 
     protected static class GenerateClassData {

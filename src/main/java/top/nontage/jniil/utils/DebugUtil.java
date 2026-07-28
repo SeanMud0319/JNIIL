@@ -7,6 +7,19 @@ import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
 
 public class DebugUtil {
+
+    public static int getJavaVersion() {
+        String version = System.getProperty("java.version");
+        if (version.startsWith("1.")) {
+            return Integer.parseInt(version.substring(2, 3));
+        }
+        int dotIndex = version.indexOf('.');
+        if (dotIndex != -1) {
+            return Integer.parseInt(version.substring(0, dotIndex));
+        }
+        return Integer.parseInt(version);
+    }
+
     public static void printASMInfo(byte[] bytecode, String label) {
         ClassReader cr = new ClassReader(bytecode);
         ClassNode cn = new ClassNode();

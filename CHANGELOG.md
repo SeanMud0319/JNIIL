@@ -1,6 +1,6 @@
 # 2026 / 7 / 28
 ## This is not AI btw
-## Accessor 問題及發現與思考
+## Accessor 問題及發現
 ### 問題
 發現 Accessor 在 Java22 之後無法突破 Module 隔離，由於主要使用版本都在 8 ~ 17 所以現在才發現，具體問題在 Java22 中 
 MagicAccessorImpl 仍然存在，因此 Accessor 會採用 Legacy 模式，但是由於 Module 隔離的關係，負責實作 Accessor Interface 的 Class
@@ -22,8 +22,5 @@ JDK 把自己的欄位跟方法在反射中隱藏，我原本想直接 patch 這
 - 捨棄 interface 改成 MethodHandle 呼叫 : 可行，但這跟我初衷 direct call 有出入，而且這樣得寫三種 fallback。
 
 因此我決定直接放棄 22 以上版本針對 bootstrap loader 的 accessor 支援，反正正常情況也不會有人去存取 bootstrap 的東西，但仍然支援突破 module 隔離。
-
-### 思考
-Reflection把自己幹掉了他要怎麼查自己的東西
 
 (c) Nontage 2026 All rights reserved.

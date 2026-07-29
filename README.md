@@ -258,6 +258,7 @@ public class MonitorDemo {
 ### Accessor
 
 **Zero-overhead reflection replacement.** Generates ultra-high-performance accessors at runtime with direct-call speed.
+In Java versions 8 through 21, arbitrary objects can be accessed directly—even across module boundaries—without issue; however, in Java 22 and later, architectural changes create conflicts with ClassLoader isolation, preventing access to objects located in the Bootstrap loader.
 
 **Example:**
 
@@ -623,6 +624,8 @@ public class MonitorDemo {
 ### Accessor
 
 **零開銷的反射替代方案。** 在執行時期產生超高效能的 accessor，達到直接呼叫速度。
+Java 8 ~ 21 可以直接存取任意對象，即使是受到模組化隔離也沒有影響，Java 22 以上則會因為架構問題與 Classloader 隔離有所衝突導致無法存取位於
+Bootstrap loader 的對象。
 
 **範例：**
 

@@ -7,6 +7,7 @@ import org.objectweb.asm.Type;
 import top.nontage.jniil.accessor.AccessorFactory;
 import top.nontage.jniil.annotations.Accessor;
 import top.nontage.jniil.annotations.Invoker;
+import top.nontage.jniil.utils.DebugUtil;
 import top.nontage.jniil.utils.InjectionUtil;
 import top.nontage.jniil.utils.UnsafeUtil;
 
@@ -26,7 +27,12 @@ public class AccessorGenerator {
     private static final AtomicLong classCounter = new AtomicLong(0);
 
     static {
-        if (isClassPresent("sun.reflect.MagicAccessorImpl")) {
+        ClassLoader tempLoader;
+        int javaVersion = DebugUtil.getJavaVersion();
+        if (javaVersion >= 22) {
+            MAGIC_ACCESSOR_PATH = null;
+            IS_LEGACY_STRATEGY = false;
+        } else if (isClassPresent("sun.reflect.MagicAccessorImpl")) {
             MAGIC_ACCESSOR_PATH = "sun/reflect/MagicAccessorImpl";
             IS_LEGACY_STRATEGY = true;
         } else if (isClassPresent("jdk.internal.reflect.MagicAccessorImpl")) {
@@ -52,10 +58,11 @@ public class AccessorGenerator {
                     new Class[]{ClassLoader.class},
                     AccessorFactory.class.getClassLoader()
             );
-            delegatingClassLoader = (ClassLoader) loader;
+            tempLoader = (ClassLoader) loader;
         } else {
-            delegatingClassLoader = null;
+            tempLoader = null;
         }
+        delegatingClassLoader = tempLoader;
     }
 
     @SuppressWarnings("unchecked")
@@ -82,9 +89,9 @@ public class AccessorGenerator {
 
     private static Class<?> defineHiddenClassIfAvailable(Class<?> targetClass, byte[] bytes) throws Throwable {
         try {
-            Method privateLookupIn = MethodHandles.class.getDeclaredMethod("privateLookupIn", Class.class, MethodHandles.Lookup.class);
-            privateLookupIn.setAccessible(true);
-            MethodHandles.Lookup lookup = (MethodHandles.Lookup) privateLookupIn.invoke(null, targetClass, MethodHandles.lookup());
+            MethodHandles.Lookup lookup = (MethodHandles.Lookup) UnsafeUtil.forceAllocateInstance(MethodHandles.Lookup.class);
+            UnsafeUtil.forceSetMH(lookup, "lookupClass", Class.class, targetClass);
+            UnsafeUtil.forceSetMH(lookup, "allowedModes", int.class, -1);
             Class<?> classOptionClass = Class.forName("java.lang.invoke.MethodHandles$Lookup$ClassOption");
             Object nestmateOption = null;
             for (Object constant : classOptionClass.getEnumConstants()) {
@@ -109,8 +116,6 @@ public class AccessorGenerator {
                     lookup, bytes, true, options
             );
             return hiddenLookup.lookupClass();
-        } catch (NoSuchMethodException e) {
-            throw new UnsupportedOperationException("Hidden class not supported in this JVM", e);
         } catch (IllegalAccessException e) {
             throw new UnsupportedOperationException(
                     "Cannot access " + targetClass.getName() +

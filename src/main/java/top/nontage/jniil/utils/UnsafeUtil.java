@@ -2,19 +2,27 @@ package top.nontage.jniil.utils;
 
 import sun.misc.Unsafe;
 
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.security.ProtectionDomain;
+import java.util.HashSet;
+import java.util.Set;
 
 public class UnsafeUtil {
 
     public static final Unsafe unsafe;
     public static final MethodHandles.Lookup IMPL_LOOKUP;
+    public static final Set<String> ALL_MEMBERS = new HashSet<>();
+    private static final MethodHandle FIND_VAR_HANDLE_MH;
+    private static final MethodHandle VAR_HANDLE_GET_MH;
+    private static final MethodHandle VAR_HANDLE_SET_MH;
 
     static {
+        ALL_MEMBERS.add("*");
         try {
             Field f = Unsafe.class.getDeclaredField("theUnsafe");
             f.setAccessible(true);
@@ -39,6 +47,24 @@ public class UnsafeUtil {
             throw new RuntimeException("Failed to acquire IMPL_LOOKUP in this JVM environment", t);
         }
         IMPL_LOOKUP = lookup;
+        MethodHandle findVarHandleMH = null;
+        MethodHandle varHandleGetMH = null;
+        MethodHandle varHandleSetMH = null;
+
+        try {
+            Class<?> varHandleClass = Class.forName("java.lang.invoke.VarHandle");
+            Method findVarHandle = MethodHandles.Lookup.class.getMethod("findVarHandle", Class.class, String.class, Class.class);
+            findVarHandleMH = IMPL_LOOKUP.unreflect(findVarHandle);
+            MethodType getType = MethodType.genericMethodType(1, true);
+            MethodType setType = MethodType.methodType(void.class, Object[].class);
+            varHandleGetMH = IMPL_LOOKUP.findVirtual(varHandleClass, "get", getType);
+            varHandleSetMH = IMPL_LOOKUP.findVirtual(varHandleClass, "set", setType);
+        } catch (Throwable ignored) {
+        }
+
+        FIND_VAR_HANDLE_MH = findVarHandleMH;
+        VAR_HANDLE_GET_MH = varHandleGetMH;
+        VAR_HANDLE_SET_MH = varHandleSetMH;
     }
 
     private UnsafeUtil() {
@@ -99,6 +125,75 @@ public class UnsafeUtil {
         }
     }
 
+    // Put the instance if the field is object or put Class if the field is static
+    public static Object forceGetMH(Object instanceOrClass, String fieldName, Class<?> fieldType) {
+        if (FIND_VAR_HANDLE_MH == null || VAR_HANDLE_GET_MH == null) {
+            throw new UnsupportedOperationException("Failed to acquire VarHandle in this JVM environment");
+        }
+        try {
+            Class<?> clazz;
+            Object instance = null;
+
+            if (instanceOrClass instanceof Class) {
+                clazz = (Class<?>) instanceOrClass;
+            } else {
+                clazz = instanceOrClass.getClass();
+                instance = instanceOrClass;
+            }
+
+            boolean isStatic = instanceOrClass instanceof Class;
+            Object receiver = isStatic ? null : instance;
+
+            Object vh = FIND_VAR_HANDLE_MH.invoke(IMPL_LOOKUP, clazz, fieldName, fieldType);
+            return VAR_HANDLE_GET_MH.invoke(vh, receiver);
+        } catch (Throwable e) {
+            throw new RuntimeException("Failed to force set value in MethodHandle.", e);
+        }
+    }
+
+    // Put the instance if the field is object or put Class if the field is static
+    public static void forceSetMH(Object instanceOrClass, String fieldName, Class<?> fieldType, Object value) {
+        if (FIND_VAR_HANDLE_MH == null || VAR_HANDLE_SET_MH == null) {
+            throw new UnsupportedOperationException("Failed to acquire VarHandle in this JVM environment");
+        }
+        try {
+            Class<?> clazz;
+            Object instance = null;
+
+            if (instanceOrClass instanceof Class) {
+                clazz = (Class<?>) instanceOrClass;
+            } else {
+                clazz = instanceOrClass.getClass();
+                instance = instanceOrClass;
+            }
+
+            boolean isStatic = instanceOrClass instanceof Class;
+            Object receiver = isStatic ? null : instance;
+
+            Object vh = FIND_VAR_HANDLE_MH.invoke(IMPL_LOOKUP, clazz, fieldName, fieldType);
+            VAR_HANDLE_SET_MH.invoke(vh, receiver, value);
+        } catch (Throwable e) {
+            throw new RuntimeException("Failed to force get value in MethodHandle.", e);
+        }
+    }
+
+    // Invoke method using IMPL_LOOKUP (bypass module and reflection filter)
+    // If method is static, pass null or Class as first param; if instanced, pass object instance
+    public static Object forceInvokeMH(Class<?> declaringClass, String methodName, MethodType methodType, Object receiver, Object... args) {
+        try {
+            MethodHandle mh;
+            if (receiver == null || receiver instanceof Class) {
+                mh = IMPL_LOOKUP.findStatic(declaringClass, methodName, methodType);
+                return mh.invokeWithArguments(args);
+            } else {
+                mh = IMPL_LOOKUP.findVirtual(declaringClass, methodName, methodType);
+                return mh.invokeWithArguments(prepend(receiver, args));
+            }
+        } catch (Throwable e) {
+            throw new RuntimeException("Failed to force invoke method in MethodHandle.", e);
+        }
+    }
+
     public static Object forceInvoke(Method method, Object obj, Object... args) {
         try {
             MethodType type = MethodType.methodType(method.getReturnType(), method.getParameterTypes());
@@ -112,6 +207,24 @@ public class UnsafeUtil {
             }
         } catch (Throwable t) {
             throw new RuntimeException(t);
+        }
+    }
+
+    public static void registerFieldsToFilter(Class<?> containingClass, Set<String> fieldNames) {
+        try {
+            Class<?> c = Class.forName("jdk.internal.reflect.Reflection");
+            forceInvokeMH(c, "registerFieldsToFilter", MethodType.methodType(void.class, Class.class, Set.class), null, containingClass, fieldNames);
+        } catch (Throwable e) {
+            throw new UnsupportedOperationException("Failed to register filter. Your Java version may not support this feature. Version: " + DebugUtil.getJavaVersion(), e);
+        }
+    }
+
+    public static void registerMethodsToFilter(Class<?> containingClass, Set<String> methodNames) {
+        try {
+            Class<?> c = Class.forName("jdk.internal.reflect.Reflection");
+            forceInvokeMH(c, "registerMethodsToFilter", MethodType.methodType(void.class, Class.class, Set.class), null, containingClass, methodNames);
+        } catch (Throwable e) {
+            throw new UnsupportedOperationException("Failed to register filter. Your Java version may not support this feature. Version: " + DebugUtil.getJavaVersion(), e);
         }
     }
 
@@ -154,7 +267,7 @@ public class UnsafeUtil {
             Class<?> internalUnsafeClass = Class.forName("jdk.internal.misc.Unsafe");
             Field theUnsafe = internalUnsafeClass.getDeclaredField("theUnsafe");
             Object internalUnsafe = forceGet(theUnsafe, null);
-            Method defineClassMethod = internalUnsafe.getClass().getDeclaredMethod("defineClass", String.class, byte[].class, int.class, int.class, ClassLoader.class, ProtectionDomain.class);
+            Method defineClassMethod = internalUnsafeClass.getDeclaredMethod("defineClass", String.class, byte[].class, int.class, int.class, ClassLoader.class, ProtectionDomain.class);
             return (Class<?>) forceInvoke(defineClassMethod, internalUnsafe, name, bytes, 0, bytes.length, loader, null);
         } catch (Throwable throwable) {
             if (throwable.getClass() == ClassNotFoundException.class) {

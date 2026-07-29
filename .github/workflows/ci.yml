@@ -31,20 +31,11 @@ jobs:
         with:
           path: jniil
 
-      - name: Checkout JvmContext
-        uses: actions/checkout@v4
-        with:
-          repository: SeanMud0319/JvmContext
-          path: JvmContext
-
       - name: Set up JDK ${{ matrix.java }}
         uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
-
-      - name: Install JvmContext to local maven
-        run: cd JvmContext && mvn install -DskipTests
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4

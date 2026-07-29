@@ -9,15 +9,22 @@ import org.objectweb.asm.tree.MethodNode;
 public class DebugUtil {
 
     public static int getJavaVersion() {
-        String version = System.getProperty("java.version");
-        if (version.startsWith("1.")) {
-            return Integer.parseInt(version.substring(2, 3));
+        String spec = System.getProperty("java.specification.version");
+        if (spec == null || spec.isEmpty()) {
+            spec = System.getProperty("java.version");
         }
-        int dotIndex = version.indexOf('.');
-        if (dotIndex != -1) {
-            return Integer.parseInt(version.substring(0, dotIndex));
+        if (spec.startsWith("1.")) {
+            spec = spec.substring(2);
         }
-        return Integer.parseInt(version);
+        int dot = spec.indexOf('.');
+        if (dot != -1) {
+            spec = spec.substring(0, dot);
+        }
+        int dash = spec.indexOf('-');
+        if (dash != -1) {
+            spec = spec.substring(0, dash);
+        }
+        return Integer.parseInt(spec);
     }
 
     public static void printASMInfo(byte[] bytecode, String label) {

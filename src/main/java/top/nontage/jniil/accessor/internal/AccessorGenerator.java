@@ -116,8 +116,6 @@ public class AccessorGenerator {
                     lookup, bytes, true, options
             );
             return hiddenLookup.lookupClass();
-        } catch (NoSuchMethodException e) {
-            throw new UnsupportedOperationException("Hidden class not supported in this JVM", e);
         } catch (IllegalAccessException e) {
             throw new UnsupportedOperationException(
                     "Cannot access " + targetClass.getName() +

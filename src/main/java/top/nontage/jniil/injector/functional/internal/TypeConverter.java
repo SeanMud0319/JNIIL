@@ -110,8 +110,13 @@ public class TypeConverter {
             list.add(new InsnNode(Opcodes.ATHROW));
         }
         list.add(notNullLabel);
+
         switch (returnType.getSort()) {
             case Type.BOOLEAN:
+                list.add(new TypeInsnNode(Opcodes.CHECKCAST, "java/lang/Boolean"));
+                list.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/Boolean", "booleanValue", "()Z", false));
+                list.add(new InsnNode(Opcodes.IRETURN));
+                break;
             case Type.BYTE:
             case Type.CHAR:
             case Type.SHORT:

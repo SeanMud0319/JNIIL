@@ -22,7 +22,7 @@ public interface InsnInjectable extends Injectable {
 
     @Override
     default Class<?>[] appendClassLoader() {
-        throw new UnsupportedOperationException("ClassPath manipulation via appendClassLoader is only available for SourceInjectable.");
+        throw new UnsupportedOperationException("ClassPath manipulation via appendClassLoader is only available for StandardInjector.");
     }
 
     @Override

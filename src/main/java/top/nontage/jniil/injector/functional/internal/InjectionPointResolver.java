@@ -28,6 +28,9 @@ public class InjectionPointResolver {
     public InjectionType getType() {
         if (before != null) return InjectionType.BEFORE;
         if (after != null) return InjectionType.AFTER;
+        if (at != null && at.override()) {
+            throw new UnsupportedOperationException("Override attribute is not available in FunctionalInjector.");
+        }
         if (at != null && at.line() >= 0) return InjectionType.AT_LINE;
         if (at != null && at.opcode() != 114514) return InjectionType.AT_OPCODE;
         //return InjectionType.BEFORE;

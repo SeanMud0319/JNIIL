@@ -15,13 +15,15 @@ public class MethodInfoCodeGenerator {
     private final MethodNode targetMethod;
     private final boolean isTargetStatic;
     private final String[] localsToCapture;
+    private final boolean isOverwrite;
 
     public MethodInfoCodeGenerator(Method injectionMethod, MethodNode targetMethod,
-                                   boolean isTargetStatic, String[] localsToCapture) {
+                                   boolean isTargetStatic, String[] localsToCapture, boolean isOverwrite) {
         this.injectionMethod = injectionMethod;
         this.targetMethod = targetMethod;
         this.isTargetStatic = isTargetStatic;
         this.localsToCapture = localsToCapture;
+        this.isOverwrite = isOverwrite;
     }
 
     public InsnList generate() {
@@ -33,6 +35,9 @@ public class MethodInfoCodeGenerator {
         writeBackArguments(list, infoVar);
         writeBackLocals(list, infoVar);
         handleCancellation(list, infoVar);
+        if (isOverwrite) {
+            appendDefaultReturn(list);
+        }
         return list;
     }
 
@@ -348,6 +353,39 @@ public class MethodInfoCodeGenerator {
                 list.add(new TypeInsnNode(Opcodes.CHECKCAST, type.getInternalName()));
                 list.add(new VarInsnNode(Opcodes.ASTORE, slot));
                 break;
+        }
+    }
+
+    private void appendDefaultReturn(InsnList list) {
+        int returnOpcode = TypeConverter.getReturnOpcode(targetMethod.desc);
+        if (returnOpcode == Opcodes.RETURN) {
+            list.add(new InsnNode(Opcodes.RETURN));
+        } else {
+            Type returnType = Type.getReturnType(targetMethod.desc);
+            switch (returnType.getSort()) {
+                case Type.BOOLEAN:
+                case Type.BYTE:
+                case Type.CHAR:
+                case Type.SHORT:
+                case Type.INT:
+                    list.add(new InsnNode(Opcodes.ICONST_0));
+                    break;
+                case Type.LONG:
+                    list.add(new InsnNode(Opcodes.LCONST_0));
+                    break;
+                case Type.FLOAT:
+                    list.add(new InsnNode(Opcodes.FCONST_0));
+                    break;
+                case Type.DOUBLE:
+                    list.add(new InsnNode(Opcodes.DCONST_0));
+                    break;
+                case Type.ARRAY:
+                case Type.OBJECT:
+                default:
+                    list.add(new InsnNode(Opcodes.ACONST_NULL));
+                    break;
+            }
+            list.add(new InsnNode(returnOpcode));
         }
     }
 

@@ -6,6 +6,7 @@ import org.objectweb.asm.util.Printer;
 import top.nontage.jniil.annotations.After;
 import top.nontage.jniil.annotations.At;
 import top.nontage.jniil.annotations.Before;
+import top.nontage.jniil.annotations.Overwrite;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -17,12 +18,14 @@ public class InjectionPointResolver {
     private final Before before;
     private final After after;
     private final At at;
+    private final Overwrite overwrite;
 
     public InjectionPointResolver(MethodNode targetMethod, Method injectionMethod) {
         this.targetMethod = targetMethod;
         this.before = injectionMethod.getAnnotation(Before.class);
         this.after = injectionMethod.getAnnotation(After.class);
         this.at = injectionMethod.getAnnotation(At.class);
+        this.overwrite = injectionMethod.getAnnotation(Overwrite.class);
     }
 
     public InjectionType getType() {
@@ -33,12 +36,13 @@ public class InjectionPointResolver {
         }
         if (at != null && at.line() >= 0) return InjectionType.AT_LINE;
         if (at != null && at.opcode() != 114514) return InjectionType.AT_OPCODE;
+        if (overwrite != null) return InjectionType.OVERWRITE;
         //return InjectionType.BEFORE;
-        throw new IllegalArgumentException("Missing injection point annotation (@Before, @After, or @At)");
+        throw new IllegalArgumentException("Missing injection point annotation (@Before, @After, @At or @Overwrite)");
     }
 
     public int getInjectionLine() {
-        if (before != null) return -1;
+        if (before != null || overwrite != null) return -1;
         if (after != null) return Integer.MAX_VALUE;
         if (at != null && at.line() >= 0) return at.line();
         return -1;
@@ -61,6 +65,10 @@ public class InjectionPointResolver {
                 break;
             case AT_OPCODE:
                 insertAtOpcode(code);
+                break;
+            case OVERWRITE:
+                targetMethod.instructions.clear();
+                targetMethod.instructions.insert(code);
                 break;
         }
     }
@@ -242,6 +250,6 @@ public class InjectionPointResolver {
 
 
     public enum InjectionType {
-        BEFORE, AFTER, AT_LINE, AT_OPCODE
+        BEFORE, AFTER, AT_LINE, AT_OPCODE, OVERWRITE
     }
 }

@@ -89,8 +89,15 @@ public class InstructionInjector extends AbstractMethodInjector {
 
         InsnList finalToInject = (resultInsnList != null) ? resultInsnList : toPush;
         if (finalToInject.size() > 0) {
-            if (at.debug())
+            if (at.debug()) {
                 System.out.println("[JNIIL-DEBUG] Injecting " + finalToInject.size() + " instructions " + (at.shiftAfter() ? "AFTER" : "BEFORE") + " anchor.");
+            }
+
+            if (at.override()) {
+                targetMethod.instructions.insert(anchor, finalToInject);
+                targetMethod.instructions.remove(anchor);
+            }
+
             if (at.shiftAfter()) {
                 targetMethod.instructions.insert(anchor, finalToInject);
             } else {

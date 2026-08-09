@@ -68,6 +68,10 @@ public class InjectionPointResolver {
                 break;
             case OVERWRITE:
                 targetMethod.instructions.clear();
+                if (targetMethod.tryCatchBlocks != null) targetMethod.tryCatchBlocks.clear();
+                if (targetMethod.localVariables != null) targetMethod.localVariables.clear();
+                if (targetMethod.visibleLocalVariableAnnotations != null) targetMethod.visibleLocalVariableAnnotations.clear();
+                if (targetMethod.invisibleLocalVariableAnnotations != null) targetMethod.invisibleLocalVariableAnnotations.clear();
                 targetMethod.instructions.insert(code);
                 break;
         }

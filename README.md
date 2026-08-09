@@ -56,7 +56,7 @@ JNIIL is a runtime dynamic instrumentation library for Java. It provides powerfu
 
 ```gradle
 dependencies {
-    implementation("top.nontage:jniil:1.0.4")
+    implementation("top.nontage:jniil:1.1.0")
 }
 ```
 
@@ -66,7 +66,7 @@ dependencies {
 <dependency>
     <groupId>top.nontage</groupId>
     <artifactId>jniil</artifactId>
-    <version>1.0.4</version>
+    <version>1.1.0</version>
 </dependency>
 ```
 
@@ -422,7 +422,7 @@ JNIIL 是一個 Java 執行時期動態 Instrumentation 函式庫。它提供強
 
 ```gradle
 dependencies {
-    implementation("top.nontage:jniil:1.0.4")
+    implementation("top.nontage:jniil:1.1.0")
 }
 ```
 
@@ -432,7 +432,7 @@ dependencies {
 <dependency>
     <groupId>top.nontage</groupId>
     <artifactId>jniil</artifactId>
-    <version>1.0.4</version>
+    <version>1.1.0</version>
 </dependency>
 ```
 

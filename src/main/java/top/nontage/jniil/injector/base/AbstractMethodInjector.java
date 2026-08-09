@@ -301,7 +301,7 @@ public abstract class AbstractMethodInjector {
 
         if (at != null) {
             if (at.override()) {
-                throw new UnsupportedOperationException("Override attribute is not available in StandardInjector.");
+                throw new UnsupportedOperationException("Override attribute is not available in StandardMethodInjector.");
             }
 
             if (at.line() >= 0) {

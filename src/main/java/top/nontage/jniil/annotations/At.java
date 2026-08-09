@@ -61,7 +61,7 @@ public @interface At {
     boolean shiftAfter() default false;
 
     /**
-     * If true, the injection will direct override the target opcode.
+     * If true, the injection will directly override the target opcode.
      * <b>Note:</b> This attribute is only available for {@link top.nontage.jniil.injector.insn.InstructionInjector}
      *
      * @return true if the injection should override the target opcode

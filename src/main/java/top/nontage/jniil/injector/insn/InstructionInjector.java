@@ -96,12 +96,12 @@ public class InstructionInjector extends AbstractMethodInjector {
             if (at.override()) {
                 targetMethod.instructions.insert(anchor, finalToInject);
                 targetMethod.instructions.remove(anchor);
-            }
-
-            if (at.shiftAfter()) {
-                targetMethod.instructions.insert(anchor, finalToInject);
             } else {
-                targetMethod.instructions.insertBefore(anchor, finalToInject);
+                if (at.shiftAfter()) {
+                    targetMethod.instructions.insert(anchor, finalToInject);
+                } else {
+                    targetMethod.instructions.insertBefore(anchor, finalToInject);
+                }
             }
         }
 

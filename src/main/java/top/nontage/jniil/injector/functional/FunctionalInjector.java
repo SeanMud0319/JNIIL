@@ -83,6 +83,14 @@ public class FunctionalInjector extends AbstractMethodInjector {
             String[] localsToCapture = capture != null ? capture.value() : new String[0];
 
             if (localsToCapture.length > 0 && resolver.getType() != InjectionPointResolver.InjectionType.AT_OPCODE) {
+                if (resolver.getType() == InjectionPointResolver.InjectionType.OVERWRITE) {
+                    throw new IllegalStateException(String.format(
+                            "Injection error in method %s: Cannot capture local variable names using @Capture when using @Overwrite, " +
+                                    "because the entire method body is being cleared and local variable tables will be invalidated.",
+                            targetMethod.name
+                    ));
+                }
+
                 List<String> nameCaptures = new ArrayList<>();
                 for (String s : localsToCapture) {
                     if (!s.startsWith("=")) {
@@ -99,7 +107,7 @@ public class FunctionalInjector extends AbstractMethodInjector {
             }
 
             InsnList injectedCode = new MethodInfoCodeGenerator(
-                    method, targetMethod, Modifier.isStatic(targetMethod.access), localsToCapture
+                    method, targetMethod, Modifier.isStatic(targetMethod.access), localsToCapture, resolver.getType() == InjectionPointResolver.InjectionType.OVERWRITE
             ).generate();
 
             resolver.inject(injectedCode);

@@ -283,34 +283,38 @@ public abstract class AbstractMethodInjector {
     }
 
     protected void insertCode(CtMethod ctMethod, Method method, String src) throws Exception {
-        After afterAnn = method.getAnnotation(After.class);
-        Before beforeAnn = method.getAnnotation(Before.class);
-        At atAnn = method.getAnnotation(At.class);
-        Overwrite overwriteAnn = method.getAnnotation(Overwrite.class);
-        ReplaceCall replaceCallAnn = method.getAnnotation(ReplaceCall.class);
+        After after = method.getAnnotation(After.class);
+        Before before = method.getAnnotation(Before.class);
+        At at = method.getAnnotation(At.class);
+        Overwrite overwrite = method.getAnnotation(Overwrite.class);
+        ReplaceCall replaceCall = method.getAnnotation(ReplaceCall.class);
 
-        if (afterAnn != null) {
+        if (after != null) {
             ctMethod.insertAfter(src);
             return;
         }
 
-        if (beforeAnn != null) {
+        if (before != null) {
             ctMethod.insertBefore(src);
             return;
         }
 
-        if (atAnn != null) {
-            if (atAnn.line() >= 0) {
-                ctMethod.insertAt(atAnn.line(), src);
+        if (at != null) {
+            if (at.override()) {
+                throw new UnsupportedOperationException("Override attribute is not available in StandardMethodInjector.");
+            }
+
+            if (at.line() >= 0) {
+                ctMethod.insertAt(at.line(), src);
                 return;
             }
-            if (atAnn.opcode() != 114514) {
-                injectByGenericOpcode(ctMethod, atAnn, src);
+            if (at.opcode() != 114514) {
+                injectByGenericOpcode(ctMethod, at, src);
                 return;
             }
         }
 
-        if (overwriteAnn != null) {
+        if (overwrite != null) {
             if (!src.startsWith("{") && !src.endsWith("}")) {
                 src = "{" + src + "}";
             }
@@ -318,15 +322,15 @@ public abstract class AbstractMethodInjector {
             return;
         }
 
-        if (replaceCallAnn != null && !replaceCallAnn.value().isEmpty()) {
-            String[] parts = replaceCallAnn.value().split("#");
+        if (replaceCall != null && !replaceCall.value().isEmpty()) {
+            String[] parts = replaceCall.value().split("#");
             if (parts.length != 2) {
-                throw new InjectionException("Invalid ReplaceCall format, expected 'ClassName#methodName', got: " + replaceCallAnn.value());
+                throw new InjectionException("Invalid ReplaceCall format, expected 'ClassName#methodName', got: " + replaceCall.value());
             }
             String replaceCallClass = parts[0];
             String replaceCallMethod = parts[1];
-            int limit = replaceCallAnn.limit();
-            int[] counts = replaceCallAnn.counts();
+            int limit = replaceCall.limit();
+            int[] counts = replaceCall.counts();
             String finalSrc = src;
             ctMethod.instrument(new ExprEditor() {
                 int current = 1;

@@ -6,6 +6,7 @@ import org.objectweb.asm.util.Printer;
 import top.nontage.jniil.annotations.After;
 import top.nontage.jniil.annotations.At;
 import top.nontage.jniil.annotations.Before;
+import top.nontage.jniil.annotations.Overwrite;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -17,25 +18,31 @@ public class InjectionPointResolver {
     private final Before before;
     private final After after;
     private final At at;
+    private final Overwrite overwrite;
 
     public InjectionPointResolver(MethodNode targetMethod, Method injectionMethod) {
         this.targetMethod = targetMethod;
         this.before = injectionMethod.getAnnotation(Before.class);
         this.after = injectionMethod.getAnnotation(After.class);
         this.at = injectionMethod.getAnnotation(At.class);
+        this.overwrite = injectionMethod.getAnnotation(Overwrite.class);
     }
 
     public InjectionType getType() {
         if (before != null) return InjectionType.BEFORE;
         if (after != null) return InjectionType.AFTER;
+        if (at != null && at.override()) {
+            throw new UnsupportedOperationException("Override attribute is not available in FunctionalInjector.");
+        }
         if (at != null && at.line() >= 0) return InjectionType.AT_LINE;
         if (at != null && at.opcode() != 114514) return InjectionType.AT_OPCODE;
+        if (overwrite != null) return InjectionType.OVERWRITE;
         //return InjectionType.BEFORE;
-        throw new IllegalArgumentException("Missing injection point annotation (@Before, @After, or @At)");
+        throw new IllegalArgumentException("Missing injection point annotation (@Before, @After, @At or @Overwrite)");
     }
 
     public int getInjectionLine() {
-        if (before != null) return -1;
+        if (before != null || overwrite != null) return -1;
         if (after != null) return Integer.MAX_VALUE;
         if (at != null && at.line() >= 0) return at.line();
         return -1;
@@ -58,6 +65,14 @@ public class InjectionPointResolver {
                 break;
             case AT_OPCODE:
                 insertAtOpcode(code);
+                break;
+            case OVERWRITE:
+                targetMethod.instructions.clear();
+                if (targetMethod.tryCatchBlocks != null) targetMethod.tryCatchBlocks.clear();
+                if (targetMethod.localVariables != null) targetMethod.localVariables.clear();
+                if (targetMethod.visibleLocalVariableAnnotations != null) targetMethod.visibleLocalVariableAnnotations.clear();
+                if (targetMethod.invisibleLocalVariableAnnotations != null) targetMethod.invisibleLocalVariableAnnotations.clear();
+                targetMethod.instructions.insert(code);
                 break;
         }
     }
@@ -239,6 +254,6 @@ public class InjectionPointResolver {
 
 
     public enum InjectionType {
-        BEFORE, AFTER, AT_LINE, AT_OPCODE
+        BEFORE, AFTER, AT_LINE, AT_OPCODE, OVERWRITE
     }
 }

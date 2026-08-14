@@ -18,8 +18,6 @@ public class UnsafeUtil {
     public static final MethodHandles.Lookup IMPL_LOOKUP;
     public static final Set<String> ALL_MEMBERS = new HashSet<>();
     private static final MethodHandle FIND_VAR_HANDLE_MH;
-    private static final MethodHandle VAR_HANDLE_GET_MH;
-    private static final MethodHandle VAR_HANDLE_SET_MH;
 
     static {
         ALL_MEMBERS.add("*");
@@ -47,24 +45,14 @@ public class UnsafeUtil {
             throw new RuntimeException("Failed to acquire IMPL_LOOKUP in this JVM environment", t);
         }
         IMPL_LOOKUP = lookup;
-        MethodHandle findVarHandleMH = null;
-        MethodHandle varHandleGetMH = null;
-        MethodHandle varHandleSetMH = null;
 
+        MethodHandle findVarHandleMH = null;
         try {
-            Class<?> varHandleClass = Class.forName("java.lang.invoke.VarHandle");
             Method findVarHandle = MethodHandles.Lookup.class.getMethod("findVarHandle", Class.class, String.class, Class.class);
             findVarHandleMH = IMPL_LOOKUP.unreflect(findVarHandle);
-            MethodType getType = MethodType.genericMethodType(1, true);
-            MethodType setType = MethodType.methodType(void.class, Object[].class);
-            varHandleGetMH = IMPL_LOOKUP.findVirtual(varHandleClass, "get", getType);
-            varHandleSetMH = IMPL_LOOKUP.findVirtual(varHandleClass, "set", setType);
         } catch (Throwable ignored) {
         }
-
         FIND_VAR_HANDLE_MH = findVarHandleMH;
-        VAR_HANDLE_GET_MH = varHandleGetMH;
-        VAR_HANDLE_SET_MH = varHandleSetMH;
     }
 
     private UnsafeUtil() {
@@ -126,52 +114,47 @@ public class UnsafeUtil {
     }
 
     // Put the instance if the field is object or put Class if the field is static
-    public static Object forceGetMH(Object instanceOrClass, String fieldName, Class<?> fieldType) {
-        if (FIND_VAR_HANDLE_MH == null || VAR_HANDLE_GET_MH == null) {
+    public static void forceSetMH(Object instanceOrClass, String fieldName, Class<?> fieldType, Object value) {
+        if (FIND_VAR_HANDLE_MH == null) {
             throw new UnsupportedOperationException("Failed to acquire VarHandle in this JVM environment");
         }
         try {
-            Class<?> clazz;
-            Object instance = null;
-
-            if (instanceOrClass instanceof Class) {
-                clazz = (Class<?>) instanceOrClass;
-            } else {
-                clazz = instanceOrClass.getClass();
-                instance = instanceOrClass;
-            }
-
-            boolean isStatic = instanceOrClass instanceof Class;
-            Object receiver = isStatic ? null : instance;
-
+            Class<?> clazz = (instanceOrClass instanceof Class) ? (Class<?>) instanceOrClass : instanceOrClass.getClass();
+            Object receiver = (instanceOrClass instanceof Class) ? null : instanceOrClass;
             Object vh = FIND_VAR_HANDLE_MH.invoke(IMPL_LOOKUP, clazz, fieldName, fieldType);
-            return VAR_HANDLE_GET_MH.invoke(vh, receiver);
+            Class<?> varHandleClass = Class.forName("java.lang.invoke.VarHandle");
+            Class<?> valueType = fieldType.isPrimitive() ? fieldType : Object.class;
+            MethodHandle setMH = IMPL_LOOKUP.findStatic(
+                    vh.getClass(),
+                    "set",
+                    MethodType.methodType(void.class, varHandleClass, Object.class, valueType)
+            );
+
+            setMH.invoke(vh, receiver, value);
         } catch (Throwable e) {
             throw new RuntimeException("Failed to force set value in MethodHandle.", e);
         }
     }
 
     // Put the instance if the field is object or put Class if the field is static
-    public static void forceSetMH(Object instanceOrClass, String fieldName, Class<?> fieldType, Object value) {
-        if (FIND_VAR_HANDLE_MH == null || VAR_HANDLE_SET_MH == null) {
+    public static Object forceGetMH(Object instanceOrClass, String fieldName, Class<?> fieldType) {
+        if (FIND_VAR_HANDLE_MH == null) {
             throw new UnsupportedOperationException("Failed to acquire VarHandle in this JVM environment");
         }
         try {
-            Class<?> clazz;
-            Object instance = null;
-
-            if (instanceOrClass instanceof Class) {
-                clazz = (Class<?>) instanceOrClass;
-            } else {
-                clazz = instanceOrClass.getClass();
-                instance = instanceOrClass;
-            }
-
-            boolean isStatic = instanceOrClass instanceof Class;
-            Object receiver = isStatic ? null : instance;
-
+            Class<?> clazz = (instanceOrClass instanceof Class) ? (Class<?>) instanceOrClass : instanceOrClass.getClass();
+            Object receiver = (instanceOrClass instanceof Class) ? null : instanceOrClass;
             Object vh = FIND_VAR_HANDLE_MH.invoke(IMPL_LOOKUP, clazz, fieldName, fieldType);
-            VAR_HANDLE_SET_MH.invoke(vh, receiver, value);
+            MethodHandle getMH = IMPL_LOOKUP.findVirtual(
+                    vh.getClass(),
+                    "get",
+                    MethodType.methodType(Object.class, Object.class)
+            );
+            if (receiver == null) {
+                return getMH.invoke(vh, null);
+            } else {
+                return getMH.invoke(vh, receiver);
+            }
         } catch (Throwable e) {
             throw new RuntimeException("Failed to force get value in MethodHandle.", e);
         }

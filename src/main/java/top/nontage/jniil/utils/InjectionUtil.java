@@ -181,6 +181,13 @@ public class InjectionUtil {
     }
 
     public static String getDescriptor(String className) {
+        if (className.startsWith("L") && className.endsWith(";")) {
+            return className;
+        }
+        if (className.startsWith("[")) {
+            return className;
+        }
+
         switch (className) {
             case "int": return "I";
             case "long": return "J";
@@ -190,12 +197,15 @@ public class InjectionUtil {
             case "short": return "S";
             case "float": return "F";
             case "double": return "D";
-            case "void":
-            case "V":
-                return "V";
-            default:
-                return "L" + className.replace('.', '/') + ";";
+            case "void": return "V";
         }
+
+        if (className.endsWith("[]")) {
+            String base = className.substring(0, className.length() - 2);
+            return "[" + getDescriptor(base);
+        }
+
+        return "L" + className.replace('.', '/') + ";";
     }
 
     // Just define class into exists ClassLoader

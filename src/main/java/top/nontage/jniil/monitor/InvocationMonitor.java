@@ -38,13 +38,57 @@ public final class InvocationMonitor {
     private static Method getDeclaringClassMethod;
     private static Method getMethodNameMethod;
     private static Object cachedFunctionProxy;
-    private static boolean isJava8 = false;
+    private static boolean isLegacy = false;
+    private static boolean init = false;
 
     static {
         try {
+            Class<?> clazz = Class.forName("top.nontage.jniil.monitor.InvocationMonitor", false, null);
+            ClassLoader loader = clazz.getClassLoader();
+            if (loader != null) {
+                throw createLoaderError(loader);
+            }
             initCallerMechanism();
         } catch (Exception e) {
-            throw new RuntimeException("Failed to initial InvocationMonitor", e);
+            initCallerMechanismSafely();
+        }
+    }
+
+    private static IllegalStateException createLoaderError(ClassLoader loader) {
+        return new IllegalStateException(
+                "\n[JNIIL] FATAL: InvocationMonitor must be loaded by Bootstrap ClassLoader (null)\n" +
+                        "  Current loader: " + loader.getClass().getName() + " @" +
+                        Integer.toHexString(System.identityHashCode(loader)) + "\n" +
+                        "\n" +
+                        "CAUSE: JNIIL class was referenced before JNIILBootstrap.install() was called,\n" +
+                        "       or JNIILBootstrap.install() is in the same class as InvocationMonitor.\n" +
+                        "\n" +
+                        "SOLUTION:\n" +
+                        "  1. Move JNIILBootstrap.install() to the FIRST line of your main() method.\n" +
+                        "  2. Do NOT use InvocationMonitor in the same class that calls install().\n" +
+                        "  3. Separate InvocationMonitor usage into a different class.\n" +
+                        "\n" +
+                        "EXAMPLE:\n" +
+                        "  public static void main(String[] args) throws Exception {\n" +
+                        "      JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);  // ← FIRST!\n" +
+                        "      // ... your code ...\n" +
+                        "  }\n" +
+                        "  // Use InvocationMonitor in a DIFFERENT class\n" +
+                        "\n" +
+                        "Current loader: " + loader + "\n" +
+                        "Expected loader: null (Bootstrap ClassLoader)"
+        );
+    }
+
+    private static void initCallerMechanismSafely() {
+        try {
+            initCallerMechanism();
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "[JNIIL] Failed to initialize InvocationMonitor caller mechanism.\n" +
+                            "Make sure JNIILBootstrap.install() is called before using JNIIL.",
+                    e
+            );
         }
     }
 
@@ -215,6 +259,9 @@ public final class InvocationMonitor {
     }
 
     private static void hookExecutable(Executable executable) throws Exception {
+        if (!init) {
+            throw new IllegalStateException("CallerMechanism is not initialization.");
+        }
         Class<?> targetClass = executable.getDeclaringClass();
         String className = targetClass.getName();
 
@@ -278,10 +325,12 @@ public final class InvocationMonitor {
                     }
             );
         } catch (ClassNotFoundException e) {
-            isJava8 = true;
+            isLegacy = true;
             Class<?> refClass = Class.forName("sun.reflect.Reflection");
             getCallerMethod8 = refClass.getMethod("getCallerClass", int.class);
             getCallerMethod8.setAccessible(true);
+        } finally {
+            init = true;
         }
     }
 
@@ -298,7 +347,7 @@ public final class InvocationMonitor {
 
         CallerDetail result = null;
 
-        if (isJava8) {
+        if (isLegacy) {
             for (int i = 3; i < stack.length; i++) {
                 StackTraceElement frame = stack[i];
                 String cn = frame.getClassName();

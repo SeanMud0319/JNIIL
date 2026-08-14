@@ -3,6 +3,7 @@ package top.nontage.jniil.agent;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import top.nontage.jniil.JNIIL;
+import top.nontage.jniil.accessor.internal.AccessorInitializer;
 import top.nontage.jniil.utils.InjectionUtil;
 import top.nontage.jniil.utils.UnsafeUtil;
 import top.nontage.jvmcontext.JvmContext;
@@ -142,6 +143,7 @@ public class JNIILBootstrap {
                 File jar = LibraryJarFinder.getLibraryJar();
                 File filtered = BootstrapJarBuilder.createFilteredBootstrapJar(jar);
                 instrumentation.appendToBootstrapClassLoaderSearch(new JarFile(filtered));
+                AccessorInitializer.init();
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

@@ -13,6 +13,8 @@ import top.nontage.jniil.interfaces.InsnInjectable;
 import top.nontage.jniil.utils.InjectionUtil;
 import top.nontage.jniil.utils.UnsafeUtil;
 
+import java.security.ProtectionDomain;
+
 import static org.objectweb.asm.Opcodes.*;
 
 /**
@@ -34,6 +36,7 @@ public class AccessorInitializer {
     private static Class<?> accessorRegistry;
 
     private static final boolean IS_JAVA_8;
+
     static {
         boolean is8 = false;
         try {
@@ -55,7 +58,7 @@ public class AccessorInitializer {
                 boolean verify = JNIIL.isJvmVerifyToggle();
                 try {
                     if (verify) JNIIL.setJvmVerifyToggle(false);
-
+                    new InstructionInjector().inject(new DefineClassPatch());
                     if (IS_JAVA_8) {
                         new InstructionInjector().inject(new DelegatingClassLoaderPatch());
                     } else {
@@ -185,6 +188,74 @@ public class AccessorInitializer {
             inst.add(new JumpInsnNode(IFNULL, notFound));
             inst.add(new InsnNode(ARETURN));
             inst.add(notFound);
+            inst.add(new InsnNode(POP));
+
+            return inst;
+        }
+    }
+
+    private static class DefineClassPatch implements InsnInjectable {
+        @InjectMethodInfo(
+                targetType = ClassLoader.class,
+                targetMethodName = "defineClass",
+                targetMethodParamTypes = {String.class, byte[].class, int.class, int.class, ProtectionDomain.class}
+        )
+        @At(opcode = ALOAD, identifier = "0")
+        @Override
+        public InsnList apply(InsnContext ctx, InsnList insns) {
+            InsnList inst = new InsnList();
+            LabelNode notBootAccessor = new LabelNode();
+
+            inst.add(new VarInsnNode(ALOAD, 1));
+            inst.add(new InsnNode(DUP));
+            inst.add(new JumpInsnNode(IFNULL, notBootAccessor));
+
+            inst.add(new InsnNode(DUP));
+            inst.add(new LdcInsnNode("["));
+            inst.add(new MethodInsnNode(INVOKEVIRTUAL, "java/lang/String", "startsWith",
+                    "(Ljava/lang/String;)Z", false));
+            inst.add(new JumpInsnNode(IFNE, notBootAccessor));
+
+            inst.add(new InsnNode(DUP));
+            inst.add(new LdcInsnNode("$$ImplByJNIIL$$"));
+            inst.add(new MethodInsnNode(INVOKEVIRTUAL, "java/lang/String", "contains",
+                    "(Ljava/lang/CharSequence;)Z", false));
+            inst.add(new JumpInsnNode(IFNE, notBootAccessor));
+
+            inst.add(new InsnNode(DUP));
+            inst.add(new MethodInsnNode(INVOKESTATIC,
+                    "top/nontage/jniil/utils/AccessorUtil",
+                    "isExcludedPrefix",
+                    "(Ljava/lang/String;)Z", false));
+            inst.add(new JumpInsnNode(IFNE, notBootAccessor));
+
+            inst.add(new VarInsnNode(ALOAD, 2));
+            inst.add(new MethodInsnNode(INVOKESTATIC,
+                    "top/nontage/jniil/utils/AccessorUtil",
+                    "hasInterfaceAndAnnotation",
+                    "([B)Z", false));
+            inst.add(new JumpInsnNode(IFEQ, notBootAccessor));
+
+            inst.add(new VarInsnNode(ALOAD, 1));
+            inst.add(new LdcInsnNode("/"));
+            inst.add(new LdcInsnNode("."));
+            inst.add(new MethodInsnNode(INVOKEVIRTUAL, "java/lang/String", "replace",
+                    "(Ljava/lang/CharSequence;Ljava/lang/CharSequence;)Ljava/lang/String;",
+                    false));
+
+            inst.add(new InsnNode(ACONST_NULL));
+
+            inst.add(new VarInsnNode(ALOAD, 2));
+
+            inst.add(new MethodInsnNode(INVOKESTATIC,
+                    "top/nontage/jniil/utils/UnsafeUtil",
+                    "defineClass",
+                    "(Ljava/lang/String;Ljava/lang/ClassLoader;[B)Ljava/lang/Class;",
+                    false));
+
+            inst.add(new InsnNode(ARETURN));
+
+            inst.add(notBootAccessor);
             inst.add(new InsnNode(POP));
 
             return inst;

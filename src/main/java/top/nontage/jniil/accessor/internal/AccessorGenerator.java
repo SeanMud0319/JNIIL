@@ -6,6 +6,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import top.nontage.jniil.accessor.AccessorFactory;
 import top.nontage.jniil.annotations.Accessor;
+import top.nontage.jniil.annotations.BootAccessor;
 import top.nontage.jniil.annotations.Invoker;
 import top.nontage.jniil.utils.DebugUtil;
 import top.nontage.jniil.utils.InjectionUtil;
@@ -80,6 +81,13 @@ public class AccessorGenerator {
             return (T) UnsafeUtil.forceNewInstance(accessorImpl, new Class[]{targetClass}, instance);
         } else {
             Class<?> targetClass = instance.getClass();
+            if (targetClass.getClassLoader() == null && !accessorInterface.isAnnotationPresent(BootAccessor.class)) {
+                throw new UnsupportedOperationException(
+                        "Cannot generate accessor for class in Bootstrap ClassLoader: " + targetClass.getName() +
+                                ". The accessor interface " + accessorInterface.getName() +
+                                " must be annotated with @BootAccessor to be defined in Bootstrap."
+                );
+            }
             GenerateClassData data = generateBytecodeV22(targetClass, accessorInterface);
             Class<?> accessorImpl = defineHiddenClassIfAvailable(targetClass, data.bytes);
             Object accessorInstance = UnsafeUtil.forceNewInstance(accessorImpl, new Class[]{targetClass}, instance);

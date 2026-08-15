@@ -221,7 +221,7 @@ public final class InvocationMonitor {
 
     private static void hookExecutable(Executable executable) throws Exception {
         if (!init) {
-            throw new IllegalStateException("CallerMechanism is not initialization.");
+            throw new IllegalStateException("Caller mechanism is not initialized.");
         }
         Class<?> targetClass = executable.getDeclaringClass();
         String className = targetClass.getName();

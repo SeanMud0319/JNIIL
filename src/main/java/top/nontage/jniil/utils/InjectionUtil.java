@@ -197,7 +197,9 @@ public class InjectionUtil {
             case "short": return "S";
             case "float": return "F";
             case "double": return "D";
-            case "void": return "V";
+            case "void":
+            case "V":
+                return "V";
         }
 
         if (className.endsWith("[]")) {

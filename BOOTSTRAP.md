@@ -54,7 +54,7 @@ In modular architectures (OSGi, JPMS, custom classloader isolation), each module
 - `top.nontage.jniil.injector.functional.internal.*`
 - `top.nontage.jniil.annotations.*`
 - `top.nontage.jniil.interfaces.*`
-- - `top.nontage.jniil.monitor.*`
+- `top.nontage.jniil.monitor.*`
 - `top.nontage.relocated.*` (relocated ASM)
 - `javassist.*`
 - `org.objectweb.*` (original ASM)

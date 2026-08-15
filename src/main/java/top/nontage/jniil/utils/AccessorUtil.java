@@ -21,8 +21,8 @@ public class AccessorUtil {
     }
 
     private static final Set<String> EXCLUDED_PREFIXES = new HashSet<>(Arrays.asList(
-            "java/", "javax/", "sun/", "jdk/", "com/sun/",
-            "com/oracle/", "org/w3c/", "org/xml/", "org/ietf/", "org/omg/"
+            "java.", "javax.", "sun.", "jdk.", "com.sun.",
+            "com.oracle.", "org.w3c.", "org.xml.", "org.ietf.", "org.omg."
     ));
 
     public static boolean hasInterfaceAndAnnotation(byte[] classBytes) {

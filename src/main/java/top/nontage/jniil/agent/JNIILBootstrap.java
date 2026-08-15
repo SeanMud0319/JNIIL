@@ -141,12 +141,51 @@ public class JNIILBootstrap {
 
             try {
                 File jar = LibraryJarFinder.getLibraryJar();
+                BootstrapJarBuilder.deleteTempJar("jniil-bootstrap-filtered");
                 File filtered = BootstrapJarBuilder.createFilteredBootstrapJar(jar);
                 instrumentation.appendToBootstrapClassLoaderSearch(new JarFile(filtered));
                 AccessorInitializer.init();
+                checkInvocationMonitor();
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
+        }
+    }
+
+    // Make sure no one use InvocationMonitor in the same class that calls install().
+    // This check cannot be placed inside the Invocation module because doing so would
+    // cause the module to reference its own classes during initialization, triggering
+    // a circular dependency and resulting in LinkageError.
+    private static void checkInvocationMonitor() {
+        try {
+            Class<?> clazz = Class.forName("top.nontage.jniil.monitor.InvocationListener");
+            if (clazz.getClassLoader() != null) {
+                throw new IllegalStateException(
+                        "\n[JNIIL] FATAL: InvocationMonitor must be loaded by Bootstrap ClassLoader (null)\n" +
+                                "  Current loader: " + clazz.getClassLoader().getClass().getName() + " @" +
+                                Integer.toHexString(System.identityHashCode(clazz.getClassLoader())) + "\n" +
+                                "\n" +
+                                "CAUSE: JNIIL class was referenced before JNIILBootstrap.install() was called,\n" +
+                                "       or JNIILBootstrap.install() is in the same class as InvocationMonitor.\n" +
+                                "\n" +
+                                "SOLUTION:\n" +
+                                "  1. Move JNIILBootstrap.install() to the FIRST line of your main() method.\n" +
+                                "  2. Do NOT use InvocationMonitor in the same class that calls install().\n" +
+                                "  3. Separate InvocationMonitor usage into a different class.\n" +
+                                "\n" +
+                                "EXAMPLE:\n" +
+                                "  public static void main(String[] args) throws Exception {\n" +
+                                "      JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);  // ← FIRST!\n" +
+                                "      // ... your code ...\n" +
+                                "  }\n" +
+                                "  // Use InvocationMonitor in a DIFFERENT class\n" +
+                                "\n" +
+                                "Current loader: " + clazz.getClassLoader() + "\n" +
+                                "Expected loader: null (Bootstrap ClassLoader)"
+                );
+            }
+        } catch (ClassNotFoundException ignored) {
+            //
         }
     }
 

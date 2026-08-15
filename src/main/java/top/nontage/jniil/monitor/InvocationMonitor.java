@@ -43,45 +43,6 @@ public final class InvocationMonitor {
 
     static {
         try {
-            Class<?> clazz = Class.forName("top.nontage.jniil.monitor.InvocationMonitor", false, null);
-            ClassLoader loader = clazz.getClassLoader();
-            if (loader != null) {
-                throw createLoaderError(loader);
-            }
-            initCallerMechanism();
-        } catch (Exception e) {
-            initCallerMechanismSafely();
-        }
-    }
-
-    private static IllegalStateException createLoaderError(ClassLoader loader) {
-        return new IllegalStateException(
-                "\n[JNIIL] FATAL: InvocationMonitor must be loaded by Bootstrap ClassLoader (null)\n" +
-                        "  Current loader: " + loader.getClass().getName() + " @" +
-                        Integer.toHexString(System.identityHashCode(loader)) + "\n" +
-                        "\n" +
-                        "CAUSE: JNIIL class was referenced before JNIILBootstrap.install() was called,\n" +
-                        "       or JNIILBootstrap.install() is in the same class as InvocationMonitor.\n" +
-                        "\n" +
-                        "SOLUTION:\n" +
-                        "  1. Move JNIILBootstrap.install() to the FIRST line of your main() method.\n" +
-                        "  2. Do NOT use InvocationMonitor in the same class that calls install().\n" +
-                        "  3. Separate InvocationMonitor usage into a different class.\n" +
-                        "\n" +
-                        "EXAMPLE:\n" +
-                        "  public static void main(String[] args) throws Exception {\n" +
-                        "      JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);  // ← FIRST!\n" +
-                        "      // ... your code ...\n" +
-                        "  }\n" +
-                        "  // Use InvocationMonitor in a DIFFERENT class\n" +
-                        "\n" +
-                        "Current loader: " + loader + "\n" +
-                        "Expected loader: null (Bootstrap ClassLoader)"
-        );
-    }
-
-    private static void initCallerMechanismSafely() {
-        try {
             initCallerMechanism();
         } catch (Exception e) {
             throw new RuntimeException(

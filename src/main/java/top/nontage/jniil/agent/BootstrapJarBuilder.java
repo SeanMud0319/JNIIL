@@ -57,6 +57,18 @@ public class BootstrapJarBuilder {
         return filteredJar;
     }
 
+    public static void deleteTempJar(String fileNamePrefix) {
+        try {
+            File tempDir = new File(System.getProperty("java.io.tmpdir"));
+            File[] files = tempDir.listFiles((dir, name) -> name.startsWith(fileNamePrefix) && name.endsWith(".jar"));
+            if (files == null) return;
+            for (File file : files) {
+                file.delete();
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
     private static boolean shouldKeepClass(String className) {
         if (className.equals("top.nontage.jniil.injector.insn.InsnContext")) return true;
         if (className.equals("top.nontage.jniil.injector.functional.MethodInfo")) return true;

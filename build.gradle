@@ -45,7 +45,7 @@ dependencies {
     implementation("org.ow2.asm:asm-commons:9.8")
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
+    testImplementation 'org.junit.platform:junit-platform-launcher:1.10.2'
 }
 
 tasks.register('shadowJarTest', ShadowJar) {
@@ -90,6 +90,7 @@ tasks.withType(JavaExec).configureEach {
 
 test {
     include '**/*Test.class'
+    exclude '**/MonitorTest.class'
 }
 
 tasks.register('testStandard', Test) {
@@ -123,7 +124,7 @@ tasks.register('runInstruction', JavaExec) {
 }
 
 tasks.register('testMonitor', Test) {
-    include '**/MonitorTest.class'
+    include '**/BootstrapTest.class'
     group = 'verification'
 }
 

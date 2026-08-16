@@ -11,6 +11,7 @@ import java.util.Set;
 import static org.objectweb.asm.Opcodes.ACC_INTERFACE;
 import static org.objectweb.asm.Opcodes.ASM9;
 
+// You should NOT use this.
 // Invoke from AccessorInitializer.DefineClassPatch = Invoke from ClassLoader.defineClass
 public class AccessorUtil {
     public static boolean isExcludedPrefix(String className) {

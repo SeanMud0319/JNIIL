@@ -234,14 +234,63 @@ public final class InvocationMonitor {
         }
 
         ClassReader cr = new ClassReader(classBytes);
+
+        /*
+         * Since ASM uses the relocated version and is currently defined into the Bootstrap ClassLoader,
+         * the default getCommonSuperClass() looks up types only from Bootstrap's classpath.
+         * This means it will fail for any target classes not visible to Bootstrap.
+         * Therefore, on failure, this fallback first tries SystemClassLoader, then the target class's own ClassLoader.
+         * If both fail, it falls back to cross-loader search via findClassAcrossClassLoaders.
+         * If still not found, it returns "java/lang/Object" as a safe fallback.
+         * 2026 / 08 / 26
+         */
         ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
             @Override
             protected String getCommonSuperClass(String type1, String type2) {
                 try {
                     return super.getCommonSuperClass(type1, type2);
-                } catch (Throwable e) {
-                    return "java/lang/Object";
+                } catch (Throwable ignored) {
                 }
+
+                String internalName1 = type1.replace('/', '.');
+                String internalName2 = type2.replace('/', '.');
+
+                try {
+                    return loadAndFindCommonSuper(internalName1, internalName2, ClassLoader.getSystemClassLoader());
+                } catch (Throwable ignored) {
+                }
+
+                try {
+                    ClassLoader loader = targetClass.getClassLoader();
+                    if (loader != null) {
+                        return loadAndFindCommonSuper(internalName1, internalName2, loader);
+                    }
+                } catch (Throwable ignored) {
+                }
+
+                try {
+                    Class<?> c1 = InjectionUtil.findClassAcrossClassLoaders(internalName1);
+                    Class<?> c2 = InjectionUtil.findClassAcrossClassLoaders(internalName2);
+                    return getCommonSuperClass(c1, c2);
+                } catch (Throwable ignored) {
+                }
+                return "java/lang/Object";
+            }
+
+            private String loadAndFindCommonSuper(String name1, String name2, ClassLoader loader) throws ClassNotFoundException {
+                Class<?> c1 = Class.forName(name1, false, loader);
+                Class<?> c2 = Class.forName(name2, false, loader);
+                return getCommonSuperClass(c1, c2);
+            }
+
+            private String getCommonSuperClass(Class<?> c1, Class<?> c2) {
+                if (c1.isAssignableFrom(c2)) return c1.getName().replace('.', '/');
+                if (c2.isAssignableFrom(c1)) return c2.getName().replace('.', '/');
+                Class<?> parent = c1.getSuperclass();
+                while (parent != null && !parent.isAssignableFrom(c2)) {
+                    parent = parent.getSuperclass();
+                }
+                return parent == null ? "java/lang/Object" : parent.getName().replace('.', '/');
             }
         };
 
@@ -253,6 +302,7 @@ public final class InvocationMonitor {
         redefineClass(targetClass, newBytes);
         InjectionCacheProxy.put(targetClass, newBytes);
     }
+
 
     @SuppressWarnings({"SuspiciousInvocationHandlerImplementation", "unchecked", "rawtypes"})
     private static void initCallerMechanism() throws Exception {

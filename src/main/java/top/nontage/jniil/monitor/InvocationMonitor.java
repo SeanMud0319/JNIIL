@@ -234,7 +234,16 @@ public final class InvocationMonitor {
         }
 
         ClassReader cr = new ClassReader(classBytes);
-        ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+            @Override
+            protected String getCommonSuperClass(String type1, String type2) {
+                try {
+                    return super.getCommonSuperClass(type1, type2);
+                } catch (Throwable e) {
+                    return "java/lang/Object";
+                }
+            }
+        };
 
         String key = getExecutableKey(executable);
         InvocationClassVisitor cv = new InvocationClassVisitor(cw, executable, key);

@@ -80,6 +80,7 @@ public class BootstrapJarBuilder {
         if (className.startsWith("top.nontage.jniil.utils.UnsafeUtil")) return true;
         if (className.startsWith("top.nontage.jniil.utils.InjectionUtil")) return true;
         if (className.startsWith("top.nontage.jniil.utils.AccessorUtil")) return true;
+        if (className.startsWith("top.nontage.jniil.verify.BytecodeVerifier")) return true;
         if (className.startsWith("top.nontage.relocated")) return true;
 
         if (!hasRelocated) {

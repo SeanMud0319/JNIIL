@@ -219,7 +219,7 @@ public class InjectionUtil {
     }
 
     @FunctionalInterface
-    public interface DefineClassInterface {
+    private interface DefineClassInterface {
         Class<?> defineClass(ClassLoader loader, String name, byte[] b, int off, int len) throws Throwable;
     }
 

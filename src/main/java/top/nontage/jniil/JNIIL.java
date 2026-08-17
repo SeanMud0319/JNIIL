@@ -13,6 +13,7 @@ public class JNIIL {
     private static boolean bytecodeVerifyWarning = true;
     private static boolean jvmVerifyToggle = false;
     private static boolean asmVerifyToggle = true;
+    private static boolean functionalVerifyToggle = true;
 
     public static void setInstrumentation(Instrumentation inst) {
         instrumentation = inst;
@@ -89,6 +90,14 @@ public class JNIIL {
 
     public static boolean isStoreRevertByteCode() {
         return storeRevertByteCode;
+    }
+
+    public static void setFunctionalVerifyToggle(boolean flag) {
+        functionalVerifyToggle = false;
+    }
+
+    public static boolean isFunctionalVerifyToggle() {
+        return functionalVerifyToggle;
     }
 
     private static class InjectionOutputConfig {

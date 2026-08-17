@@ -79,7 +79,7 @@ import top.nontage.jniil.agent.JNIILBootstrap;
 
 public class Main {
     public static void main(String[] args) {
-        // Mandatory initialization
+        // Initialization
         JNIILBootstrap.install(JNIILBootstrap.MODE.ATTACH_API);
         
         // Your code here...
@@ -229,9 +229,7 @@ public class MyHooks implements FunctionalInjectable {
 import top.nontage.jniil.monitor.*;
 
 public class MonitorDemo {
-    public static void main(String[] args) throws Exception {
-        JNIILBootstrap.install(JNIILBootstrap.MODE.ATTACH_API);
-
+    public static void registerMonitor() throws Exception {
         Method method = MyTarget.class.getMethod("deposit", int.class);
         InvocationMonitor.register(method, new InvocationListener() {
             @Override
@@ -445,7 +443,7 @@ import top.nontage.jniil.agent.JNIILBootstrap;
 
 public class Main {
     public static void main(String[] args) {
-        // 強制初始化
+        // 初始化
         JNIILBootstrap.install(JNIILBootstrap.MODE.ATTACH_API);
         
         // 你的程式碼...
@@ -595,9 +593,7 @@ public class MyHooks implements FunctionalInjectable {
 import top.nontage.jniil.monitor.*;
 
 public class MonitorDemo {
-    public static void main(String[] args) throws Exception {
-        JNIILBootstrap.install(JNIILBootstrap.MODE.ATTACH_API);
-
+    public static void registerMonitor() throws Exception {
         Method method = MyTarget.class.getMethod("deposit", int.class);
         InvocationMonitor.register(method, new InvocationListener() {
             @Override

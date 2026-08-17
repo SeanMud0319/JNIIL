@@ -104,7 +104,16 @@ class InjectionUtilTest {
         assertEquals("D", InjectionUtil.getDescriptor("double"));
         assertEquals("V", InjectionUtil.getDescriptor("void"));
         assertEquals("V", InjectionUtil.getDescriptor("V"));
+
         assertEquals("Ljava/lang/String;", InjectionUtil.getDescriptor("java.lang.String"));
+
+        assertEquals("[B", InjectionUtil.getDescriptor("byte[]"));
+        assertEquals("[I", InjectionUtil.getDescriptor("int[]"));
+        assertEquals("[Ljava/lang/String;", InjectionUtil.getDescriptor("java.lang.String[]"));
+        assertEquals("[[I", InjectionUtil.getDescriptor("int[][]"));
+
+        assertEquals("[B", InjectionUtil.getDescriptor("[B"));
+        assertEquals("Ljava/lang/String;", InjectionUtil.getDescriptor("Ljava/lang/String;"));
     }
 
     @Test

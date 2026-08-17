@@ -3,7 +3,6 @@ package top.nontage.jniil.test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import top.nontage.jniil.agent.JNIILBootstrap;
 import top.nontage.jniil.monitor.*;
 import top.nontage.jniil.test.target.MonitorTarget;
 
@@ -16,13 +15,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.*;
 
 @DisplayName("InvocationMonitor Test Suite")
-class MonitorTest {
+public class MonitorTest {
 
     private MonitorTarget target;
 
     @BeforeEach
     void setUp() {
-        JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);
         target = new MonitorTarget("TestUser", 25, 1000);
     }
 
@@ -40,7 +38,6 @@ class MonitorTest {
                 called.set(true);
                 assertEquals(500, args[0]);
             }
-
         });
 
         target.deposit(500);
@@ -212,4 +209,6 @@ class MonitorTest {
         target.getName();
         assertEquals(1, callCount.get());
     }
+
+
 }

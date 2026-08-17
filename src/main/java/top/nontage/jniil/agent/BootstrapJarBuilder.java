@@ -57,12 +57,30 @@ public class BootstrapJarBuilder {
         return filteredJar;
     }
 
+    public static void deleteTempJar(String fileNamePrefix) {
+        try {
+            File tempDir = new File(System.getProperty("java.io.tmpdir"));
+            File[] files = tempDir.listFiles((dir, name) -> name.startsWith(fileNamePrefix) && name.endsWith(".jar"));
+            if (files == null) return;
+            for (File file : files) {
+                file.delete();
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
     private static boolean shouldKeepClass(String className) {
         if (className.equals("top.nontage.jniil.injector.insn.InsnContext")) return true;
         if (className.equals("top.nontage.jniil.injector.functional.MethodInfo")) return true;
         if (className.startsWith("top.nontage.jniil.injector.functional.internal")) return true;
         if (className.startsWith("top.nontage.jniil.annotations")) return true;
         if (className.startsWith("top.nontage.jniil.interfaces")) return true;
+        if (className.startsWith("top.nontage.jniil.monitor")) return true;
+        if (className.startsWith("top.nontage.jniil.injector.cache")) return true;
+        if (className.startsWith("top.nontage.jniil.utils.UnsafeUtil")) return true;
+        if (className.startsWith("top.nontage.jniil.utils.InjectionUtil")) return true;
+        if (className.startsWith("top.nontage.jniil.utils.AccessorUtil")) return true;
+        if (className.startsWith("top.nontage.jniil.verify.BytecodeVerifier")) return true;
         if (className.startsWith("top.nontage.relocated")) return true;
 
         if (!hasRelocated) {

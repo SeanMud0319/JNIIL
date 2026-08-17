@@ -22,7 +22,7 @@ public class ClassInjector {
         String anchorClassName = target.getName();
         ClassLoader targetLoader = InjectionUtil.findClassAcrossClassLoaders(anchorClassName).getClassLoader();
         byte[] bytes = InjectionUtil.getOriginalClassBytes(injectClassName);
-        InjectionUtil.unsafeInjectClass(targetLoader, injectClassName, bytes);
+        UnsafeUtil.defineClass(injectClassName, targetLoader, bytes);
     }
 
     public static void injectClass(Class<?> clazz) {

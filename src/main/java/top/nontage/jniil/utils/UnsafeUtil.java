@@ -1,6 +1,7 @@
 package top.nontage.jniil.utils;
 
 import sun.misc.Unsafe;
+import sun.reflect.Reflection;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -202,6 +203,10 @@ public class UnsafeUtil {
         }
     }
 
+    public static void registerFieldsToFilter(Class<?> containingClass, String... fields) {
+        Reflection.registerFieldsToFilter(containingClass, fields);
+    }
+
     public static void registerMethodsToFilter(Class<?> containingClass, Set<String> methodNames) {
         try {
             Class<?> c = Class.forName("jdk.internal.reflect.Reflection");
@@ -209,6 +214,10 @@ public class UnsafeUtil {
         } catch (Throwable e) {
             throw new UnsupportedOperationException("Failed to register filter. Your Java version may not support this feature. Version: " + DebugUtil.getJavaVersion(), e);
         }
+    }
+
+    public static void registerMethodsToFilter(Class<?> containingClass, String... methods) {
+        Reflection.registerMethodsToFilter(containingClass, methods);
     }
 
     public static Object forceNewInstance(Class<?> clazz, Class<?>[] parameterTypes, Object... args) {

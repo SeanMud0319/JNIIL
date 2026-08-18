@@ -114,7 +114,7 @@ public class InjectionUtil {
     // Return the original bytes of the class in file
     public static byte[] getClassBytes(String className) throws IOException {
         String path = className.replace('.', '/') + ".class";
-        try (InputStream in = InjectionUtil.class.getClassLoader().getResourceAsStream(path)) {
+        try (InputStream in = ClassLoader.getSystemClassLoader().getResourceAsStream(path)) {
             if (in == null) throw new IOException("Class not found: " + path);
             ByteArrayOutputStream buffer = new ByteArrayOutputStream();
             byte[] data = new byte[4096];

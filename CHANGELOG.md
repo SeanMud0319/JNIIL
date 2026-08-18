@@ -54,4 +54,24 @@ Java ClassLoader 的搜尋邏輯是透過遞迴從當前 Class 開始詢問註�
 我想透過 transformer 去攔截 define，測試過後確定可以抓到 class 第一次被 define，但是沒有辦法中斷 define 流程，所以會變成 bootstrap 有一份，
 原 loader 也有一份，所以透過 transform 這招是行不通的，還是得走 bytecode 修改。
 
+# 2026 / 8 / 18
+## Still not AI
+## Unsafe 演變與限制 & 解法
+## 演變 OpenJDK 7 ~ 28 (2026 / 8 / 18 最新 Tag)
+- 2002年 Unsafe 誕生 ~ JDK8 這階段 - Unsafe 內部直接呼叫 native method
+- JDK9 ~ JDK22 Unsafe 變成空殼，內部改呼叫 jdk.internal.Unsafe
+- JDK23 Unsafe 新增限制參數 `--sun-misc-unsafe-memory-access=<value>` Unsafe 內部多了 MemoryAccessOption 
+參數有 ALLOW, WARN, DEBUG, DENY 其中 WARN 會在第一次警告之後就不警告 DENY 會直接拋出 UnsupportedOperationException，
+  從這時候開始 Unsafe 只要是關於直接或間接操作記憶體的 method 都會呼叫 beforeMemoryAccess 這個方法會直接被 force inline 所以沒有操作空間 也沒有意義
+  beforeMemoryAccess 會再去呼叫  beforeMemoryAccessSlow 這邊會獲取 MEMORY_ACCESS_OPTION 這個參數透過 --sun-misc-unsafe-memory-access=<value> 設定 如果沒設定在 JDK23 預設為 ALLOW
+- JDK24 ~ 28 MEMORY_ACCESS_OPTION 預設被改成 WARN 所以會跳警告 未來應該會變 DENY。
+
+## 限制
+目前如果沒有特別去動 MEMORY_ACCESS_OPTION 他最多是跳警告，但未來也有可能預設是 DENY 或是 Unsafe 被刪掉，不過到那時候應該也要一些時間，其實理論上
+我可以用 MethodHandles 之類的 API，但是我想保持最高權限。
+
+## 解法
+我做了 UnsafeTransformer 它會在 Instrumentation 生成後第一時間檢查 Java 版本是否大於 23 以及檢查版本 install 的輸入參數，可以選擇保持原樣，
+或是隱藏 Unsafe 警告訊息，雖然那也只會出現一次，或是繞過 DENY 限制，也就是說未來如果進入到了預設 DENY JNIIL 理論上可以繞過這項限制。
+
 (c) Nontage 2026 All rights reserved.

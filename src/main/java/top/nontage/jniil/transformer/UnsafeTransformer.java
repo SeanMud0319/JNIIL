@@ -1,6 +1,8 @@
 package top.nontage.jniil.transformer;
 
-import org.objectweb.asm.*;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 
 import java.lang.instrument.ClassFileTransformer;
@@ -11,22 +13,26 @@ import java.security.ProtectionDomain;
  * Patches {@code sun.misc.Unsafe#beforeMemoryAccessSlow()} to bypass JDK 23+
  * memory-access restrictions.
  *
- * <p>Two modes:
+ * <p>Three modes:
  * <ul>
- *   <li><b>forceBypass = true</b>: inserts {@code RETURN} at method entry,
- *       unconditionally bypassing ALL checks (ALLOW/WARN/DEBUG/DENY).</li>
- *   <li><b>forceBypass = false</b>: inserts
- *       {@code if (MEMORY_ACCESS_OPTION != DENY) return;} at method entry,
- *       only bypassing WARN/DEBUG modes. DENY still proceeds to original logic.</li>
+ *   <li><b>hideWarning = true, forceBypass = false</b>: if {@code MEMORY_ACCESS_OPTION == WARN},
+ *       return early to suppress the warning message. Other modes (ALLOW/DEBUG/DENY) proceed normally.</li>
+ *   <li><b>hideWarning = true, forceBypass = true</b>: unconditional {@code RETURN},
+ *       bypassing ALL checks (ALLOW/WARN/DEBUG/DENY).</li>
+ *   <li><b>hideWarning = false, forceBypass = true</b>: unconditional {@code RETURN},
+ *       bypassing ALL checks.</li>
+ *   <li><b>hideWarning = false, forceBypass = false</b>: no modification.</li>
  * </ul>
  *
  * @since 2026/08/18
  */
 public class UnsafeTransformer implements ClassFileTransformer {
 
+    private final boolean hideWarning;
     private final boolean forceBypass;
 
-    public UnsafeTransformer(boolean forceBypass) {
+    public UnsafeTransformer(boolean hideWarning, boolean forceBypass) {
+        this.hideWarning = hideWarning;
         this.forceBypass = forceBypass;
     }
 
@@ -44,17 +50,20 @@ public class UnsafeTransformer implements ClassFileTransformer {
                 if (forceBypass) {
                     mn.instructions.clear();
                     mn.instructions.add(new InsnNode(Opcodes.RETURN));
-                } else {
+                } else if (hideWarning) {
                     LabelNode end = new LabelNode();
-                    mn.instructions.add(new FieldInsnNode(Opcodes.GETSTATIC,
+                    InsnList insertList = new InsnList();
+                    insertList.add(new FieldInsnNode(Opcodes.GETSTATIC,
                             "sun/misc/Unsafe", "MEMORY_ACCESS_OPTION",
                             "Lsun/misc/Unsafe$MemoryAccessOption;"));
-                    mn.instructions.add(new FieldInsnNode(Opcodes.GETSTATIC,
-                            "sun/misc/Unsafe$MemoryAccessOption", "DENY",
+                    insertList.add(new FieldInsnNode(Opcodes.GETSTATIC,
+                            "sun/misc/Unsafe$MemoryAccessOption", "WARN",
                             "Lsun/misc/Unsafe$MemoryAccessOption;"));
-                    mn.instructions.add(new JumpInsnNode(Opcodes.IF_ACMPNE, end));
-                    mn.instructions.add(new InsnNode(Opcodes.RETURN));
-                    mn.instructions.add(end);
+                    insertList.add(new JumpInsnNode(Opcodes.IF_ACMPNE, end));
+                    insertList.add(new InsnNode(Opcodes.RETURN));
+                    insertList.add(end);
+
+                    mn.instructions.insert(insertList);
                 }
             }
         }

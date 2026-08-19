@@ -182,9 +182,9 @@ public class JNIILBootstrap {
                  * @see <a href="https://openjdk.org/jeps/498">JEP 498</a>
                  * 2026/8/18
                  */
-                if (hiddenWarning && version >= 23) {
+                if (hiddenWarning || forceEnableUnsafe  && version >= 23) {
                     try {
-                        instrumentation.addTransformer(new UnsafeTransformer(forceEnableUnsafe));
+                        instrumentation.addTransformer(new UnsafeTransformer(hiddenWarning, forceEnableUnsafe));
                         instrumentation.retransformClasses(Unsafe.class);
                     } catch (UnmodifiableClassException e) {
                         throw new RuntimeException(e);

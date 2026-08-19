@@ -114,7 +114,7 @@ public class JNIILBootstrap {
         // NOTE: This warning message was added in JDK21
         int version = DebugUtil.getJavaVersion();
         PrintStream origErr = null;
-        if (version >= 21) {
+        if (hiddenWarning && version >= 21) {
             origErr = System.err;
             System.setErr(new PrintStream(origErr) {
                 @Override

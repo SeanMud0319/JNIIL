@@ -1,25 +1,28 @@
 ![Maven Central](https://img.shields.io/maven-central/v/top.nontage/jniil?label=Maven%20Central)
 ![CI](https://github.com/SeanMud0319/JNIIL/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/github/license/seanmud0319/jniil)
+
 # JNIIL - Java Non-intrusive Instrumentation Library
 
 ## Overview
 
-JNIIL is a runtime dynamic instrumentation library for Java. It provides powerful bytecode manipulation capabilities with a clean, developer-friendly API. The library enables runtime method modification, AOP-style method interception, and zero-overhead reflection replacement.
+JNIIL is a runtime dynamic instrumentation library for Java. It provides powerful bytecode manipulation capabilities
+with a clean, developer-friendly API. The library enables runtime method modification, AOP-style method interception,
+and zero-overhead reflection replacement.
 
 ---
 
 ## Java Version Supported
 
-| Version | Status |
-|:--------|:------:|
-| Java 8  |   ✅    |
-| Java 11 |   ✅    |
-| Java 17 |   ✅    |
-| Java 21 |   ✅    |
-| Java 22 |   ✅    |
-| Java 25 |   ✅    |
-
+| Version |                                     Status                                     |
+|:--------|:------------------------------------------------------------------------------:|
+| Java 8  | ![CI](https://github.com/SeanMud0319/JNIIL/actions/workflows/ci.yml/badge.svg) |
+| Java 11 | ![CI](https://github.com/SeanMud0319/JNIIL/actions/workflows/ci.yml/badge.svg) |
+| Java 17 | ![CI](https://github.com/SeanMud0319/JNIIL/actions/workflows/ci.yml/badge.svg) |
+| Java 21 | ![CI](https://github.com/SeanMud0319/JNIIL/actions/workflows/ci.yml/badge.svg) |
+| Java 22 | ![CI](https://github.com/SeanMud0319/JNIIL/actions/workflows/ci.yml/badge.svg) |
+| Java 25 | ![CI](https://github.com/SeanMud0319/JNIIL/actions/workflows/ci.yml/badge.svg) |
+| Java 26 | ![CI](https://github.com/SeanMud0319/JNIIL/actions/workflows/ci.yml/badge.svg) |
 
 ## Table of Contents
 
@@ -63,6 +66,7 @@ dependencies {
 ### Maven
 
 ```xml
+
 <dependency>
     <groupId>top.nontage</groupId>
     <artifactId>jniil</artifactId>
@@ -81,7 +85,7 @@ public class Main {
     public static void main(String[] args) {
         // Initialization
         JNIILBootstrap.install(JNIILBootstrap.MODE.ATTACH_API);
-        
+
         // Your code here...
     }
 }
@@ -97,7 +101,8 @@ Modifies method bodies at runtime. JNIIL provides three types of injectors based
 
 #### StandardMethodInjector
 
-**Powered by Javassist.** Perfect for line-number-based, straightforward injections. Less suited for highly complex method structures.
+**Powered by Javassist.** Perfect for line-number-based, straightforward injections. Less suited for highly complex
+method structures.
 
 **Example:**
 
@@ -110,8 +115,8 @@ import top.nontage.jniil.interfaces.Injectable;
 public class MyInjector implements Injectable {
 
     @InjectMethodInfo(
-        targetType = MyTarget.class,
-        targetMethodName = "printInfo"
+            targetType = MyTarget.class,
+            targetMethodName = "printInfo"
     )
     @Before
     @Override
@@ -122,7 +127,9 @@ public class MyInjector implements Injectable {
 
 // Usage
 StandardMethodInjector injector = new StandardMethodInjector();
-injector.inject(new MyInjector());
+injector.
+
+inject(new MyInjector());
 ```
 
 **When to use:** Simple injections, prefer writing raw Java source strings.
@@ -131,7 +138,8 @@ injector.inject(new MyInjector());
 
 #### InstructionInjector
 
-**Fully built on top of ASM.** Allows precise, low-level modifications at any arbitrary bytecode instruction. Requires a solid understanding of JVM bytecode.
+**Fully built on top of ASM.** Allows precise, low-level modifications at any arbitrary bytecode instruction. Requires a
+solid understanding of JVM bytecode.
 
 **Example:**
 
@@ -147,9 +155,9 @@ import static org.objectweb.asm.Opcodes.*;
 public class MyInstructionInjector implements InsnInjectable {
 
     @InjectMethodInfo(
-        targetType = MyTarget.class,
-        targetMethodName = "process",
-        targetMethodParamTypes = {int.class}
+            targetType = MyTarget.class,
+            targetMethodName = "process",
+            targetMethodParamTypes = {int.class}
     )
     @At(opcode = BIPUSH, shiftAfter = true)
     @Override
@@ -167,7 +175,8 @@ public class MyInstructionInjector implements InsnInjectable {
 
 #### FunctionalInjector
 
-**(Highly Recommended)** Merges the strengths of both worlds. An event-driven injector that simplifies data extraction and supports seamless injection points based on either line numbers or specific instruction blocks.
+**(Highly Recommended)** Merges the strengths of both worlds. An event-driven injector that simplifies data extraction
+and supports seamless injection points based on either line numbers or specific instruction blocks.
 
 **Example:**
 
@@ -179,9 +188,9 @@ import top.nontage.jniil.interfaces.FunctionalInjectable;
 public class MyHooks implements FunctionalInjectable {
 
     @InjectMethodInfo(
-        targetType = MyTarget.class,
-        targetMethodName = "login",
-        targetMethodParamTypes = {String.class}
+            targetType = MyTarget.class,
+            targetMethodName = "login",
+            targetMethodParamTypes = {String.class}
     )
     @Before
     public static void beforeLogin(MethodInfo info) {
@@ -190,9 +199,9 @@ public class MyHooks implements FunctionalInjectable {
     }
 
     @InjectMethodInfo(
-        targetType = MyTarget.class,
-        targetMethodName = "login",
-        targetMethodParamTypes = {String.class}
+            targetType = MyTarget.class,
+            targetMethodName = "login",
+            targetMethodParamTypes = {String.class}
     )
     @At(line = 24, shiftAfter = true)
     @Capture({"attempts", "matched"})
@@ -207,6 +216,7 @@ public class MyHooks implements FunctionalInjectable {
 **When to use:** Recommended for most use cases. Event-driven, easy data extraction, supports flow control.
 
 **Key Features:**
+
 - `@Before` - Method entry interception
 - `@After` - Method exit interception
 - `@At(line)` - Specific source line interception
@@ -219,7 +229,8 @@ public class MyHooks implements FunctionalInjectable {
 
 ### Monitor
 
-**AOP-style runtime method interception.** Unlike injectors which modify bytecode once at startup, Monitor inserts a dispatch call at method entry that routes to registered listeners.
+**AOP-style runtime method interception.** Unlike injectors which modify bytecode once at startup, Monitor inserts a
+dispatch call at method entry that routes to registered listeners.
 
 **⚠️ Warning:** Do NOT use both Injector and Monitor on the same method. They both modify bytecode and may interfere.
 
@@ -244,6 +255,7 @@ public class MonitorDemo {
 ```
 
 **Features:**
+
 - Caller inspection (`CallerDetail`)
 - Argument inspection and modification
 - Execution cancellation (`control.cancel()`)
@@ -256,7 +268,9 @@ public class MonitorDemo {
 ### Accessor
 
 **Zero-overhead reflection replacement.** Generates ultra-high-performance accessors at runtime with direct-call speed.
-In Java versions 8 through 21, arbitrary objects can be accessed directly—even across module boundaries—without issue; however, in Java 22 and later, architectural changes create conflicts with ClassLoader isolation, preventing access to objects located in the Bootstrap loader.
+In Java versions 8 through 21, arbitrary objects can be accessed directly—even across module boundaries—without issue;
+however, in Java 22 and later, architectural changes create conflicts with ClassLoader isolation, preventing access to
+objects located in the Bootstrap loader.
 
 **Example:**
 
@@ -267,10 +281,10 @@ import top.nontage.jniil.annotations.Invoker;
 public interface UserAccessor {
     @Accessor("name")
     String getName();
-    
+
     @Accessor("name")
     void setName(String name);
-    
+
     @Invoker("greet")
     String greet(String greeting);
 }
@@ -278,11 +292,15 @@ public interface UserAccessor {
 // Usage
 UserAccessor accessor = AccessorFactory.getAccessor(target, UserAccessor.class);
 String name = accessor.getName();
-accessor.setName("Bob");
+accessor.
+
+setName("Bob");
+
 String result = accessor.greet("Hello");
 ```
 
 **Key Features:**
+
 - `@Accessor` - Direct field read/write (getter/setter)
 - `@Invoker` - Method invocation
 - Both annotations can be mixed in the same interface
@@ -292,6 +310,7 @@ String result = accessor.greet("Hello");
 - Zero reflection overhead - direct-call speed
 
 **Static Access Rules:**
+
 - Interface methods must NOT be static
 - Use `isStatic = true` for static fields or methods
 - Mismatch between `isStatic` and actual target throws an exception
@@ -370,20 +389,23 @@ Apache License 2.0
 
 ## 概述
 
-JNIIL 是一個 Java 執行時期動態 Instrumentation 函式庫。它提供強大的位元組碼操作能力，並具備乾淨、開發者友善的 API。該函式庫支援執行時期方法修改、AOP 風格的方法攔截，以及零開銷的反射替代方案。
+JNIIL 是一個 Java 執行時期動態 Instrumentation 函式庫。它提供強大的位元組碼操作能力，並具備乾淨、開發者友善的
+API。該函式庫支援執行時期方法修改、AOP 風格的方法攔截，以及零開銷的反射替代方案。
 
 ---
 
 ## Java 支援版本
 
-| 版本      | 測試狀態 |
-|:--------|:----:|
-| Java 8  |  ✅   |
-| Java 11 |  ✅   |
-| Java 17 |  ✅   |
-| Java 21 |  ✅   |
-| Java 22 |  ✅   |
-| Java 25 |  ✅   |
+| 版本    |                                      狀態                                      |
+|:--------|:------------------------------------------------------------------------------:|
+| Java 8  | ![CI](https://github.com/SeanMud0319/JNIIL/actions/workflows/ci.yml/badge.svg) |
+| Java 11 | ![CI](https://github.com/SeanMud0319/JNIIL/actions/workflows/ci.yml/badge.svg) |
+| Java 17 | ![CI](https://github.com/SeanMud0319/JNIIL/actions/workflows/ci.yml/badge.svg) |
+| Java 21 | ![CI](https://github.com/SeanMud0319/JNIIL/actions/workflows/ci.yml/badge.svg) |
+| Java 22 | ![CI](https://github.com/SeanMud0319/JNIIL/actions/workflows/ci.yml/badge.svg) |
+| Java 25 | ![CI](https://github.com/SeanMud0319/JNIIL/actions/workflows/ci.yml/badge.svg) |
+| Java 26 | ![CI](https://github.com/SeanMud0319/JNIIL/actions/workflows/ci.yml/badge.svg) |
+
 
 ## 目錄
 
@@ -405,12 +427,12 @@ JNIIL 是一個 Java 執行時期動態 Instrumentation 函式庫。它提供強
 
 ## 核心功能
 
-| 功能           | 說明                           |
-|--------------|------------------------------|
-| **Inject**   | 動態修改方法本體                     |
+| 功能         | 說明                                                 |
+|--------------|------------------------------------------------------|
+| **Inject**   | 動態修改方法本體                                     |
 | **Monitor**  | 攔截方法進入點以取得呼叫者與方法中繼資料（AOP 風格） |
-| ~~Shadow~~   | ~~建立與實際執行時期類別同步的影子類別~~（已棄用）  |
-| **Accessor** | 超高效能反射替代方案，達到直接呼叫速度          |
+| ~~Shadow~~   | ~~建立與實際執行時期類別同步的影子類別~~（已棄用）   |
+| **Accessor** | 超高效能反射替代方案，達到直接呼叫速度               |
 
 ---
 
@@ -427,6 +449,7 @@ dependencies {
 ### Maven
 
 ```xml
+
 <dependency>
     <groupId>top.nontage</groupId>
     <artifactId>jniil</artifactId>
@@ -445,7 +468,7 @@ public class Main {
     public static void main(String[] args) {
         // 初始化
         JNIILBootstrap.install(JNIILBootstrap.MODE.ATTACH_API);
-        
+
         // 你的程式碼...
     }
 }
@@ -474,8 +497,8 @@ import top.nontage.jniil.interfaces.Injectable;
 public class MyInjector implements Injectable {
 
     @InjectMethodInfo(
-        targetType = MyTarget.class,
-        targetMethodName = "printInfo"
+            targetType = MyTarget.class,
+            targetMethodName = "printInfo"
     )
     @Before
     @Override
@@ -486,7 +509,9 @@ public class MyInjector implements Injectable {
 
 // 使用方式
 StandardMethodInjector injector = new StandardMethodInjector();
-injector.inject(new MyInjector());
+injector.
+
+inject(new MyInjector());
 ```
 
 **適用場景：** 簡單注入，偏好撰寫原始 Java 字串。
@@ -511,9 +536,9 @@ import static org.objectweb.asm.Opcodes.*;
 public class MyInstructionInjector implements InsnInjectable {
 
     @InjectMethodInfo(
-        targetType = MyTarget.class,
-        targetMethodName = "process",
-        targetMethodParamTypes = {int.class}
+            targetType = MyTarget.class,
+            targetMethodName = "process",
+            targetMethodParamTypes = {int.class}
     )
     @At(opcode = BIPUSH, shiftAfter = true)
     @Override
@@ -543,9 +568,9 @@ import top.nontage.jniil.interfaces.FunctionalInjectable;
 public class MyHooks implements FunctionalInjectable {
 
     @InjectMethodInfo(
-        targetType = MyTarget.class,
-        targetMethodName = "login",
-        targetMethodParamTypes = {String.class}
+            targetType = MyTarget.class,
+            targetMethodName = "login",
+            targetMethodParamTypes = {String.class}
     )
     @Before
     public static void beforeLogin(MethodInfo info) {
@@ -554,9 +579,9 @@ public class MyHooks implements FunctionalInjectable {
     }
 
     @InjectMethodInfo(
-        targetType = MyTarget.class,
-        targetMethodName = "login",
-        targetMethodParamTypes = {String.class}
+            targetType = MyTarget.class,
+            targetMethodName = "login",
+            targetMethodParamTypes = {String.class}
     )
     @At(line = 24, shiftAfter = true)
     @Capture({"attempts", "matched"})
@@ -571,6 +596,7 @@ public class MyHooks implements FunctionalInjectable {
 **適用場景：** 推薦大多數使用案例。事件驅動、易於提取資料、支援流程控制。
 
 **主要功能：**
+
 - `@Before` - 方法進入點攔截
 - `@After` - 方法出口攔截
 - `@At(line)` - 特定原始碼行攔截
@@ -583,7 +609,8 @@ public class MyHooks implements FunctionalInjectable {
 
 ### Monitor
 
-**AOP 風格的執行時期方法攔截。** 與 Injector（在啟動時一次性修改位元組碼）不同，Monitor 在方法進入點插入 dispatch 調用，路由到已註冊的監聽器。
+**AOP 風格的執行時期方法攔截。** 與 Injector（在啟動時一次性修改位元組碼）不同，Monitor 在方法進入點插入 dispatch
+調用，路由到已註冊的監聽器。
 
 **⚠️ 警告：** 不建議對同一個方法同時使用 Injector 和 Monitor。兩者都會修改位元組碼，可能互相干擾。
 
@@ -608,6 +635,7 @@ public class MonitorDemo {
 ```
 
 **功能：**
+
 - 呼叫者檢查（`CallerDetail`）
 - 參數檢查與修改
 - 執行取消（`control.cancel()`）
@@ -619,8 +647,8 @@ public class MonitorDemo {
 
 ### Accessor
 
-**零開銷的反射替代方案。** 在執行時期產生超高效能的 accessor，達到直接呼叫速度。
-Java 8 ~ 21 可以直接存取任意對象，即使是受到模組化隔離也沒有影響，Java 22 以上則會因為架構問題與 Classloader 隔離有所衝突導致無法存取位於
+**零開銷的反射替代方案。** 在執行時期產生超高效能的 accessor，達到直接呼叫速度。 Java 8 ~ 21
+可以直接存取任意對象，即使是受到模組化隔離也沒有影響，Java 22 以上則會因為架構問題與 Classloader 隔離有所衝突導致無法存取位於
 Bootstrap loader 的對象。
 
 **範例：**
@@ -632,10 +660,10 @@ import top.nontage.jniil.annotations.Invoker;
 public interface UserAccessor {
     @Accessor("name")
     String getName();
-    
+
     @Accessor("name")
     void setName(String name);
-    
+
     @Invoker("greet")
     String greet(String greeting);
 }
@@ -643,11 +671,15 @@ public interface UserAccessor {
 // 使用方式
 UserAccessor accessor = AccessorFactory.getAccessor(target, UserAccessor.class);
 String name = accessor.getName();
-accessor.setName("Bob");
+accessor.
+
+setName("Bob");
+
 String result = accessor.greet("Hello");
 ```
 
 **主要功能：**
+
 - `@Accessor` - 直接欄位讀寫（getter/setter）
 - `@Invoker` - 方法呼叫
 - 兩個註解可以在同一個介面中混合使用
@@ -657,6 +689,7 @@ String result = accessor.greet("Hello");
 - 零反射開銷 - 直接呼叫速度
 
 **靜態存取規則：**
+
 - 介面方法不能是 `static`
 - 靜態欄位或方法使用 `isStatic = true`
 - `isStatic` 與實際目標不符時會拋出例外

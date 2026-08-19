@@ -10,6 +10,7 @@ import top.nontage.jvmcontext.JvmContext;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.lang.instrument.Instrumentation;
 import java.lang.instrument.UnmodifiableClassException;
 import java.lang.management.ManagementFactory;
@@ -108,6 +109,24 @@ public class JNIILBootstrap {
     public static void install(MODE mode, boolean hiddenWarning, boolean forceEnableUnsafe) {
         if (instrumentation != null) return;
 
+        // Hide agent warning is flag is true. This warning message is from InstrumentationImpl constructor, so I just
+        // override System.err.println(), and set it back.
+        // NOTE: This warning message was added in JDK21
+        int version = DebugUtil.getJavaVersion();
+        PrintStream origErr = null;
+        if (version >= 21) {
+            origErr = System.err;
+            System.setErr(new PrintStream(origErr) {
+                @Override
+                public void println(String x) {
+                    if (x.startsWith("WARNING: A Java agent has been loaded dynamically")) {
+                        return;
+                    }
+                    super.println(x);
+                }
+            });
+        }
+
         synchronized (JNIILBootstrap.class) {
             if (instrumentation != null) return;
             switch (mode) {
@@ -163,7 +182,7 @@ public class JNIILBootstrap {
                  * @see <a href="https://openjdk.org/jeps/498">JEP 498</a>
                  * 2026/8/18
                  */
-                if (hiddenWarning && DebugUtil.getJavaVersion() >= 23) {
+                if (hiddenWarning && version >= 23) {
                     try {
                         instrumentation.addTransformer(new UnsafeTransformer(forceEnableUnsafe));
                         instrumentation.retransformClasses(Unsafe.class);
@@ -185,8 +204,12 @@ public class JNIILBootstrap {
                 // verifyAndInitialize will call Accessor#init so we need setInstrumentation after finish append bootstrap
                 // loader before call verify.
                 JNIIL.setInstrumentation(instrumentation);
-
                 JNIILPokaYoke.verifyAndInitialize(instrumentation);
+
+                // Set back System.err
+                if (origErr != null) {
+                    System.setErr(origErr);
+                }
             } catch (Throwable throwable) {
                 if (DebugUtil.getJavaVersion() >= 23 && !forceEnableUnsafe) {
                     throw new IllegalStateException(

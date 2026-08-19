@@ -74,4 +74,14 @@ Java ClassLoader 的搜尋邏輯是透過遞迴從當前 Class 開始詢問註�
 我做了 UnsafeTransformer 它會在 Instrumentation 生成後第一時間檢查 Java 版本是否大於 23 以及檢查版本 install 的輸入參數，可以選擇保持原樣，
 或是隱藏 Unsafe 警告訊息，雖然那也只會出現一次，或是繞過 DENY 限制，也就是說未來如果進入到了預設 DENY JNIIL 理論上可以繞過這項限制。
 
+# 2026 / 8 / 20
+## 0 ai
+## Dynamic loading of agents 警告
+這個警告訊息我以為是在 native 輸出的，不過我去翻 jdk source code 後發現，它是在 jdk21之後被加到 InstrumentationImpl 的 constructor 並直接透過 System.err.println()
+輸出警告，所以只要覆蓋 System.err 就可以隱藏警告了。
+
+另外針對 System.load() 所產生的警告目前沒有解法，因為它是在 Module 內部檢查並透過 JavaLangAccess 保留的最初 System.err 輸出的，
+呼叫 System.load() 是為了獲取 Instrumentation 也就是在這階段我沒有任何手段可以 retransform，在這階段使用 Unsafe 也會產生警告訊息，所以透過記憶體偏移量操作
+System, Module, PrintStream, FilterOutputStream 等都不行，我也試過直接追蹤到 System.load() 的實作，基本上都一樣，所以這個警告訊息目前無法透過啟動參數以外的方式關掉
+
 (c) Nontage 2026 All rights reserved.

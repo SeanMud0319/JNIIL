@@ -55,9 +55,35 @@ import java.util.zip.ZipOutputStream;
  *    <pre>
  *        -XX:+EnableDynamicAgentLoading
  *        -Djdk.attach.allowAttachSelf=true
+ *        --enable-native-access=ALL-UNNAMED
  *        --add-opens java.base/jdk.internal.misc=ALL-UNNAMED
  *        --add-exports java.management/sun.management=ALL-UNNAMED
  *   </pre>
+ *   </li>
+ * </ul>
+ *
+ * <h3>Native Mode (Recommended)</h3>
+ * <p>If you use {@link MODE#NATIVE}, <b>NO JVM arguments are required</b>.
+ * The native library obtains {@code Instrumentation} directly from the JVM internals,
+ * bypassing the Attach API entirely. This works on Java 8 through 26 without any
+ * special flags, module exports, or system property configurations.</p>
+ *
+ * <ul>
+ *   <li><b>No need for:</b>
+ *     <ul>
+ *       <li>{@code -Djdk.attach.allowAttachSelf=true}</li>
+ *       <li>{@code --add-opens} or {@code --add-exports} flags</li>
+ *       <li>{@code -XX:+EnableDynamicAgentLoading}</li>
+ *       <li>{@code --enable-native-access=ALL-UNNAMED}</li>
+ *       <li>{@code tools.jar} (Java 8)</li>
+ *     </ul>
+ *   </li>
+ *   <li><b>Simply call:</b>
+ *     <pre>JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);</pre>
+ *   </li>
+ *   <li><b>Works on:</b> All JVM distributions including minimal runtimes,
+ *       Alpine, musl-based builds, and custom Docker images that lack
+ *       {@code jdk.attach} module.</li>
  * </ul>
  *
  * <h3>Platform Notes</h3>
@@ -182,7 +208,7 @@ public class JNIILBootstrap {
                  * @see <a href="https://openjdk.org/jeps/498">JEP 498</a>
                  * 2026/8/18
                  */
-                if (hiddenWarning || forceEnableUnsafe  && version >= 23) {
+                if (hiddenWarning || forceEnableUnsafe && version >= 23) {
                     try {
                         instrumentation.addTransformer(new UnsafeTransformer(hiddenWarning, forceEnableUnsafe));
                         instrumentation.retransformClasses(Unsafe.class);

@@ -19,8 +19,14 @@ public class UnsafeUtil {
 
     public static final Unsafe unsafe;
     public static final MethodHandles.Lookup IMPL_LOOKUP;
+
     public static final Set<String> ALL_MEMBERS = new HashSet<>();
+    private static final Class<?> VAR_HANDLE_CLASS;
     private static final MethodHandle FIND_VAR_HANDLE_MH;
+    private static final Map<String, Object> VAR_HANDLE_CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, MethodHandle> VAR_HANDLE_GET_CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, MethodHandle> VAR_HANDLE_SET_CACHE = new ConcurrentHashMap<>();
+
     private static final Map<String, Field> FIELD_BYPASS_CACHE = new ConcurrentHashMap<>();
     private static final Object FILTER_MAP_LOCK = new Object();
 
@@ -49,13 +55,15 @@ public class UnsafeUtil {
             throw new RuntimeException("Failed to acquire IMPL_LOOKUP in this JVM environment", t);
         }
         IMPL_LOOKUP = lookup;
-
+        Class<?> varHandle = null;
         MethodHandle findVarHandleMH = null;
         try {
+            varHandle = Class.forName("java.lang.invoke.VarHandle");
             Method findVarHandle = MethodHandles.Lookup.class.getMethod("findVarHandle", Class.class, String.class, Class.class);
             findVarHandleMH = IMPL_LOOKUP.unreflect(findVarHandle);
         } catch (Throwable ignored) {
         }
+        VAR_HANDLE_CLASS = varHandle;
         FIND_VAR_HANDLE_MH = findVarHandleMH;
     }
 
@@ -206,16 +214,24 @@ public class UnsafeUtil {
         }
         try {
             Class<?> clazz = (instanceOrClass instanceof Class) ? (Class<?>) instanceOrClass : instanceOrClass.getClass();
-            Object receiver = (instanceOrClass instanceof Class) ? null : instanceOrClass;
-            Object vh = FIND_VAR_HANDLE_MH.invoke(IMPL_LOOKUP, clazz, fieldName, fieldType);
-            Class<?> varHandleClass = Class.forName("java.lang.invoke.VarHandle");
-            Class<?> valueType = fieldType.isPrimitive() ? fieldType : Object.class;
-            MethodHandle setMH = IMPL_LOOKUP.findStatic(
-                    vh.getClass(),
-                    "set",
-                    MethodType.methodType(void.class, varHandleClass, Object.class, valueType)
-            );
+            String cacheKey = clazz.getName() + "#" + fieldName;
 
+            Object vh = VAR_HANDLE_CACHE.get(cacheKey);
+            MethodHandle setMH = VAR_HANDLE_SET_CACHE.get(cacheKey);
+
+            if (vh == null || setMH == null) {
+                vh = FIND_VAR_HANDLE_MH.invoke(IMPL_LOOKUP, clazz, fieldName, fieldType);
+                Class<?> valueType = fieldType.isPrimitive() ? fieldType : Object.class;
+                setMH = IMPL_LOOKUP.findVirtual(
+                        VAR_HANDLE_CLASS,
+                        "set",
+                        MethodType.methodType(void.class, Object.class, valueType)
+                );
+                VAR_HANDLE_CACHE.put(cacheKey, vh);
+                VAR_HANDLE_SET_CACHE.put(cacheKey, setMH);
+            }
+
+            Object receiver = (instanceOrClass instanceof Class) ? null : instanceOrClass;
             setMH.invoke(vh, receiver, value);
         } catch (Throwable e) {
             throw new RuntimeException("Failed to force set value in MethodHandle.", e);
@@ -230,15 +246,25 @@ public class UnsafeUtil {
         }
         try {
             Class<?> clazz = (instanceOrClass instanceof Class) ? (Class<?>) instanceOrClass : instanceOrClass.getClass();
+            String cacheKey = clazz.getName() + "#" + fieldName;
+
+            Object vh = VAR_HANDLE_CACHE.get(cacheKey);
+            MethodHandle getMH = VAR_HANDLE_GET_CACHE.get(cacheKey);
+
+            if (vh == null || getMH == null) {
+                vh = FIND_VAR_HANDLE_MH.invoke(IMPL_LOOKUP, clazz, fieldName, fieldType);
+                getMH = IMPL_LOOKUP.findVirtual(
+                        VAR_HANDLE_CLASS,
+                        "get",
+                        MethodType.methodType(Object.class, Object.class)
+                );
+                VAR_HANDLE_CACHE.put(cacheKey, vh);
+                VAR_HANDLE_GET_CACHE.put(cacheKey, getMH);
+            }
+
             Object receiver = (instanceOrClass instanceof Class) ? null : instanceOrClass;
-            Object vh = FIND_VAR_HANDLE_MH.invoke(IMPL_LOOKUP, clazz, fieldName, fieldType);
-            MethodHandle getMH = IMPL_LOOKUP.findVirtual(
-                    vh.getClass(),
-                    "get",
-                    MethodType.methodType(Object.class, Object.class)
-            );
             if (receiver == null) {
-                return getMH.invoke(vh, null);
+                return getMH.invoke(vh, (Object) null);
             } else {
                 return getMH.invoke(vh, receiver);
             }

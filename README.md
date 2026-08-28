@@ -292,9 +292,7 @@ public interface UserAccessor {
 // Usage
 UserAccessor accessor = AccessorFactory.getAccessor(target, UserAccessor.class);
 String name = accessor.getName();
-accessor.
-
-setName("Bob");
+accessor.setName("Bob");
 
 String result = accessor.greet("Hello");
 ```
@@ -671,9 +669,7 @@ public interface UserAccessor {
 // 使用方式
 UserAccessor accessor = AccessorFactory.getAccessor(target, UserAccessor.class);
 String name = accessor.getName();
-accessor.
-
-setName("Bob");
+accessor.setName("Bob");
 
 String result = accessor.greet("Hello");
 ```

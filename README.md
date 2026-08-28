@@ -127,9 +127,7 @@ public class MyInjector implements Injectable {
 
 // Usage
 StandardMethodInjector injector = new StandardMethodInjector();
-injector.
-
-inject(new MyInjector());
+injector.inject(new MyInjector());
 ```
 
 **When to use:** Simple injections, prefer writing raw Java source strings.
@@ -507,9 +505,7 @@ public class MyInjector implements Injectable {
 
 // 使用方式
 StandardMethodInjector injector = new StandardMethodInjector();
-injector.
-
-inject(new MyInjector());
+injector.inject(new MyInjector());
 ```
 
 **適用場景：** 簡單注入，偏好撰寫原始 Java 字串。

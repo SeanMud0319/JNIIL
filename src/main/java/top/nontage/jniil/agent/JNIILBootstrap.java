@@ -208,7 +208,7 @@ public class JNIILBootstrap {
                  * @see <a href="https://openjdk.org/jeps/498">JEP 498</a>
                  * 2026/8/18
                  */
-                if (hiddenWarning || forceEnableUnsafe && version >= 23) {
+                if (version >= 23 && (hiddenWarning || forceEnableUnsafe)) {
                     try {
                         instrumentation.addTransformer(new UnsafeTransformer(hiddenWarning, forceEnableUnsafe));
                         instrumentation.retransformClasses(Unsafe.class);
@@ -237,6 +237,10 @@ public class JNIILBootstrap {
                     System.setErr(origErr);
                 }
             } catch (Throwable throwable) {
+                if (origErr != null) {
+                    System.setErr(origErr);
+                }
+
                 if (DebugUtil.getJavaVersion() >= 23 && !forceEnableUnsafe) {
                     throw new IllegalStateException(
                             "Unsafe may be disabled by JVM flag --sun-misc-unsafe-memory-access=deny " +

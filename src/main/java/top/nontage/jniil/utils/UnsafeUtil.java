@@ -23,6 +23,7 @@ public class UnsafeUtil {
     public static final Set<String> ALL_MEMBERS = new HashSet<>();
     private static final Class<?> VAR_HANDLE_CLASS;
     private static final MethodHandle FIND_VAR_HANDLE_MH;
+    private static final MethodHandle FIND_STATIC_VAR_HANDLE_MH;
     private static final Map<String, Object> VAR_HANDLE_CACHE = new ConcurrentHashMap<>();
     private static final Map<String, MethodHandle> VAR_HANDLE_GET_CACHE = new ConcurrentHashMap<>();
     private static final Map<String, MethodHandle> VAR_HANDLE_SET_CACHE = new ConcurrentHashMap<>();
@@ -57,14 +58,18 @@ public class UnsafeUtil {
         IMPL_LOOKUP = lookup;
         Class<?> varHandle = null;
         MethodHandle findVarHandleMH = null;
+        MethodHandle findStaticVarHandleMH = null;
         try {
             varHandle = Class.forName("java.lang.invoke.VarHandle");
             Method findVarHandle = MethodHandles.Lookup.class.getMethod("findVarHandle", Class.class, String.class, Class.class);
+            Method findStaticVarHandle = MethodHandles.Lookup.class.getMethod("findStaticVarHandle", Class.class, String.class, Class.class);
             findVarHandleMH = IMPL_LOOKUP.unreflect(findVarHandle);
+            findStaticVarHandleMH = IMPL_LOOKUP.unreflect(findStaticVarHandle);
         } catch (Throwable ignored) {
         }
         VAR_HANDLE_CLASS = varHandle;
         FIND_VAR_HANDLE_MH = findVarHandleMH;
+        FIND_STATIC_VAR_HANDLE_MH = findStaticVarHandleMH;
     }
 
     private UnsafeUtil() {
@@ -240,25 +245,38 @@ public class UnsafeUtil {
         }
         try {
             Class<?> clazz = (instanceOrClass instanceof Class) ? (Class<?>) instanceOrClass : instanceOrClass.getClass();
-            String cacheKey = clazz.getName() + "#" + fieldName;
+            boolean isStatic = instanceOrClass instanceof Class;
+            String cacheKey = clazz.getName() + "#" + fieldName + "#" + fieldType.getName() + "#" + isStatic;
 
-            Object vh = VAR_HANDLE_CACHE.get(cacheKey);
             MethodHandle setMH = VAR_HANDLE_SET_CACHE.get(cacheKey);
-
-            if (vh == null || setMH == null) {
-                vh = FIND_VAR_HANDLE_MH.invoke(IMPL_LOOKUP, clazz, fieldName, fieldType);
-                Class<?> valueType = fieldType.isPrimitive() ? fieldType : Object.class;
-                setMH = IMPL_LOOKUP.findVirtual(
-                        VAR_HANDLE_CLASS,
-                        "set",
-                        MethodType.methodType(void.class, Object.class, valueType)
-                );
+            if (setMH == null) {
+                Object vh;
+                if (isStatic) {
+                    vh = FIND_STATIC_VAR_HANDLE_MH.invoke(IMPL_LOOKUP, clazz, fieldName, fieldType);
+                    setMH = IMPL_LOOKUP.findVirtual(
+                            VAR_HANDLE_CLASS,
+                            "set",
+                            MethodType.methodType(void.class, fieldType.isPrimitive() ? fieldType : Object.class)
+                    );
+                } else {
+                    vh = FIND_VAR_HANDLE_MH.invoke(IMPL_LOOKUP, clazz, fieldName, fieldType);
+                    Class<?> valueType = fieldType.isPrimitive() ? fieldType : Object.class;
+                    setMH = IMPL_LOOKUP.findVirtual(
+                            VAR_HANDLE_CLASS,
+                            "set",
+                            MethodType.methodType(void.class, Object.class, valueType)
+                    );
+                }
                 VAR_HANDLE_CACHE.put(cacheKey, vh);
                 VAR_HANDLE_SET_CACHE.put(cacheKey, setMH);
             }
 
-            Object receiver = (instanceOrClass instanceof Class) ? null : instanceOrClass;
-            setMH.invoke(vh, receiver, value);
+            Object vh = VAR_HANDLE_CACHE.get(cacheKey);
+            if (isStatic) {
+                setMH.invoke(vh, value);
+            } else {
+                setMH.invoke(vh, instanceOrClass, value);
+            }
         } catch (Throwable e) {
             throw new RuntimeException("Failed to force set value in MethodHandle.", e);
         }
@@ -272,27 +290,36 @@ public class UnsafeUtil {
         }
         try {
             Class<?> clazz = (instanceOrClass instanceof Class) ? (Class<?>) instanceOrClass : instanceOrClass.getClass();
-            String cacheKey = clazz.getName() + "#" + fieldName;
+            boolean isStatic = instanceOrClass instanceof Class;
+            String cacheKey = clazz.getName() + "#" + fieldName + "#" + fieldType.getName() + "#" + isStatic;
 
-            Object vh = VAR_HANDLE_CACHE.get(cacheKey);
             MethodHandle getMH = VAR_HANDLE_GET_CACHE.get(cacheKey);
-
-            if (vh == null || getMH == null) {
-                vh = FIND_VAR_HANDLE_MH.invoke(IMPL_LOOKUP, clazz, fieldName, fieldType);
-                getMH = IMPL_LOOKUP.findVirtual(
-                        VAR_HANDLE_CLASS,
-                        "get",
-                        MethodType.methodType(Object.class, Object.class)
-                );
+            if (getMH == null) {
+                Object vh;
+                if (isStatic) {
+                    vh = FIND_STATIC_VAR_HANDLE_MH.invoke(IMPL_LOOKUP, clazz, fieldName, fieldType);
+                    getMH = IMPL_LOOKUP.findVirtual(
+                            VAR_HANDLE_CLASS,
+                            "get",
+                            MethodType.methodType(Object.class)
+                    );
+                } else {
+                    vh = FIND_VAR_HANDLE_MH.invoke(IMPL_LOOKUP, clazz, fieldName, fieldType);
+                    getMH = IMPL_LOOKUP.findVirtual(
+                            VAR_HANDLE_CLASS,
+                            "get",
+                            MethodType.methodType(Object.class, Object.class)
+                    );
+                }
                 VAR_HANDLE_CACHE.put(cacheKey, vh);
                 VAR_HANDLE_GET_CACHE.put(cacheKey, getMH);
             }
 
-            Object receiver = (instanceOrClass instanceof Class) ? null : instanceOrClass;
-            if (receiver == null) {
-                return getMH.invoke(vh, (Object) null);
+            Object vh = VAR_HANDLE_CACHE.get(cacheKey);
+            if (isStatic) {
+                return getMH.invoke(vh);
             } else {
-                return getMH.invoke(vh, receiver);
+                return getMH.invoke(vh, instanceOrClass);
             }
         } catch (Throwable e) {
             throw new RuntimeException("Failed to force get value in MethodHandle.", e);

@@ -1,27 +1,27 @@
 package top.nontage.jniil.agent;
 
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.MethodVisitor;
+import sun.misc.Unsafe;
 import top.nontage.jniil.JNIIL;
+import top.nontage.jniil.transformer.UnsafeTransformer;
+import top.nontage.jniil.utils.DebugUtil;
 import top.nontage.jniil.utils.InjectionUtil;
 import top.nontage.jniil.utils.UnsafeUtil;
 import top.nontage.jvmcontext.JvmContext;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.lang.instrument.Instrumentation;
+import java.lang.instrument.UnmodifiableClassException;
 import java.lang.management.ManagementFactory;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.jar.JarFile;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
-
-import static org.objectweb.asm.Opcodes.*;
 
 /**
  * Self-attach bootstrap for JNIIL.
@@ -55,9 +55,35 @@ import static org.objectweb.asm.Opcodes.*;
  *    <pre>
  *        -XX:+EnableDynamicAgentLoading
  *        -Djdk.attach.allowAttachSelf=true
+ *        --enable-native-access=ALL-UNNAMED
  *        --add-opens java.base/jdk.internal.misc=ALL-UNNAMED
  *        --add-exports java.management/sun.management=ALL-UNNAMED
  *   </pre>
+ *   </li>
+ * </ul>
+ *
+ * <h3>Native Mode (Recommended)</h3>
+ * <p>If you use {@link MODE#NATIVE}, <b>NO JVM arguments are required</b>.
+ * The native library obtains {@code Instrumentation} directly from the JVM internals,
+ * bypassing the Attach API entirely. This works on Java 8 through 26 without any
+ * special flags, module exports, or system property configurations.</p>
+ *
+ * <ul>
+ *   <li><b>No need for:</b>
+ *     <ul>
+ *       <li>{@code -Djdk.attach.allowAttachSelf=true}</li>
+ *       <li>{@code --add-opens} or {@code --add-exports} flags</li>
+ *       <li>{@code -XX:+EnableDynamicAgentLoading}</li>
+ *       <li>{@code --enable-native-access=ALL-UNNAMED}</li>
+ *       <li>{@code tools.jar} (Java 8)</li>
+ *     </ul>
+ *   </li>
+ *   <li><b>Simply call:</b>
+ *     <pre>JNIILBootstrap.install(JNIILBootstrap.MODE.NATIVE);</pre>
+ *   </li>
+ *   <li><b>Works on:</b> All JVM distributions including minimal runtimes,
+ *       Alpine, musl-based builds, and custom Docker images that lack
+ *       {@code jdk.attach} module.</li>
  * </ul>
  *
  * <h3>Platform Notes</h3>
@@ -95,8 +121,49 @@ public class JNIILBootstrap {
 
     private static volatile Instrumentation instrumentation;
 
+    // Default install method.
     public static void install(MODE mode) {
+        install(mode, false);
+    }
+
+    // Install without unsafe warning (Only for Java23+)
+    public static void install(MODE mode, boolean hiddenWarning) {
+        install(mode, hiddenWarning, false);
+    }
+
+    // Install and bypass Unsafe restriction (Only for Java23+)
+    public static void install(MODE mode, boolean hiddenWarning, boolean forceEnableUnsafe) {
         if (instrumentation != null) return;
+
+        // Hide agent warning is flag is true. This warning message is from InstrumentationImpl constructor, so I just
+        // override System.err.println(), and set it back.
+        // NOTE: This warning message was added in JDK21
+        int version = DebugUtil.getJavaVersion();
+        PrintStream origErr = null;
+        if (hiddenWarning && version >= 21) {
+            origErr = System.err;
+            System.setErr(new PrintStream(origErr) {
+                @Override
+                public void println(String x) {
+                    if (x.startsWith("WARNING: A Java agent has been loaded dynamically")) {
+                        return;
+                    }
+                    super.println(x);
+                }
+            });
+        }
+
+        synchronized (JNIILBootstrap.class) {
+            if (instrumentation != null) return;
+            switch (mode) {
+                case ATTACH_API:
+                    attachSelf();
+                    break;
+                case NATIVE:
+                    instrumentation = JvmContext.getInstrumentation();
+                    break;
+            }
+        }
 
         try {
             Class<?> clazz = Class.forName("top.nontage.jniil.JNIIL", false, null);
@@ -115,6 +182,41 @@ public class JNIILBootstrap {
             return;
         } catch (ClassNotFoundException ignored) {
             try {
+
+                /*
+                 * CRITICAL: Before appendToBootstrapClassLoaderSearch completes, no classes
+                 * that belong in bootstrap classloader (including ASM) may be loaded.
+                 * Keep this block minimal and avoid referencing external libraries.
+                 */
+                File jar = LibraryJarFinder.getLibraryJar();
+                BootstrapJarBuilder.deleteTempJar("jniil-bootstrap-filtered");
+                File filtered = BootstrapJarBuilder.createFilteredBootstrapJar(jar);
+                instrumentation.appendToBootstrapClassLoaderSearch(new JarFile(filtered));
+
+                /*
+                 * OpenJDK Unsafe memory-access restrictions (JEP 471 / JEP 498):
+                 * - JDK 23: default ALLOW, no warnings
+                 * - JDK 24-28: default WARN, warns once then allows
+                 * - Future: may become DENY (breaks all Unsafe-dependent tools)
+                 *
+                 * If hiddenWarning is true, patch Unsafe.beforeMemoryAccessSlow() to bypass.
+                 * forceEnableUnsafe controls the patch behavior:
+                 *   true  -> unconditional RETURN (bypass ALL checks)
+                 *   false -> return unless OPTION == DENY (only bypass WARN/DEBUG)
+                 *
+                 * @see <a href="https://openjdk.org/jeps/471">JEP 471</a>
+                 * @see <a href="https://openjdk.org/jeps/498">JEP 498</a>
+                 * 2026/8/18
+                 */
+                if (version >= 23 && (hiddenWarning || forceEnableUnsafe)) {
+                    try {
+                        instrumentation.addTransformer(new UnsafeTransformer(hiddenWarning, forceEnableUnsafe));
+                        instrumentation.retransformClasses(Unsafe.class);
+                    } catch (UnmodifiableClassException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+
                 byte[] a = InjectionUtil.getClassBytes("top.nontage.jniil.JNIIL");
                 byte[] b = InjectionUtil.getClassBytes("top.nontage.jniil.JNIIL$InjectionOutputConfig");
                 byte[] c = InjectionUtil.getClassBytes("top.nontage.jniil.injector.functional.MethodInfo");
@@ -123,31 +225,30 @@ public class JNIILBootstrap {
                 UnsafeUtil.defineClass("top.nontage.jniil.JNIIL$InjectionOutputConfig", null, b);
                 UnsafeUtil.defineClass("top.nontage.jniil.injector.functional.MethodInfo", null, c);
                 UnsafeUtil.defineClass("top.nontage.jniil.injector.insn.InsnContext", null, d);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
 
-        synchronized (JNIILBootstrap.class) {
-            if (instrumentation != null) return;
-            switch (mode) {
-                case ATTACH_API:
-                    attachSelf();
-                    break;
-                case NATIVE:
-                    instrumentation = JvmContext.getInstrumentation();
-                    break;
-            }
-            JNIIL.setInstrumentation(instrumentation);
 
-            try {
-                File jar = LibraryJarFinder.getLibraryJar();
-                BootstrapJarBuilder.deleteTempJar("jniil-bootstrap-filtered");
-                File filtered = BootstrapJarBuilder.createFilteredBootstrapJar(jar);
-                instrumentation.appendToBootstrapClassLoaderSearch(new JarFile(filtered));
+                // verifyAndInitialize will call Accessor#init so we need setInstrumentation after finish append bootstrap
+                // loader before call verify.
+                JNIIL.setInstrumentation(instrumentation);
                 JNIILPokaYoke.verifyAndInitialize(instrumentation);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+
+                // Set back System.err
+                if (origErr != null) {
+                    System.setErr(origErr);
+                }
+            } catch (Throwable throwable) {
+                if (origErr != null) {
+                    System.setErr(origErr);
+                }
+
+                if (DebugUtil.getJavaVersion() >= 23 && !forceEnableUnsafe) {
+                    throw new IllegalStateException(
+                            "Unsafe may be disabled by JVM flag --sun-misc-unsafe-memory-access=deny " +
+                                    "or JDK default restrictions. Try: JNIILBootstrap.install(MODE.NATIVE, true, true)",
+                            throwable
+                    );
+                }
+                throw new IllegalStateException("Unexpected error during Unsafe initialization", throwable);
             }
         }
     }
@@ -157,7 +258,7 @@ public class JNIILBootstrap {
         JNIILBootstrap.instrumentation = instrumentation;
     }
 
-    // Its work on my machine java 8 ~ 25 :)
+    // Its work on my machine java 8 ~ 26 :)
     private static Class<?> getVirtualMachineClass() {
 
         // First try: already available
@@ -231,8 +332,8 @@ public class JNIILBootstrap {
     // This byte array is generated by the commented ASM method below, then encoded to Base64.
     // Storing it as a Base64 string in the constant pool reduces class file size and speeds up loading.
     private static byte[] generateTempAgent() {
-       String bytes = "yv66vgAAADQAEgEAIXRvcC9ub250YWdlL2puaWlsL2FnZW50L1RlbXBBZ2VudAcAAQEAEGphdmEvbGFuZy9PYmplY3QHAAMBAAY8aW5pdD4BAAMoKVYMAAUABgoABAAHAQAJYWdlbnRtYWluAQA7KExqYXZhL2xhbmcvU3RyaW5nO0xqYXZhL2xhbmcvaW5zdHJ1bWVudC9JbnN0cnVtZW50YXRpb247KVYBACZ0b3Avbm9udGFnZS9qbmlpbC9hZ2VudC9KTklJTEJvb3RzdHJhcAcACwEAEnNldEluc3RydW1lbnRhdGlvbgEAKShMamF2YS9sYW5nL2luc3RydW1lbnQvSW5zdHJ1bWVudGF0aW9uOylWDAANAA4KAAwADwEABENvZGUAAQACAAQAAAAAAAIAAQAFAAYAAQARAAAAEQABAAEAAAAFKrcACLEAAAAAAAkACQAKAAEAEQAAABEAAQACAAAABSu4ABCxAAAAAAAA";
-       return Base64.getDecoder().decode(bytes);
+        String bytes = "yv66vgAAADQAEgEAIXRvcC9ub250YWdlL2puaWlsL2FnZW50L1RlbXBBZ2VudAcAAQEAEGphdmEvbGFuZy9PYmplY3QHAAMBAAY8aW5pdD4BAAMoKVYMAAUABgoABAAHAQAJYWdlbnRtYWluAQA7KExqYXZhL2xhbmcvU3RyaW5nO0xqYXZhL2xhbmcvaW5zdHJ1bWVudC9JbnN0cnVtZW50YXRpb247KVYBACZ0b3Avbm9udGFnZS9qbmlpbC9hZ2VudC9KTklJTEJvb3RzdHJhcAcACwEAEnNldEluc3RydW1lbnRhdGlvbgEAKShMamF2YS9sYW5nL2luc3RydW1lbnQvSW5zdHJ1bWVudGF0aW9uOylWDAANAA4KAAwADwEABENvZGUAAQACAAQAAAAAAAIAAQAFAAYAAQARAAAAEQABAAEAAAAFKrcACLEAAAAAAAkACQAKAAEAEQAAABEAAQACAAAABSu4ABCxAAAAAAAA";
+        return Base64.getDecoder().decode(bytes);
     }
 
 // Source of the byte array above

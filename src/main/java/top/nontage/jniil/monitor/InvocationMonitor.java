@@ -242,7 +242,7 @@ public final class InvocationMonitor {
          * Therefore, on failure, this fallback first tries SystemClassLoader, then the target class's own ClassLoader.
          * If both fail, it falls back to cross-loader search via findClassAcrossClassLoaders.
          * If still not found, it returns "java/lang/Object" as a safe fallback.
-         * 2026 / 08 / 26
+         * 2026 / 08 / 16
          */
         ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
             @Override

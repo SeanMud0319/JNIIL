@@ -207,6 +207,32 @@ public class UnsafeUtil {
         }
     }
 
+    @SuppressWarnings("unused")
+    public static Object forceGetUnsafeSlow(Class<?> c, String name, Object obj) {
+        String cacheKey = c.getName() + "#" + name;
+        Field field = FIELD_BYPASS_CACHE.get(cacheKey);
+
+        if (field == null) {
+            field = findFieldWithBypass(c, name);
+            FIELD_BYPASS_CACHE.put(cacheKey, field);
+        }
+
+        return forceGetUnsafe(field, obj);
+    }
+
+    @SuppressWarnings("unused")
+    public static void forceSetUnsafeSlow(Class<?> c, String name, Object obj, Object value) {
+        String cacheKey = c.getName() + "#" + name;
+        Field field = FIELD_BYPASS_CACHE.get(cacheKey);
+
+        if (field == null) {
+            field = findFieldWithBypass(c, name);
+            FIELD_BYPASS_CACHE.put(cacheKey, field);
+        }
+
+        forceSetUnsafe(field, obj, value);
+    }
+
     // Put the instance if the field is object or put Class if the field is static
     public static void forceSetMH(Object instanceOrClass, String fieldName, Class<?> fieldType, Object value) {
         if (FIND_VAR_HANDLE_MH == null) {

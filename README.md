@@ -59,7 +59,7 @@ and zero-overhead reflection replacement.
 
 ```gradle
 dependencies {
-    implementation("top.nontage:jniil:1.1.1")
+    implementation("top.nontage:jniil:1.2.0")
 }
 ```
 
@@ -70,7 +70,7 @@ dependencies {
 <dependency>
     <groupId>top.nontage</groupId>
     <artifactId>jniil</artifactId>
-    <version>1.1.1</version>
+    <version>1.2.0</version>
 </dependency>
 ```
 
@@ -438,7 +438,7 @@ API。該函式庫支援執行時期方法修改、AOP 風格的方法攔截，�
 
 ```gradle
 dependencies {
-    implementation("top.nontage:jniil:1.1.1")
+    implementation("top.nontage:jniil:1.2.0")
 }
 ```
 
@@ -449,7 +449,7 @@ dependencies {
 <dependency>
     <groupId>top.nontage</groupId>
     <artifactId>jniil</artifactId>
-    <version>1.1.1</version>
+    <version>1.2.0</version>
 </dependency>
 ```
 

@@ -17,16 +17,17 @@ import java.io.File;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 public class InstructionInjector extends AbstractMethodInjector {
-    private final ClassWriter cw;
+    private final Function<ClassReader, ClassWriter> writerFactory;
 
     public InstructionInjector() {
-        this.cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
+        this.writerFactory = cr -> new ClassWriter(cr, ClassWriter.COMPUTE_FRAMES);
     }
 
-    public InstructionInjector(ClassWriter writer) {
-        this.cw = writer;
+    public InstructionInjector(Function<ClassReader, ClassWriter> writerFactory) {
+        this.writerFactory = writerFactory;
     }
 
     // You can see there's many things similar to FunctionalInjector, but in runtime, there are in different classloader so we can't direct access their member
@@ -67,6 +68,7 @@ public class InstructionInjector extends AbstractMethodInjector {
 
         InstructionInjector.CachedClass cached = getCachedClass(info.typeName, targetClass);
         ClassNode cn = cached.node;
+        ClassReader cr = cached.reader;
         byte[] baseBytecode = cached.bytecode;
 
         MethodNode targetMethod = null;
@@ -117,6 +119,7 @@ public class InstructionInjector extends AbstractMethodInjector {
             }
         }
 
+        ClassWriter cw = writerFactory.apply(cr);
         cn.accept(cw);
         byte[] finalBytecode = cw.toByteArray();
 

@@ -3,11 +3,9 @@ package top.nontage.jniil.injector.functional.internal;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 import org.objectweb.asm.util.Printer;
-import top.nontage.jniil.annotations.After;
-import top.nontage.jniil.annotations.At;
-import top.nontage.jniil.annotations.Before;
-import top.nontage.jniil.annotations.Overwrite;
+import top.nontage.jniil.annotations.*;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +17,7 @@ public class InjectionPointResolver {
     private final After after;
     private final At at;
     private final Overwrite overwrite;
+    private final InvokeRedirect invokeRedirect;
 
     public InjectionPointResolver(MethodNode targetMethod, Method injectionMethod) {
         this.targetMethod = targetMethod;
@@ -26,6 +25,7 @@ public class InjectionPointResolver {
         this.after = injectionMethod.getAnnotation(After.class);
         this.at = injectionMethod.getAnnotation(At.class);
         this.overwrite = injectionMethod.getAnnotation(Overwrite.class);
+        this.invokeRedirect = injectionMethod.getAnnotation(InvokeRedirect.class);
     }
 
     public InjectionType getType() {
@@ -37,8 +37,8 @@ public class InjectionPointResolver {
         if (at != null && at.line() >= 0) return InjectionType.AT_LINE;
         if (at != null && at.opcode() != 114514) return InjectionType.AT_OPCODE;
         if (overwrite != null) return InjectionType.OVERWRITE;
-        //return InjectionType.BEFORE;
-        throw new IllegalArgumentException("Missing injection point annotation (@Before, @After, @At or @Overwrite)");
+        if (invokeRedirect != null) return InjectionType.INVOKE_REDIRECT;
+        throw new IllegalArgumentException("Missing injection point annotation (@Before, @After, @At, @Overwrite or @InvokeRedirect)");
     }
 
     public int getInjectionLine() {
@@ -70,10 +70,14 @@ public class InjectionPointResolver {
                 targetMethod.instructions.clear();
                 if (targetMethod.tryCatchBlocks != null) targetMethod.tryCatchBlocks.clear();
                 if (targetMethod.localVariables != null) targetMethod.localVariables.clear();
-                if (targetMethod.visibleLocalVariableAnnotations != null) targetMethod.visibleLocalVariableAnnotations.clear();
-                if (targetMethod.invisibleLocalVariableAnnotations != null) targetMethod.invisibleLocalVariableAnnotations.clear();
+                if (targetMethod.visibleLocalVariableAnnotations != null)
+                    targetMethod.visibleLocalVariableAnnotations.clear();
+                if (targetMethod.invisibleLocalVariableAnnotations != null)
+                    targetMethod.invisibleLocalVariableAnnotations.clear();
                 targetMethod.instructions.insert(code);
                 break;
+            case INVOKE_REDIRECT:
+                insertInvokeRedirect(code);
         }
     }
 
@@ -125,7 +129,122 @@ public class InjectionPointResolver {
         }
     }
 
-    // InstructionInjector in default loader and FunctionalInjector in bootloader so we cant direct access it.
+    private void insertInvokeRedirect(InsnList toInsert) {
+        if (invokeRedirect == null) {
+            throw new IllegalStateException("Not an @InvokeRedirect injection point");
+        }
+
+        At redirectAt = new At() {
+            @Override
+            public Class<? extends java.lang.annotation.Annotation> annotationType() {
+                return At.class;
+            }
+
+            @Override
+            public int line() {
+                return -1;
+            }
+
+            @Override
+            public int opcode() {
+                return invokeRedirect.value().getValue();
+            }
+
+            @Override
+            public String identifier() {
+                return invokeRedirect.target();
+            }
+
+            @Override
+            public int ordinal() {
+                return invokeRedirect.ordinal();
+            }
+
+            @Override
+            public boolean shiftAfter() {
+                return false;
+            }
+
+            @Override
+            public boolean override() {
+                return false;
+            }
+
+            @Override
+            public boolean debug() {
+                return false;
+            }
+        };
+
+        AbstractInsnNode anchor = findAnchorByAt(targetMethod, redirectAt);
+        if (!(anchor instanceof MethodInsnNode)) {
+            throw new IllegalStateException(
+                    "@InvokeRedirect matched a non-method instruction: " + anchor.getClass().getSimpleName());
+        }
+        targetMethod.instructions.insertBefore(anchor, toInsert);
+        targetMethod.instructions.remove(anchor);
+    }
+
+    public MethodInsnNode resolveInvokeRedirectAnchor() {
+        if (invokeRedirect == null) {
+            throw new IllegalStateException("Not an @InvokeRedirect injection point");
+        }
+
+        At redirectAt = new At() {
+            @Override
+            public Class<? extends java.lang.annotation.Annotation> annotationType() {
+                return At.class;
+            }
+
+            @Override
+            public int line() {
+                return -1;
+            }
+
+            @Override
+            public int opcode() {
+                return invokeRedirect.value().getValue();
+            }
+
+            @Override
+            public String identifier() {
+                return invokeRedirect.target();
+            }
+
+            @Override
+            public int ordinal() {
+                return invokeRedirect.ordinal();
+            }
+
+            @Override
+            public boolean shiftAfter() {
+                return false;
+            }
+
+            @Override
+            public boolean override() {
+                return false;
+            }
+
+            @Override
+            public boolean debug() {
+                return false;
+            }
+        };
+
+        AbstractInsnNode anchor = findAnchorByAt(targetMethod, redirectAt);
+        if (!(anchor instanceof MethodInsnNode)) {
+            throw new IllegalStateException(
+                    "@InvokeRedirect matched a non-method instruction: " + anchor.getClass().getSimpleName());
+        }
+        return (MethodInsnNode) anchor;
+    }
+
+    public void replaceInvokeRedirectAnchor(MethodInsnNode anchor, InsnList generated) {
+        targetMethod.instructions.insertBefore(anchor, generated);
+        targetMethod.instructions.remove(anchor);
+    }
+
     private static AbstractInsnNode findAnchorByAt(MethodNode mn, At at) {
         int targetLine = at.line();
         if (targetLine >= 0) {
@@ -252,8 +371,7 @@ public class InjectionPointResolver {
         return false;
     }
 
-
     public enum InjectionType {
-        BEFORE, AFTER, AT_LINE, AT_OPCODE, OVERWRITE
+        BEFORE, AFTER, AT_LINE, AT_OPCODE, OVERWRITE, INVOKE_REDIRECT
     }
 }

@@ -4,6 +4,7 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.InsnList;
+import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import top.nontage.jniil.JNIIL;
 import top.nontage.jniil.annotations.*;
@@ -110,11 +111,19 @@ public class FunctionalInjector extends AbstractMethodInjector {
                 }
             }
 
-            InsnList injectedCode = new MethodInfoCodeGenerator(
-                    method, cn, targetMethod, Modifier.isStatic(targetMethod.access), localsToCapture, resolver.getType() == InjectionPointResolver.InjectionType.OVERWRITE
-            ).generate();
+            MethodInfoCodeGenerator generator = new MethodInfoCodeGenerator(
+                    method, cn, targetMethod, Modifier.isStatic(targetMethod.access), localsToCapture,
+                    resolver.getType() == InjectionPointResolver.InjectionType.OVERWRITE
+            );
 
-            resolver.inject(injectedCode);
+            if (resolver.getType() == InjectionPointResolver.InjectionType.INVOKE_REDIRECT) {
+                MethodInsnNode anchor = resolver.resolveInvokeRedirectAnchor();
+                InsnList injectedCode = generator.generateInvokeRedirectCode(anchor, method);
+                resolver.replaceInvokeRedirectAnchor(anchor, injectedCode);
+            } else {
+                InsnList injectedCode = generator.generate();
+                resolver.inject(injectedCode);
+            }
 
             byte[] finalBytecode = generateBytecode(cn, cr, info.typeName, baseBytecode, targetClass.getClassLoader());
 
@@ -212,7 +221,7 @@ public class FunctionalInjector extends AbstractMethodInjector {
                 method.isAnnotationPresent(Before.class) ||
                 method.isAnnotationPresent(At.class) ||
                 method.isAnnotationPresent(Overwrite.class) ||
-                method.isAnnotationPresent(ReplaceCall.class);
+                method.isAnnotationPresent(InvokeRedirect.class);
     }
 
     private void checkMethod(Method method) {

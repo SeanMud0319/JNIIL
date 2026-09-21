@@ -221,10 +221,12 @@ public class JNIILBootstrap {
                 byte[] b = InjectionUtil.getClassBytes("top.nontage.jniil.JNIIL$InjectionOutputConfig");
                 byte[] c = InjectionUtil.getClassBytes("top.nontage.jniil.injector.functional.MethodInfo");
                 byte[] d = InjectionUtil.getClassBytes("top.nontage.jniil.injector.insn.InsnContext");
+                byte[] e = InjectionUtil.getClassBytes("top.nontage.jniil.injector.functional.InvokeRedirectInfo");
                 UnsafeUtil.defineClass("top.nontage.jniil.JNIIL", null, a);
                 UnsafeUtil.defineClass("top.nontage.jniil.JNIIL$InjectionOutputConfig", null, b);
                 UnsafeUtil.defineClass("top.nontage.jniil.injector.functional.MethodInfo", null, c);
                 UnsafeUtil.defineClass("top.nontage.jniil.injector.insn.InsnContext", null, d);
+                UnsafeUtil.defineClass("top.nontage.jniil.injector.functional.InvokeRedirectInfo", null, e);
 
 
                 // verifyAndInitialize will call Accessor#init so we need setInstrumentation after finish append bootstrap

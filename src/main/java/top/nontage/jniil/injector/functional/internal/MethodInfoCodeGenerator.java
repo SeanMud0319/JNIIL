@@ -3,9 +3,12 @@ package top.nontage.jniil.injector.functional.internal;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import top.nontage.jniil.injector.functional.InvokeRedirectInfo;
 import top.nontage.jniil.injector.functional.MethodInfo;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -41,6 +44,247 @@ public class MethodInfoCodeGenerator {
             appendDefaultReturn(list);
         }
         return list;
+    }
+
+    public InsnList generateInvokeRedirectCode(MethodInsnNode anchor, Method injectionMethod) {
+        int opcode = anchor.getOpcode();
+        boolean isStaticInvoke = (opcode == Opcodes.INVOKESTATIC);
+        if (opcode != Opcodes.INVOKESTATIC
+                && opcode != Opcodes.INVOKEVIRTUAL
+                && opcode != Opcodes.INVOKESPECIAL
+                && opcode != Opcodes.INVOKEINTERFACE) {
+            throw new IllegalArgumentException(
+                    "@InvokeRedirect anchor must be a method invocation, got opcode " + opcode);
+        }
+
+        Class<?>[] userParams = injectionMethod.getParameterTypes();
+        if (userParams.length != 1 || userParams[0] != InvokeRedirectInfo.class) {
+            throw new IllegalArgumentException(
+                    "@InvokeRedirect hook must have exactly one parameter of type InvokeRedirectInfo. Found: "
+                            + Arrays.toString(userParams));
+        }
+        if (!Modifier.isStatic(injectionMethod.getModifiers())) {
+            throw new IllegalArgumentException("@InvokeRedirect hook must be static");
+        }
+
+        Type[] argTypes = Type.getArgumentTypes(anchor.desc);
+        Type returnType = Type.getReturnType(anchor.desc);
+
+        InsnList list = new InsnList();
+
+        String methodInfoClass = MethodInfo.class.getName().replace('.', '/');
+        list.add(new TypeInsnNode(Opcodes.NEW, methodInfoClass));
+        list.add(new InsnNode(Opcodes.DUP));
+        if (isTargetStatic) {
+            list.add(new InsnNode(Opcodes.ACONST_NULL));
+        } else {
+            list.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        }
+        list.add(TypeConverter.loadArgsArray(targetMethod));
+        list.add(new MethodInsnNode(
+                Opcodes.INVOKESPECIAL,
+                methodInfoClass,
+                "<init>",
+                "(Ljava/lang/Object;[Ljava/lang/Object;)V",
+                false));
+
+        int infoVar = targetMethod.maxLocals;
+        targetMethod.maxLocals += 1;
+        list.add(new VarInsnNode(Opcodes.ASTORE, infoVar));
+
+        int tmpBase = targetMethod.maxLocals;
+        int[] argSlots = new int[argTypes.length];
+        int cursor = tmpBase;
+        for (int i = argTypes.length - 1; i >= 0; i--) {
+            argSlots[i] = cursor;
+            cursor += argTypes[i].getSize();
+        }
+        int receiverSlot = -1;
+        if (!isStaticInvoke) {
+            receiverSlot = cursor;
+            cursor += 1;
+        }
+        targetMethod.maxLocals = cursor;
+
+        for (int i = argTypes.length - 1; i >= 0; i--) {
+            list.add(new VarInsnNode(argTypes[i].getOpcode(Opcodes.ISTORE), argSlots[i]));
+        }
+        if (!isStaticInvoke) {
+            list.add(new VarInsnNode(Opcodes.ASTORE, receiverSlot));
+        }
+
+        list.add(loadIntConst(argTypes.length));
+        list.add(new TypeInsnNode(Opcodes.ANEWARRAY, "java/lang/Object"));
+
+        int arrayVar = targetMethod.maxLocals;
+        targetMethod.maxLocals += 1;
+        list.add(new VarInsnNode(Opcodes.ASTORE, arrayVar));
+
+        for (int i = 0; i < argTypes.length; i++) {
+            list.add(new VarInsnNode(Opcodes.ALOAD, arrayVar));
+            list.add(loadIntConst(i));
+            list.add(new VarInsnNode(argTypes[i].getOpcode(Opcodes.ILOAD), argSlots[i]));
+            boxIfPrimitive(list, argTypes[i]);
+            list.add(new InsnNode(Opcodes.AASTORE));
+        }
+
+        String redirectInfoClass = InvokeRedirectInfo.class.getName().replace('.', '/');
+        String redirectInfoDesc = "L" + redirectInfoClass + ";";
+
+        list.add(new TypeInsnNode(Opcodes.NEW, redirectInfoClass));
+        list.add(new InsnNode(Opcodes.DUP));
+        list.add(new VarInsnNode(Opcodes.ALOAD, infoVar));
+        if (isStaticInvoke) {
+            list.add(new InsnNode(Opcodes.ACONST_NULL));
+        } else {
+            list.add(new VarInsnNode(Opcodes.ALOAD, receiverSlot));
+        }
+        list.add(new VarInsnNode(Opcodes.ALOAD, arrayVar));
+        list.add(new LdcInsnNode(returnType.getDescriptor()));
+        list.add(new MethodInsnNode(
+                Opcodes.INVOKESPECIAL,
+                redirectInfoClass,
+                "<init>",
+                "(L" + methodInfoClass + ";Ljava/lang/Object;[Ljava/lang/Object;Ljava/lang/String;)V",
+                false));
+
+        int redirectInfoVar = targetMethod.maxLocals;
+        targetMethod.maxLocals += 1;
+        list.add(new VarInsnNode(Opcodes.ASTORE, redirectInfoVar));
+
+        String userClass = injectionMethod.getDeclaringClass().getName().replace('.', '/');
+        list.add(new VarInsnNode(Opcodes.ALOAD, redirectInfoVar));
+        list.add(new MethodInsnNode(
+                Opcodes.INVOKESTATIC,
+                userClass,
+                injectionMethod.getName(),
+                "(" + redirectInfoDesc + ")V",
+                false));
+
+        if (returnType.getSort() != Type.VOID) {
+            pushRedirectReturnValue(list, redirectInfoVar, returnType);
+        }
+
+        return list;
+    }
+
+    private void pushRedirectReturnValue(InsnList list, int redirectInfoVar, Type returnType) {
+        String redirectInfoClass = InvokeRedirectInfo.class.getName().replace('.', '/');
+
+        list.add(new VarInsnNode(Opcodes.ALOAD, redirectInfoVar));
+        list.add(new MethodInsnNode(
+                Opcodes.INVOKEVIRTUAL,
+                redirectInfoClass,
+                "getReturnValue",
+                "()Ljava/lang/Object;",
+                false));
+
+        if (returnType.getSort() != Type.OBJECT && returnType.getSort() != Type.ARRAY) {
+            LabelNode notNull = new LabelNode();
+            list.add(new InsnNode(Opcodes.DUP));
+            list.add(new JumpInsnNode(Opcodes.IFNONNULL, notNull));
+
+            String exClass = "java/lang/IllegalStateException";
+            list.add(new TypeInsnNode(Opcodes.NEW, exClass));
+            list.add(new InsnNode(Opcodes.DUP));
+
+            String msg = "[JNIIL] InvokeRedirect hook on " + targetClass.name.replace('/', '.')
+                    + "." + targetMethod.name + " did not set a return value via "
+                    + "InvokeRedirectInfo.setReturnValue(...). "
+                    + "The redirected invocation returns primitive type '"
+                    + returnType.getClassName() + "', so a value is mandatory.";
+            list.add(new LdcInsnNode(msg));
+            list.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, exClass, "<init>", "(Ljava/lang/String;)V", false));
+            list.add(new InsnNode(Opcodes.ATHROW));
+
+            list.add(notNull);
+        }
+
+        unboxAndPush(list, returnType);
+    }
+
+    private static AbstractInsnNode loadIntConst(int value) {
+        if (value >= -1 && value <= 5) {
+            return new InsnNode(Opcodes.ICONST_0 + value);
+        }
+        if (value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
+            return new IntInsnNode(Opcodes.BIPUSH, value);
+        }
+        if (value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) {
+            return new IntInsnNode(Opcodes.SIPUSH, value);
+        }
+        return new LdcInsnNode(value);
+    }
+
+    private static void boxIfPrimitive(InsnList list, Type t) {
+        switch (t.getSort()) {
+            case Type.BOOLEAN:
+                list.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Boolean", "valueOf", "(Z)Ljava/lang/Boolean;", false));
+                break;
+            case Type.BYTE:
+                list.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Byte", "valueOf", "(B)Ljava/lang/Byte;", false));
+                break;
+            case Type.CHAR:
+                list.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Character", "valueOf", "(C)Ljava/lang/Character;", false));
+                break;
+            case Type.SHORT:
+                list.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Short", "valueOf", "(S)Ljava/lang/Short;", false));
+                break;
+            case Type.INT:
+                list.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;", false));
+                break;
+            case Type.LONG:
+                list.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Long", "valueOf", "(J)Ljava/lang/Long;", false));
+                break;
+            case Type.FLOAT:
+                list.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Float", "valueOf", "(F)Ljava/lang/Float;", false));
+                break;
+            case Type.DOUBLE:
+                list.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "java/lang/Double", "valueOf", "(D)Ljava/lang/Double;", false));
+                break;
+            default:
+                break;
+        }
+    }
+
+    private static void unboxAndPush(InsnList list, Type type) {
+        switch (type.getSort()) {
+            case Type.BOOLEAN:
+                list.add(new TypeInsnNode(Opcodes.CHECKCAST, "java/lang/Boolean"));
+                list.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/Boolean", "booleanValue", "()Z", false));
+                break;
+            case Type.BYTE:
+                list.add(new TypeInsnNode(Opcodes.CHECKCAST, "java/lang/Byte"));
+                list.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/Byte", "byteValue", "()B", false));
+                break;
+            case Type.CHAR:
+                list.add(new TypeInsnNode(Opcodes.CHECKCAST, "java/lang/Character"));
+                list.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/Character", "charValue", "()C", false));
+                break;
+            case Type.SHORT:
+                list.add(new TypeInsnNode(Opcodes.CHECKCAST, "java/lang/Short"));
+                list.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/Short", "shortValue", "()S", false));
+                break;
+            case Type.INT:
+                list.add(new TypeInsnNode(Opcodes.CHECKCAST, "java/lang/Number"));
+                list.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/Number", "intValue", "()I", false));
+                break;
+            case Type.LONG:
+                list.add(new TypeInsnNode(Opcodes.CHECKCAST, "java/lang/Number"));
+                list.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/Number", "longValue", "()J", false));
+                break;
+            case Type.FLOAT:
+                list.add(new TypeInsnNode(Opcodes.CHECKCAST, "java/lang/Number"));
+                list.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/Number", "floatValue", "()F", false));
+                break;
+            case Type.DOUBLE:
+                list.add(new TypeInsnNode(Opcodes.CHECKCAST, "java/lang/Number"));
+                list.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "java/lang/Number", "doubleValue", "()D", false));
+                break;
+            default:
+                list.add(new TypeInsnNode(Opcodes.CHECKCAST, type.getInternalName()));
+                break;
+        }
     }
 
     private void createMethodInfo(InsnList list) {
@@ -418,7 +662,7 @@ public class MethodInfoCodeGenerator {
     }
 
     private Map<String, Integer> getLocalVarSlots() {
-        Map<String, Integer> slots = new java.util.HashMap<>();
+        Map<String, Integer> slots = new HashMap<>();
         if (targetMethod.localVariables != null) {
             for (LocalVariableNode lv : targetMethod.localVariables) {
                 if (!lv.name.equals("this")) {

@@ -12,14 +12,16 @@ import java.util.Map;
 public class MethodInfoCodeGenerator {
 
     private final Method injectionMethod;
+    private final ClassNode targetClass;
     private final MethodNode targetMethod;
     private final boolean isTargetStatic;
     private final String[] localsToCapture;
     private final boolean isOverwrite;
 
-    public MethodInfoCodeGenerator(Method injectionMethod, MethodNode targetMethod,
+    public MethodInfoCodeGenerator(Method injectionMethod, ClassNode targetClass, MethodNode targetMethod,
                                    boolean isTargetStatic, String[] localsToCapture, boolean isOverwrite) {
         this.injectionMethod = injectionMethod;
+        this.targetClass = targetClass;
         this.targetMethod = targetMethod;
         this.isTargetStatic = isTargetStatic;
         this.localsToCapture = localsToCapture;
@@ -299,7 +301,7 @@ public class MethodInfoCodeGenerator {
                     "()Ljava/lang/Object;",
                     false
             ));
-            TypeConverter.castAndReturn(list, targetMethod.desc);
+            TypeConverter.castAndReturn(list, targetClass.name, targetMethod.name, targetMethod.desc);
         }
 
         list.add(notCancelled);

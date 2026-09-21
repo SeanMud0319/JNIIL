@@ -76,7 +76,7 @@ public class TypeConverter {
         return null;
     }
 
-    public static void castAndReturn(InsnList list, String methodDesc) {
+    public static void castAndReturn(InsnList list, String className, String methodName, String methodDesc) {
         Type returnType = Type.getReturnType(methodDesc);
         if (returnType.getSort() == Type.VOID) {
             list.add(new InsnNode(Opcodes.RETURN));
@@ -93,7 +93,7 @@ public class TypeConverter {
 
             String friendlyTypeName = returnType.getClassName();
 
-            String errorMsg = "[JNIIL] Execution cancelled on method '" + methodDesc
+            String errorMsg = "[JNIIL] Execution cancelled on method '" + className + "." + methodName + "(" + methodDesc + ")"
                     + "', but no return value was provided. Since this method returns a primitive type, "
                     + "you MUST explicitly provide a value of type '" + friendlyTypeName
                     + "' using MethodInfo.setReturnValue() in your hook method.";

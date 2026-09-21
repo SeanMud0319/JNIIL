@@ -111,21 +111,23 @@ public class FunctionalInjector extends AbstractMethodInjector {
             }
 
             InsnList injectedCode = new MethodInfoCodeGenerator(
-                    method, targetMethod, Modifier.isStatic(targetMethod.access), localsToCapture, resolver.getType() == InjectionPointResolver.InjectionType.OVERWRITE
+                    method, cn, targetMethod, Modifier.isStatic(targetMethod.access), localsToCapture, resolver.getType() == InjectionPointResolver.InjectionType.OVERWRITE
             ).generate();
 
             resolver.inject(injectedCode);
 
             byte[] finalBytecode = generateBytecode(cn, cr, info.typeName, baseBytecode, targetClass.getClassLoader());
-            apply(targetClass, finalBytecode, baseBytecode);
-            injectedClasses.add(info.typeName);
-            InjectionCacheProxy.put(info.typeName, finalBytecode);
-            InjectionCacheProxy.put(info.typeName, cn);
 
             if (JNIIL.isMethodOutputEnabled()) {
                 String relativePath = info.typeName.replace('.', File.separatorChar) + ".class";
                 InjectionUtil.dumpClass(finalBytecode, new File(JNIIL.getMethodOutputDir(), relativePath).getAbsolutePath());
             }
+
+            apply(targetClass, finalBytecode, baseBytecode);
+            injectedClasses.add(info.typeName);
+            InjectionCacheProxy.put(info.typeName, finalBytecode);
+            InjectionCacheProxy.put(info.typeName, cn);
+
         }
     }
 
@@ -191,13 +193,14 @@ public class FunctionalInjector extends AbstractMethodInjector {
         for (MethodNode mn : cn.methods) {
             if (!mn.name.equals(info.methodName)) continue;
 
+            String currentParams = mn.desc.substring(0, mn.desc.indexOf(')') + 1);
+
             if (info.methodParams.length > 0) {
-                String currentParams = mn.desc.substring(0, mn.desc.indexOf(')') + 1);
                 String expectedParams = InjectionUtil.getMethodDescriptor(info.methodParams, "V");
                 expectedParams = expectedParams.substring(0, expectedParams.indexOf(')') + 1);
                 if (currentParams.equals(expectedParams)) return mn;
             } else {
-                return mn;
+                if (currentParams.equals("()")) return mn;
             }
         }
         return null;

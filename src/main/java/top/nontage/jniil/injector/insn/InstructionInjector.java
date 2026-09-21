@@ -19,6 +19,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class InstructionInjector extends AbstractMethodInjector {
+    private final ClassWriter cw;
+
+    public InstructionInjector() {
+        this.cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
+    }
+
+    public InstructionInjector(ClassWriter writer) {
+        this.cw = writer;
+    }
+
     // You can see there's many things similar to FunctionalInjector, but in runtime, there are in different classloader so we can't direct access their member
     private static class CachedClass {
         final ClassNode node;
@@ -57,7 +67,6 @@ public class InstructionInjector extends AbstractMethodInjector {
 
         InstructionInjector.CachedClass cached = getCachedClass(info.typeName, targetClass);
         ClassNode cn = cached.node;
-        ClassReader cr = cached.reader;
         byte[] baseBytecode = cached.bytecode;
 
         MethodNode targetMethod = null;
@@ -73,8 +82,11 @@ public class InstructionInjector extends AbstractMethodInjector {
                         break;
                     }
                 } else {
-                    targetMethod = mn;
-                    break;
+                    String currentParamsDesc = mn.desc.substring(0, mn.desc.indexOf(')') + 1);
+                    if (currentParamsDesc.equals("()")) {
+                        targetMethod = mn;
+                        break;
+                    }
                 }
             }
         }
@@ -105,7 +117,6 @@ public class InstructionInjector extends AbstractMethodInjector {
             }
         }
 
-        ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_FRAMES);
         cn.accept(cw);
         byte[] finalBytecode = cw.toByteArray();
 
@@ -113,17 +124,18 @@ public class InstructionInjector extends AbstractMethodInjector {
             BytecodeVerifier.verify(info.typeName, baseBytecode, finalBytecode);
         }
 
-        apply(targetClass, finalBytecode, baseBytecode);
-        injectedClasses.add(info.typeName);
-        InjectionCacheProxy.put(info.typeName, finalBytecode);
-        InjectionCacheProxy.put(info.typeName, cn);
-
         if (JNIIL.isMethodOutputEnabled()) {
             String relativePath = info.typeName.replace('.', File.separatorChar) + ".class";
             File outputFile = new File(JNIIL.getMethodOutputDir(), relativePath);
             InjectionUtil.dumpClass(finalBytecode, outputFile.getAbsolutePath());
             System.out.println("[JNIIL-DEBUG] Class dumped to hierarchy: " + outputFile.getAbsolutePath());
         }
+
+        apply(targetClass, finalBytecode, baseBytecode);
+        injectedClasses.add(info.typeName);
+        InjectionCacheProxy.put(info.typeName, finalBytecode);
+        InjectionCacheProxy.put(info.typeName, cn);
+
     }
 
     private InstructionInjector.CachedClass getCachedClass(String typeName, Class<?> targetClass) throws Exception {

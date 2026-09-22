@@ -182,10 +182,10 @@ public class InjectionUtil {
 
     public static String getDescriptor(String className) {
         if (className.startsWith("L") && className.endsWith(";")) {
-            return className;
+            return className.replace('.', '/');
         }
         if (className.startsWith("[")) {
-            return className;
+            return className.replace('.', '/');
         }
 
         switch (className) {

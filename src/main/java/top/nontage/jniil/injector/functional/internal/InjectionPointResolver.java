@@ -296,8 +296,8 @@ public class InjectionPointResolver {
 
         if (candidates.isEmpty()) {
             throw new RuntimeException(String.format(
-                    "Injection error: No occurrences of opcode %s(%d) found in method %s.",
-                    targetOpcodeName, targetOpcode, mn.name
+                    "Injection error: No occurrences of opcode %s(%d) '%s' found in method %s.",
+                    targetOpcodeName, targetOpcode, targetId, mn.name
             ));
         }
 

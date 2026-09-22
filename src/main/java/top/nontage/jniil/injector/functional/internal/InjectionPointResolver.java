@@ -335,7 +335,7 @@ public class InjectionPointResolver {
     private static boolean checkIdentifierSafe(AbstractInsnNode insn, String id) {
         if (id == null || id.isEmpty()) return true;
 
-        String normalizedId = id.replace('/', '.');
+        String normalizedId = id.replace('/', '.').replace(" ", "");
 
         if (insn instanceof FieldInsnNode) {
             FieldInsnNode f = (FieldInsnNode) insn;
@@ -348,7 +348,14 @@ public class InjectionPointResolver {
             MethodInsnNode m = (MethodInsnNode) insn;
             String ownerDotted = m.owner.replace('/', '.');
             String fullName = ownerDotted + "." + m.name;
-            return normalizedId.equals(m.name) || normalizedId.equals(fullName) || normalizedId.equals(ownerDotted);
+            String fullNameWithDesc = fullName + m.desc;
+            String nameWithDesc = m.name + m.desc;
+
+            return normalizedId.equals(m.name)
+                    || normalizedId.equals(fullName)
+                    || normalizedId.equals(ownerDotted)
+                    || normalizedId.equals(fullNameWithDesc)
+                    || normalizedId.equals(nameWithDesc);
         }
 
         if (insn instanceof TypeInsnNode) {
